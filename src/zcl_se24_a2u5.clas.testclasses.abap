@@ -20,13 +20,22 @@ CLASS ltcl_se24_a2u5 DEFINITION FINAL FOR TESTING
     METHODS list_selection_screen  FOR TESTING.
     METHODS list_back_nav_wired    FOR TESTING.
     METHODS list_status_bar        FOR TESTING.
+    METHODS list_has_gui_frame     FOR TESTING.
+    METHODS list_keys_registered   FOR TESTING.
+    METHODS list_command_field     FOR TESTING.
+    METHODS list_drilldown_wired   FOR TESTING.
+    METHODS list_unavailable_shown FOR TESTING.
     METHODS list_empty_is_sane     FOR TESTING.
     METHODS message_reaches_view   FOR TESTING.
 
     METHODS detail_is_sane         FOR TESTING.
     METHODS detail_title           FOR TESTING.
+    METHODS detail_title_interface FOR TESTING.
     METHODS detail_components      FOR TESTING.
+    METHODS detail_object_named    FOR TESTING.
     METHODS detail_back_to_list    FOR TESTING.
+    METHODS detail_f3_stays_inside FOR TESTING.
+    METHODS detail_has_gui_frame   FOR TESTING.
 ENDCLASS.
 
 
@@ -99,7 +108,7 @@ CLASS ltcl_se24_a2u5 IMPLEMENTATION.
     mo_cut->view_display( ).
 
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( mo_dbl->count_children( `subHeader` ) > 0 )
+        act = xsdbool( find( val = mo_dbl->mv_view sub = `idClsName` ) >= 0 )
         msg = 'the selection screen (subHeader) is empty' ).
     cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view sub = `Object Type` ) >= 0 )
@@ -113,10 +122,7 @@ CLASS ltcl_se24_a2u5 IMPLEMENTATION.
 
     cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view sub = `MOCK_NAV_LEAVE` ) >= 0 )
-        msg = 'navButtonPress is not wired to _event_nav_app_leave( )' ).
-    cl_abap_unit_assert=>assert_true(
-        act = xsdbool( find( val = mo_dbl->mv_view sub = `showNavButton` ) >= 0 )
-        msg = 'showNavButton is not bound to check_app_prev_stack( )' ).
+        msg = 'the Back arrow of the system function bar is not wired to leave' ).
   ENDMETHOD.
 
   METHOD list_status_bar.
@@ -143,8 +149,7 @@ CLASS ltcl_se24_a2u5 IMPLEMENTATION.
     mo_cut->view_display( ).
 
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( find( val = mo_dbl->mv_view sub = `MessageStrip` ) >= 0
-                   AND find( val = mo_dbl->mv_view
+        act = xsdbool( find( val = mo_dbl->mv_view
                              sub = `Class ZCL_UNKNOWN does not exist.` ) >= 0 )
         msg = 'the message text never reaches the selection screen' ).
   ENDMETHOD.
@@ -159,13 +164,39 @@ CLASS ltcl_se24_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD detail_title.
+    " original title CLDISPLAY: Class Builder: Display Class &
     given_class_detail( ).
     mo_cut->view_detail( ).
 
     cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view
-                             sub = `Class Builder: Display ZCL_SE11_A2U5` ) >= 0 )
+                             sub = `Class Builder: Display Class ZCL_SE11_A2U5` ) >= 0 )
         msg = 'the class display does not carry the original SE24 title' ).
+  ENDMETHOD.
+
+  METHOD detail_title_interface.
+    " SE24 has a separate title for an interface (IFDISPLAY) - showing
+    " "Display Class" above an interface would be plain wrong
+    given_class_detail( ).
+    mo_cut->mv_curtype = `Interface`.
+    mo_cut->view_detail( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( find( val = mo_dbl->mv_view
+                             sub = `Class Builder: Display Interface ZCL_SE11_A2U5` ) >= 0 )
+        msg = 'an interface is announced as a class' ).
+  ENDMETHOD.
+
+  METHOD detail_object_named.
+    " dynpro 2000 labels the object with Class/Interface - without it the
+    " component list does not say what it belongs to
+    given_class_detail( ).
+    mo_cut->view_detail( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( find( val = mo_dbl->mv_view sub = `Class/Interface` ) >= 0
+                   AND find( val = mo_dbl->mv_view sub = `ZCL_SE11_A2U5` ) >= 0 )
+        msg = 'the display screen does not name the object it shows' ).
   ENDMETHOD.
 
   METHOD detail_components.
@@ -187,12 +218,117 @@ CLASS ltcl_se24_a2u5 IMPLEMENTATION.
     mo_cut->view_detail( ).
 
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( find( val = mo_dbl->mv_view sub = `navButtonPress` ) >= 0 )
-        msg = 'the display screen has no back navigation' ).
+        act = mo_dbl->has_event( `BACK_TO_LIST` )
+        msg = 'the display screen has no back navigation to the initial screen' ).
     cl_abap_unit_assert=>assert_equals(
         exp = -1
         act = find( val = mo_dbl->mv_view sub = `MOCK_NAV_LEAVE` )
         msg = 'the display screen leaves the app instead of returning to the list' ).
+  ENDMETHOD.
+
+  METHOD detail_f3_stays_inside.
+    " F3 on a screen INSIDE the transaction has to go back one screen, not
+    " leave SE24 - the frame is told the screen event for that
+    given_class_detail( ).
+    mo_cut->view_detail( ).
+
+    LOOP AT VALUE string_table( ( `F3` ) ( `Shift+F3` ) ( `F12` ) )
+         INTO DATA(lv_key).
+      cl_abap_unit_assert=>assert_true(
+          act = mo_dbl->has_shortcut( iv_keys  = lv_key
+                                      iv_event = `BACK_TO_LIST` )
+          msg = |{ lv_key } does not return to the initial screen| ).
+      cl_abap_unit_assert=>assert_false(
+          act = mo_dbl->has_shortcut( iv_keys  = lv_key
+                                      iv_event = zcl_zlk05_gui_frame=>c_ev_back )
+          msg = |{ lv_key } leaves the transaction instead of the screen| ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD detail_has_gui_frame.
+    given_class_detail( ).
+    mo_cut->view_detail( ).
+
+    LOOP AT VALUE string_table( ( `Class` ) ( `Edit` ) ( `Goto` ) ( `Utilities` )
+                                ( `Environment` ) ( `Back` ) ( `Previous object` )
+                                ( `Next object` ) ( `Unit Tests` )
+                                ( `Version Management` ) ( `Local Types` ) )
+         INTO DATA(lv_text).
+      cl_abap_unit_assert=>assert_true(
+          act = xsdbool( find( val = mo_dbl->mv_view sub = lv_text ) >= 0 )
+          msg = |the SAP GUI frame does not show "{ lv_text }"| ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD list_has_gui_frame.
+    " menu bar and application function bar carry the original texts of
+    " SAPLSEOD
+    given_hitlist( ).
+    mo_cut->view_display( ).
+
+    LOOP AT VALUE string_table( ( `Class` ) ( `Edit` ) ( `Goto` ) ( `Utilities` )
+                                ( `Environment` ) ( `System` ) ( `Help` )
+                                ( `Object Type` ) ( `Interface` ) ( `Display` )
+                                ( `Copy Class/Interface` )
+                                ( `Delete Class/Interface` ) )
+         INTO DATA(lv_text).
+      cl_abap_unit_assert=>assert_true(
+          act = xsdbool( find( val = mo_dbl->mv_view sub = lv_text ) >= 0 )
+          msg = |the SAP GUI frame does not show "{ lv_text }"| ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD list_keys_registered.
+    " the shortcut registry lives in the frontend and survives a transaction
+    " switch, so every screen has to state its own binding for every key
+    given_hitlist( ).
+    mo_cut->view_display( ).
+
+    LOOP AT VALUE string_table( ( `F3` ) ( `Shift+F3` ) ( `F12` ) )
+         INTO DATA(lv_key).
+      cl_abap_unit_assert=>assert_true(
+          act = mo_dbl->has_shortcut( iv_keys  = lv_key
+                                      iv_event = zcl_zlk05_gui_frame=>c_ev_back )
+          msg = |{ lv_key } is not registered for Back| ).
+    ENDLOOP.
+
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_shortcut( iv_keys  = `F8`
+                                    iv_event = `EXECUTE` )
+        msg = 'F8 is not registered for the Display function' ).
+  ENDMETHOD.
+
+  METHOD list_command_field.
+    given_hitlist( ).
+    mo_cut->view_display( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event( zcl_zlk05_gui_frame=>c_ev_command )
+        msg = 'the command field is not wired to the frame command event' ).
+  ENDMETHOD.
+
+  METHOD list_drilldown_wired.
+    " the object name has to carry the row key, otherwise the drill down
+    " opens the wrong class
+    given_hitlist( ).
+    mo_cut->view_display( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event( `DISPLAY` )
+        msg = 'the drill down into the component list is not wired' ).
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event_arg( `CLSNAME` )
+        msg = 'the drill down does not carry the object of the row' ).
+  ENDMETHOD.
+
+  METHOD list_unavailable_shown.
+    given_hitlist( ).
+    mo_cut->view_display( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( find( val = mo_dbl->mv_view
+                             sub = `not available in this environment` ) >= 0 )
+        msg = 'the disabled SE24 functions do not explain themselves' ).
   ENDMETHOD.
 
 ENDCLASS.

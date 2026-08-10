@@ -1,7 +1,26 @@
 CLASS zcl_se80_ui DEFINITION PUBLIC.
 
+* ---------------------------------------------------------------------
+*  SE80 - Object Navigator
+*
+*  Screen title and menu bar are the original ones of program
+*  SAPLWB_INITIAL_TOOL (RSMPTEXTS):
+*
+*    T  WBM  Object Navigator
+*    M  Workbench  Edit  Goto  Utilities  Environment  Test  Worklist
+*
+*  The window uses the shared SAP GUI frame of package $ZLK_05: the
+*  application function bar (band 4) carries the object functions the
+*  way the classic SE80 has them spanning the whole window, while the
+*  quick entry, find/replace and goto-line bars stay inside the editor
+*  column where they belong.
+* ---------------------------------------------------------------------
+
   PUBLIC SECTION.
     INTERFACES z2ui5_if_app.
+
+    "! Content of the command field of the system function bar
+    DATA mv_command      TYPE string.
 
     DATA mt_tree         TYPE zcl_se80_api=>ty_t_tree.
     DATA mv_cur_package  TYPE devclass VALUE '$ZLK'.
@@ -79,6 +98,14 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
     "! Object editor (right column)
     METHODS build_editor
       IMPORTING io_parent TYPE REF TO z2ui5_cl_ai_xml.
+    "! Band 1 of the frame - the original SE80 menu bar
+    METHODS menu_entries
+      RETURNING VALUE(result) TYPE string_table.
+    "! Band 4 of the frame - the object functions of SE80. A function that
+    "! does not apply right now is greyed out, not hidden, exactly like in
+    "! the SAP GUI.
+    METHODS app_buttons
+      RETURNING VALUE(result) TYPE zcl_zlk05_gui_frame=>ty_t_button.
     "! Where-Used List / Used Objects popup - built on its OWN factory so that
     "! stringify( ) returns a single, well formed root element
     METHODS build_popup
@@ -97,6 +124,14 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     IF client->check_on_init( ).
       mt_tree = mo_api->get_package_tree( mv_cur_package ).
       view_display( ).
+    ELSEIF client->check_on_navigated( ).
+      " Another transaction was left with F3 / the Back arrow and handed
+      " control back to this one. The framework supplies an EMPTY event here
+      " and check_on_init is already false, so without this branch nothing
+      " would be rendered: the response would carry no view and the browser
+      " would keep showing the screen of the transaction that was just left.
+      " That is what made Back look dead and F3 only work on the second try.
+      view_display( ).
     ELSEIF client->check_on_event( ).
       on_event( ).
     ENDIF.
@@ -108,18 +143,31 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     DATA(lt_arg) = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msg_type, mt_log.
 
+    " the command field and Back belong to the frame - they work the
+    " same way on every screen of every transaction
+    DATA lv_frame TYPE string.
+    zcl_zlk05_gui_frame=>handle_frame_event(
+      EXPORTING io_client   = client
+                iv_event    = lv_event
+                iv_command  = mv_command
+      IMPORTING ev_message  = mv_message
+                ev_msg_type = mv_msg_type
+      RECEIVING result      = lv_frame ).
+    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+      RETURN.
+    ENDIF.
+
     CASE lv_event.
       WHEN 'TREE_CLICK'.
         IF lines( lt_arg ) >= 2.
-          DATA(lv_node_type) = lt_arg[ 2 ].
-          IF lv_node_type = 'DEVC'.
+          IF lt_arg[ 2 ] = 'DEVC'.
             mv_cur_package = lt_arg[ 1 ].
             mt_tree = mo_api->get_package_tree( mv_cur_package ).
             mt_props = mo_api->get_package_info( mv_cur_package ).
             mv_object_title = |Package { mv_cur_package }|.
             mv_active_tab = 'INFO'.
             CLEAR: mv_source, mv_source_local, mv_source_test, mv_cur_obj_name, mt_methods, mt_fields.
-          ELSEIF lv_node_type = 'METH'.
+          ELSEIF lt_arg[ 2 ] = 'METH'.
             " Method clicked - navigate to class and show signature
             DATA(lv_meth_key) = lt_arg[ 1 ].
             SPLIT lv_meth_key AT '=>' INTO DATA(lv_cls) DATA(lv_mtd).
@@ -149,7 +197,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
             mv_active_tab = 'INFO'.
           ELSE.
             mv_cur_obj_name = lt_arg[ 1 ].
-            mv_cur_obj_type = lv_node_type.
+            mv_cur_obj_type = lt_arg[ 2 ].
             load_object( ).
           ENDIF.
         ENDIF.
@@ -194,12 +242,10 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         mv_edit_mode = xsdbool( mv_edit_mode = abap_false ).
       WHEN 'SAVE'.
         IF mv_source IS INITIAL.
-          mv_message  = `Source code is empty.`.
-          mv_msg_type = `Error`.
+          mv_message = `Source code is empty.`. mv_msg_type = `Error`.
         ELSE.
           DATA(ls_s) = mo_api->save_source( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
-          mv_message  = ls_s-message.
-          mv_msg_type = COND #( WHEN ls_s-success = abap_true THEN `Success` ELSE `Error` ).
+          mv_message = ls_s-message. mv_msg_type = COND #( WHEN ls_s-success = abap_true THEN `Success` ELSE `Error` ).
           APPEND VALUE ty_s_log(
             icon = COND #( WHEN ls_s-success = abap_true THEN `sap-icon://sys-enter-2` ELSE `sap-icon://error` )
             type = COND #( WHEN ls_s-success = abap_true THEN `Success` ELSE `Error` )
@@ -207,15 +253,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         ENDIF.
       WHEN 'ACTIVATE'.
         DATA(ls_a) = mo_api->activate_object( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
-        mv_message  = ls_a-message.
-        mv_msg_type = COND #( WHEN ls_a-success = abap_true THEN `Success` ELSE `Error` ).
+        mv_message = ls_a-message. mv_msg_type = COND #( WHEN ls_a-success = abap_true THEN `Success` ELSE `Error` ).
         APPEND VALUE ty_s_log(
           icon = COND #( WHEN ls_a-success = abap_true THEN `sap-icon://sys-enter-2` ELSE `sap-icon://error` )
           type = COND #( WHEN ls_a-success = abap_true THEN `Success` ELSE `Error` )
           message = ls_a-message ) TO mt_log.
-        IF ls_a-success = abap_true.
-          load_object( ).
-        ENDIF.
+        IF ls_a-success = abap_true. load_object( ). ENDIF.
       WHEN 'CHECK'.
         DATA(lt_c) = mo_api->check_syntax( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
         IF lt_c IS NOT INITIAL.
@@ -238,8 +281,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         ENDIF.
       WHEN 'PRETTY_PRINT'.
         mv_source = mo_api->pretty_print( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
-        mv_message  = `Pretty Printer executed.`.
-        mv_msg_type = `Success`.
+        mv_message = `Pretty Printer executed.`. mv_msg_type = `Success`.
       WHEN 'WHERE_USED'.
         mt_usages = mo_api->get_where_used( mv_cur_obj_name ).
         mv_popup_title = |Where-Used List: { mv_cur_obj_name }|.
@@ -249,8 +291,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         client->popup_destroy( ).
       WHEN 'USAGE_CLICK'.
         IF lines( lt_arg ) >= 2.
-          mv_cur_obj_name = lt_arg[ 1 ].
-          mv_cur_obj_type = lt_arg[ 2 ].
+          mv_cur_obj_name = lt_arg[ 1 ]. mv_cur_obj_type = lt_arg[ 2 ].
           mv_show_whereu = abap_false.
           client->popup_destroy( ).
           load_object( ).
@@ -357,9 +398,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           DATA lv_o TYPE i.
           DO.
             FIND lv_fl IN SECTION OFFSET lv_o OF lv_sl MATCH OFFSET DATA(lv_mo).
-            IF sy-subrc <> 0.
-              EXIT.
-            ENDIF.
+            IF sy-subrc <> 0. EXIT. ENDIF.
             lv_cnt2 = lv_cnt2 + 1.
             IF lv_fline = 0.
               DATA lv_nl TYPE i.
@@ -409,7 +448,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
       otype = mv_cur_obj_type
     ) INTO mt_recent INDEX 1.
     IF lines( mt_recent ) > 20.
-      DELETE mt_recent FROM 21 TO lines( mt_recent ).
+      DELETE mt_recent FROM 21.
     ENDIF.
     mv_recent_key = mv_cur_obj_name.
     " Add to navigation history
@@ -423,13 +462,9 @@ CLASS zcl_se80_ui IMPLEMENTATION.
       mv_hist_pos = lines( mt_history ).
     ENDIF.
     DATA(ls) = mo_api->load_source( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
-    mv_source       = ls-source.
-    mv_source_local = ls-source_local.
-    mv_source_test  = ls-source_test.
-    mv_syntax_mode  = ls-syntax_mode.
+    mv_source = ls-source. mv_source_local = ls-source_local. mv_source_test = ls-source_test. mv_syntax_mode = ls-syntax_mode.
     IF ls-success = abap_false AND ls-message IS NOT INITIAL.
-      mv_message  = ls-message.
-      mv_msg_type = `Warning`.
+      mv_message = ls-message. mv_msg_type = `Warning`.
     ENDIF.
     mo_api->get_metadata( EXPORTING iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type
                           IMPORTING et_methods = mt_methods et_fields = mt_fields ).
@@ -524,26 +559,114 @@ CLASS zcl_se80_ui IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD menu_entries.
+
+    result = VALUE #( ( `Workbench` ) ( `Edit` ) ( `Goto` ) ( `Utilities` )
+                      ( `Environment` ) ( `Test` ) ( `Worklist` )
+                      ( `System` ) ( `Help` ) ).
+
+  ENDMETHOD.
+
+
+  METHOD app_buttons.
+
+    DATA(lv_has)  = xsdbool( mv_cur_obj_name IS INITIAL ).
+    DATA(lv_disp) = xsdbool( mv_edit_mode = abap_false ).
+
+    result = VALUE #(
+        ( text     = COND string( WHEN mv_edit_mode = abap_true
+                                  THEN `Display` ELSE `Change` )
+          icon     = COND string( WHEN mv_edit_mode = abap_true
+                                  THEN `sap-icon://display` ELSE `sap-icon://edit` )
+          tooltip  = `Display <-> Change`
+          press    = client->_event( `TOGGLE_EDIT` )
+          disabled = lv_has )
+        ( icon     = `sap-icon://save`     tooltip = `Save`
+          press    = client->_event( `SAVE` )    disabled = lv_disp )
+        ( icon     = `sap-icon://syntax`   tooltip = `Check`
+          press    = client->_event( `CHECK` )   disabled = lv_has )
+        ( icon     = `sap-icon://activate` tooltip = `Activate`
+          press    = client->_event( `ACTIVATE` ) disabled = lv_has )
+        ( icon     = `sap-icon://text-formatting` tooltip = `Pretty Printer`
+          press    = client->_event( `PRETTY_PRINT` ) disabled = lv_has )
+        ( icon     = `sap-icon://compare`  tooltip = `Compare Versions`
+          press    = client->_event( `COMPARE` ) disabled = lv_has )
+        ( sep      = abap_true )
+        ( icon     = `sap-icon://nav-back` tooltip = `Back`
+          press    = client->_event( `NAV_BACK` )
+          disabled = xsdbool( mv_hist_pos <= 1 ) )
+        ( icon     = `sap-icon://nav-forward` tooltip = `Forward`
+          press    = client->_event( `NAV_FORWARD` )
+          disabled = xsdbool( mv_hist_pos >= lines( mt_history ) ) )
+        ( sep      = abap_true )
+        ( icon     = `sap-icon://search`   tooltip = `Where-Used List`
+          press    = client->_event( `WHERE_USED` ) disabled = lv_has )
+        ( icon     = `sap-icon://chain-link` tooltip = `Used Objects`
+          press    = client->_event( `SHOW_DEPS` ) disabled = lv_has )
+        ( icon     = `sap-icon://refresh`  tooltip = `Refresh`
+          press    = client->_event( `REFRESH` ) )
+        ( sep      = abap_true )
+        ( icon     = `sap-icon://create`   tooltip = `Create`
+          press    = client->_event( `CREATE_OBJ` ) )
+        ( icon     = `sap-icon://delete`   color = zcl_zlk05_gui_frame=>c_red
+          tooltip  = `Delete`
+          press    = COND string( WHEN mv_msg_type = `Warning` AND mv_message CS `Delete`
+                                  THEN client->_event( `CONFIRM_DELETE` )
+                                  ELSE client->_event( `DELETE_OBJ` ) )
+          disabled = lv_has )
+        ( sep      = abap_true )
+        ( icon     = `sap-icon://copy`
+          tooltip  = `Copy Source Code to Clipboard`
+          press    = client->_event_client(
+                         val   = client->cs_event-clipboard_copy
+                         t_arg = VALUE #( ( client->_bind( val = mv_source path = `X` ) ) ) ) )
+        ( icon     = COND string( WHEN mv_fullscreen = abap_true
+                                  THEN `sap-icon://exit-full-screen`
+                                  ELSE `sap-icon://full-screen` )
+          tooltip  = `Full Screen On/Off`
+          press    = client->_event( `FULLSCREEN` ) ) ).
+
+  ENDMETHOD.
+
+
   METHOD view_display.
 
     DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
-    DATA(page) = view->open( n = `View` ns = `mvc`
-        )->a( n = `xmlns`      v = `sap.m`
-        )->a( n = `xmlns:mvc`  v = `sap.ui.core.mvc`
-        )->a( n = `xmlns:ce`   v = `sap.ui.codeeditor`
-        )->a( n = `xmlns:core` v = `sap.ui.core`
-        )->a( n = `height`     v = `100%`
-        )->open( `App`
-        )->open( `Page`
-            )->a( n = `title`           v = `Object Navigator`
-            )->a( n = `showHeader`      v = `true`
-            )->a( n = `enableScrolling` v = `false`
-            )->a( n = `showNavButton`   v = z2ui5_cl_ai_xml=>as_bool( client->check_app_prev_stack( ) )
-            )->a( n = `navButtonPress`  v = client->_event_nav_app_leave( ) ).
+    " band 6 - status bar
+    zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
+                                          iv_message  = mv_message
+                                          iv_msg_type = mv_msg_type ).
 
+    " band 1 - menu bar
+    zcl_zlk05_gui_frame=>build_menu_bar( io_parent  = page
+                                        it_entries = menu_entries( ) ).
+
+    " band 2 - system function bar with the command field
+    zcl_zlk05_gui_frame=>build_system_bar(
+        io_parent     = page
+        iv_cmd_value  = client->_bind( mv_command )
+        iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
+        iv_back_event = client->_event_nav_app_leave( ) ).
+
+    " band 3 - title bar. The object currently loaded is named next to the
+    " original screen title.
+    zcl_zlk05_gui_frame=>build_title_bar(
+        io_parent = page
+        iv_title  = `Object Navigator`
+        iv_hint   = COND string( WHEN mv_object_title IS NOT INITIAL
+                                 THEN COND string( WHEN mv_status IS NOT INITIAL
+                                                   THEN |{ mv_object_title } - { mv_status }|
+                                                   ELSE mv_object_title ) ) ).
+
+    " band 4 - application function bar
+    zcl_zlk05_gui_frame=>build_app_bar( io_parent  = page
+                                       it_buttons = app_buttons( ) ).
+
+    " band 5 - work area: repository browser and object editor side by side
     DATA(flex) = page->open( `HBox`
-        )->a( n = `height`     v = `100%`
+        )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `width`      v = `100%`
         )->a( n = `alignItems` v = `Stretch` ).
 
@@ -551,6 +674,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
       build_browser( flex ).
     ENDIF.
     build_editor( flex ).
+
+    " function keys of the SAP GUI - F3 / Shift+F3 / F12 and Ctrl+S
+    zcl_zlk05_gui_frame=>register_keys(
+        io_client    = client
+        iv_back_name = zcl_zlk05_gui_frame=>c_ev_back
+        iv_save_name = `SAVE` ).
 
     " The Where-Used List / Used Objects popup lives on its own factory, so the
     " main view keeps exactly one root element.
@@ -665,116 +794,9 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         )->a( n = `height` v = `100%`
         )->a( n = `width`  v = `100%` ).
 
-    DATA(lv_has)  = z2ui5_cl_ai_xml=>as_bool( xsdbool( mv_cur_obj_name IS NOT INITIAL ) ).
+    " the object functions moved up into band 4 of the frame, only the
+    " editor local bars are left here
     DATA(lv_edit) = z2ui5_cl_ai_xml=>as_bool( mv_edit_mode ).
-
-    " ===== Application function bar =====
-    DATA(tb) = col->open( `Toolbar` ).
-    tb->leaf( `Title`
-        )->a( n = `text` v = COND #( WHEN mv_object_title IS NOT INITIAL
-                                     THEN mv_object_title ELSE `Object Navigator` )
-        )->leaf( `ObjectStatus`
-            )->a( n = `text`  v = mv_status
-            )->a( n = `state` v = COND #( WHEN mv_status = `Active`   THEN `Success`
-                                          WHEN mv_status = `Inactive` THEN `Warning`
-                                          ELSE `None` )
-        )->leaf( `ToolbarSpacer`
-        )->leaf( `Button`
-            )->a( n = `text`    v = COND #( WHEN mv_edit_mode = abap_true THEN `Display` ELSE `Change` )
-            )->a( n = `icon`    v = COND #( WHEN mv_edit_mode = abap_true THEN `sap-icon://display` ELSE `sap-icon://edit` )
-            )->a( n = `tooltip` v = `Display <-> Change`
-            )->a( n = `press`   v = client->_event( `TOGGLE_EDIT` )
-            )->a( n = `type`    v = COND #( WHEN mv_edit_mode = abap_true THEN `Emphasized` ELSE `Transparent` )
-            )->a( n = `enabled` v = lv_has
-        )->leaf( `Button`
-            )->a( n = `icon`    v = `sap-icon://save`
-            )->a( n = `tooltip` v = `Save`
-            )->a( n = `press`   v = client->_event( `SAVE` )
-            )->a( n = `type`    v = `Transparent`
-            )->a( n = `enabled` v = lv_edit
-        )->leaf( `Button`
-            )->a( n = `icon`    v = `sap-icon://syntax`
-            )->a( n = `tooltip` v = `Check`
-            )->a( n = `press`   v = client->_event( `CHECK` )
-            )->a( n = `type`    v = `Transparent`
-            )->a( n = `enabled` v = lv_has
-        )->leaf( `Button`
-            )->a( n = `icon`    v = `sap-icon://activate`
-            )->a( n = `tooltip` v = `Activate`
-            )->a( n = `press`   v = client->_event( `ACTIVATE` )
-            )->a( n = `type`    v = `Transparent`
-            )->a( n = `enabled` v = lv_has
-        )->leaf( `Button`
-            )->a( n = `icon`    v = `sap-icon://text-formatting`
-            )->a( n = `tooltip` v = `Pretty Printer`
-            )->a( n = `press`   v = client->_event( `PRETTY_PRINT` )
-            )->a( n = `type`    v = `Transparent`
-            )->a( n = `enabled` v = lv_has
-        )->leaf( `Button`
-            )->a( n = `icon`    v = `sap-icon://compare`
-            )->a( n = `tooltip` v = `Compare Versions`
-            )->a( n = `press`   v = client->_event( `COMPARE` )
-            )->a( n = `type`    v = `Transparent`
-            )->a( n = `enabled` v = lv_has
-        )->leaf( `ToolbarSeparator`
-        )->leaf( `Button`
-            )->a( n = `icon`    v = `sap-icon://nav-back`
-            )->a( n = `tooltip` v = `Back`
-            )->a( n = `press`   v = client->_event( `NAV_BACK` )
-            )->a( n = `type`    v = `Transparent`
-            )->a( n = `enabled` v = z2ui5_cl_ai_xml=>as_bool( xsdbool( mv_hist_pos > 1 ) )
-        )->leaf( `Button`
-            )->a( n = `icon`    v = `sap-icon://nav-forward`
-            )->a( n = `tooltip` v = `Forward`
-            )->a( n = `press`   v = client->_event( `NAV_FORWARD` )
-            )->a( n = `type`    v = `Transparent`
-            )->a( n = `enabled` v = z2ui5_cl_ai_xml=>as_bool( xsdbool( mv_hist_pos < lines( mt_history ) ) )
-        )->leaf( `ToolbarSeparator`
-        )->leaf( `Button`
-            )->a( n = `icon`    v = `sap-icon://search`
-            )->a( n = `tooltip` v = `Where-Used List`
-            )->a( n = `press`   v = client->_event( `WHERE_USED` )
-            )->a( n = `type`    v = `Transparent`
-            )->a( n = `enabled` v = lv_has
-        )->leaf( `Button`
-            )->a( n = `icon`    v = `sap-icon://chain-link`
-            )->a( n = `tooltip` v = `Used Objects`
-            )->a( n = `press`   v = client->_event( `SHOW_DEPS` )
-            )->a( n = `type`    v = `Transparent`
-            )->a( n = `enabled` v = lv_has
-        )->leaf( `Button`
-            )->a( n = `icon`    v = `sap-icon://refresh`
-            )->a( n = `tooltip` v = `Refresh`
-            )->a( n = `press`   v = client->_event( `REFRESH` )
-            )->a( n = `type`    v = `Transparent`
-        )->leaf( `ToolbarSeparator`
-        )->leaf( `Button`
-            )->a( n = `icon`    v = `sap-icon://create`
-            )->a( n = `tooltip` v = `Create`
-            )->a( n = `press`   v = client->_event( `CREATE_OBJ` )
-            )->a( n = `type`    v = `Transparent`
-        )->leaf( `Button`
-            )->a( n = `icon`    v = `sap-icon://delete`
-            )->a( n = `tooltip` v = `Delete`
-            )->a( n = `press`   v = COND #( WHEN mv_msg_type = `Warning` AND mv_message CS `Delete`
-                                            THEN client->_event( `CONFIRM_DELETE` )
-                                            ELSE client->_event( `DELETE_OBJ` ) )
-            )->a( n = `type`    v = `Transparent`
-            )->a( n = `enabled` v = lv_has
-        )->leaf( `ToolbarSeparator`
-        )->leaf( `Button`
-            )->a( n = `icon`    v = `sap-icon://copy`
-            )->a( n = `tooltip` v = `Copy Source Code to Clipboard`
-            )->a( n = `press`   v = client->_event_client(
-                val   = client->cs_event-clipboard_copy
-                t_arg = VALUE #( ( client->_bind( val = mv_source path = `X` ) ) ) )
-            )->a( n = `type`    v = `Transparent`
-        )->leaf( `Button`
-            )->a( n = `icon`    v = COND #( WHEN mv_fullscreen = abap_true
-                                            THEN `sap-icon://exit-full-screen` ELSE `sap-icon://full-screen` )
-            )->a( n = `tooltip` v = `Full Screen On/Off`
-            )->a( n = `press`   v = client->_event( `FULLSCREEN` )
-            )->a( n = `type`    v = `Transparent` ).
 
     " ===== Object entry / package path / lock information =====
     DATA(bar2) = col->open( `Toolbar` )->a( n = `height` v = `2rem` ).
@@ -863,7 +885,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           )->a( n = `width`   v = `100%`
           )->a( n = `growing` v = `false` ).
     ELSE.
-      c1->leaf( n = `CodeEditor` ns = `ce`
+      c1->leaf( n = `CodeEditor` ns = `editor`
           )->a( n = `value`      v = client->_bind( mv_source )
           )->a( n = `type`       v = mv_syntax_mode
           )->a( n = `height`     v = `calc(100vh - 190px)`
@@ -885,7 +907,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           )->a( n = `width`   v = `100%`
           )->a( n = `growing` v = `false` ).
     ELSE.
-      c2->leaf( n = `CodeEditor` ns = `ce`
+      c2->leaf( n = `CodeEditor` ns = `editor`
           )->a( n = `value`      v = client->_bind( mv_source_local )
           )->a( n = `type`       v = `abap`
           )->a( n = `height`     v = `calc(100vh - 190px)`
@@ -907,7 +929,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           )->a( n = `width`   v = `100%`
           )->a( n = `growing` v = `false` ).
     ELSE.
-      c3->leaf( n = `CodeEditor` ns = `ce`
+      c3->leaf( n = `CodeEditor` ns = `editor`
           )->a( n = `value`      v = client->_bind( mv_source_test )
           )->a( n = `type`       v = `abap`
           )->a( n = `height`     v = `calc(100vh - 190px)`
@@ -922,7 +944,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         )->a( n = `key`  v = `TXT`
         )->a( n = `icon` v = `sap-icon://text`
         )->open( `content`
-            )->leaf( n = `CodeEditor` ns = `ce`
+            )->leaf( n = `CodeEditor` ns = `editor`
                 )->a( n = `value`    v = client->_bind( mv_text_elem )
                 )->a( n = `type`     v = `text`
                 )->a( n = `height`   v = `calc(100vh - 190px)`
@@ -935,7 +957,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         )->a( n = `key`  v = `DOC`
         )->a( n = `icon` v = `sap-icon://document`
         )->open( `content`
-            )->leaf( n = `CodeEditor` ns = `ce`
+            )->leaf( n = `CodeEditor` ns = `editor`
                 )->a( n = `value`    v = client->_bind( mv_docu )
                 )->a( n = `type`     v = `text`
                 )->a( n = `height`   v = `calc(100vh - 190px)`

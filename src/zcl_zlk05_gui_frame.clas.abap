@@ -31,18 +31,34 @@ CLASS zcl_zlk05_gui_frame DEFINITION PUBLIC FINAL CREATE PUBLIC.
     CONSTANTS c_gold   TYPE string VALUE `#e9a800`.
 
     "! Height of the work area - the six bands add up to roughly 12rem
-    CONSTANTS c_work_height TYPE string VALUE `calc(100vh - 12rem)`.
+    CONSTANTS c_work_height TYPE string VALUE `calc(100vh - 13rem)`.
+
+    "! Event names the frame reserves for itself. Every screen routes them
+    "! through handle_frame_event( ), so the command field and the Back
+    "! button work the same way on every screen.
+    CONSTANTS c_ev_command TYPE string VALUE `GUI_COMMAND`.
+    CONSTANTS c_ev_back    TYPE string VALUE `GUI_BACK`.
+
+    "! Return values of handle_frame_event( )
+    CONSTANTS c_not_handled TYPE string VALUE ``.
+    CONSTANTS c_navigated   TYPE string VALUE `NAV`.
+    CONSTANTS c_message     TYPE string VALUE `MSG`.
 
     " One entry of a toolbar. Entries with TEXT are rendered as a button,
     " entries with SEP as a separator, everything else as a coloured icon.
+    " DISABLED greys an entry out that HAS a handler - the SAP GUI greys a
+    " function out while it does not apply (no object loaded, display mode)
+    " instead of hiding it. An entry without a handler is greyed out anyway,
+    " so DISABLED only matters together with PRESS.
     TYPES:
       BEGIN OF ty_s_button,
-        icon    TYPE string,
-        text    TYPE string,
-        color   TYPE string,
-        tooltip TYPE string,
-        press   TYPE string,
-        sep     TYPE abap_bool,
+        icon     TYPE string,
+        text     TYPE string,
+        color    TYPE string,
+        tooltip  TYPE string,
+        press    TYPE string,
+        sep      TYPE abap_bool,
+        disabled TYPE abap_bool,
       END OF ty_s_button.
     TYPES ty_t_button TYPE STANDARD TABLE OF ty_s_button WITH EMPTY KEY.
 
@@ -88,6 +104,33 @@ CLASS zcl_zlk05_gui_frame DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 iv_client   TYPE string OPTIONAL
                 iv_user     TYPE string OPTIONAL
                 iv_host     TYPE string OPTIONAL.
+
+    "! Registers the function keys of the SAP GUI on the running app.
+    "! F3 / Shift+F3 / F12 fire iv_back_name, F8 the execute event of the
+    "! screen and Ctrl+S its save event. Call it from every view method -
+    "! the registrations belong to the running app and are dropped as soon
+    "! as another app takes over.
+    "! iv_back_name is the event the screen wants for Back: the default
+    "! c_ev_back leaves the transaction, a screen inside a transaction
+    "! passes its own event so that F3 goes back one screen. An empty name
+    "! registers no Back key at all (entry screen of the session).
+    CLASS-METHODS register_keys
+      IMPORTING io_client    TYPE REF TO z2ui5_if_client
+                iv_back_name TYPE string DEFAULT c_ev_back
+                iv_exec_name TYPE string OPTIONAL
+                iv_save_name TYPE string OPTIONAL.
+
+    "! Handles the two events of the frame: the command field starts the
+    "! transaction that was typed in, Back leaves the screen. Returns
+    "! c_navigated (the caller must return at once), c_message (a message
+    "! was placed in cv_message) or c_not_handled.
+    CLASS-METHODS handle_frame_event
+      IMPORTING io_client     TYPE REF TO z2ui5_if_client
+                iv_event      TYPE string
+                iv_command    TYPE string OPTIONAL
+      EXPORTING ev_message    TYPE string
+                ev_msg_type   TYPE string
+      RETURNING VALUE(result) TYPE string.
 
     "! A single coloured icon or button inside a toolbar.
     CLASS-METHODS add_button
@@ -153,20 +196,19 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
                                      tooltip = `Continue (Enter)`
                                      press   = iv_cmd_event ) ).
 
-    " command field
-    IF iv_cmd_value IS NOT INITIAL.
+    " command field - active on every screen, exactly like in the SAP GUI
+    IF iv_cmd_event IS NOT INITIAL.
       bar->leaf( `Input`
           )->a( n = `id`      v = `idCommandField`
           )->a( n = `value`   v = iv_cmd_value
           )->a( n = `width`   v = `13rem`
-          )->a( n = `tooltip` v = `Command field - a transaction code, /nSE80 works as well`
+          )->a( n = `tooltip` v = `Command field - enter a transaction code, /nSE80 works as well`
           )->a( n = `submit`  v = iv_cmd_event ).
     ELSE.
-      " screens other than the entry screen show the field disabled
       bar->leaf( `Input`
           )->a( n = `width`   v = `13rem`
           )->a( n = `enabled` v = `false`
-          )->a( n = `tooltip` v = `Command field - available on the SAP Easy Access screen` ).
+          )->a( n = `tooltip` v = `Command field` ).
     ENDIF.
 
     add_button( io_bar    = bar
@@ -363,6 +405,79 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD register_keys.
+
+    " ===== Function keys =====
+    " The framework binds a key combination to a backend event, so the
+    " keys reach the app the same way a button press does.
+    IF io_client IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    " The registry lives in the frontend and survives a transaction switch,
+    " so every screen has to state its own binding for EVERY key it knows -
+    " an empty event name unregisters the combination. Skipping the call
+    " instead would leave the key of the screen before armed: F3 on the
+    " entry screen would still fire the Back event of the transaction that
+    " was left last.
+    io_client->follow_up_action( val   = io_client->cs_event-keyboard_shortcut
+                                t_arg = VALUE #( ( `F3` ) ( iv_back_name ) ) ).
+    io_client->follow_up_action( val   = io_client->cs_event-keyboard_shortcut
+                                t_arg = VALUE #( ( `Shift+F3` ) ( iv_back_name ) ) ).
+    io_client->follow_up_action( val   = io_client->cs_event-keyboard_shortcut
+                                t_arg = VALUE #( ( `F12` ) ( iv_back_name ) ) ).
+
+    io_client->follow_up_action( val   = io_client->cs_event-keyboard_shortcut
+                                t_arg = VALUE #( ( `F8` ) ( iv_exec_name ) ) ).
+
+    io_client->follow_up_action( val   = io_client->cs_event-keyboard_shortcut
+                                t_arg = VALUE #( ( `Ctrl+S` ) ( iv_save_name ) ) ).
+
+  ENDMETHOD.
+
+
+  METHOD handle_frame_event.
+
+    " ===== Frame events =====
+    CLEAR: ev_message, ev_msg_type.
+    result = c_not_handled.
+    IF io_client IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    CASE iv_event.
+
+      WHEN c_ev_back.
+        " F3 / Shift+F3 / F12 and the arrows of the system function bar
+        io_client->nav_app_leave( ).
+        result = c_navigated.
+
+      WHEN c_ev_command.
+        DATA lv_result TYPE string.
+        zcl_zlk05_tcode_router=>run(
+          EXPORTING iv_command  = iv_command
+                    io_client   = io_client
+          IMPORTING ev_message  = ev_message
+                    ev_msg_type = ev_msg_type
+          RECEIVING result      = lv_result ).
+
+        CASE lv_result.
+          WHEN zcl_zlk05_tcode_router=>c_nav.
+            result = c_navigated.
+          WHEN zcl_zlk05_tcode_router=>c_msg.
+            result = c_message.
+          WHEN OTHERS.
+            result = c_not_handled.
+        ENDCASE.
+
+      WHEN OTHERS.
+        result = c_not_handled.
+
+    ENDCASE.
+
+  ENDMETHOD.
+
+
   METHOD add_button.
 
     IF is_button-sep = abap_true.
@@ -372,7 +487,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
 
     " entries with a text are buttons, like Background or All Entries
     IF is_button-text IS NOT INITIAL.
-      IF is_button-press IS INITIAL.
+      IF is_button-press IS INITIAL OR is_button-disabled = abap_true.
         io_bar->leaf( `Button`
             )->a( n = `text`    v = is_button-text
             )->a( n = `icon`    v = is_button-icon
@@ -391,12 +506,14 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
     ENDIF.
 
     " Icons instead of buttons - sap.ui.core.Icon can be coloured and that
-    " is what gives the toolbars their SAP GUI look.
-    IF is_button-press IS INITIAL.
+    " is what gives the toolbars their SAP GUI look. sap.ui.core.Icon has no
+    " ENABLED, so a disabled icon is rendered grey and without its handler.
+    IF is_button-press IS INITIAL OR is_button-disabled = abap_true.
       io_bar->leaf( n = `Icon` ns = `core`
           )->a( n = `src`     v = is_button-icon
           )->a( n = `size`    v = `1.05rem`
-          )->a( n = `color`   v = is_button-color
+          )->a( n = `color`   v = COND string( WHEN is_button-disabled = abap_true
+                                               THEN c_grey ELSE is_button-color )
           )->a( n = `tooltip` v = is_button-tooltip
           )->a( n = `class`   v = `sapUiTinyMarginEnd` ).
     ELSE.

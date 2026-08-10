@@ -45,8 +45,10 @@ CLASS zcl_sapgui_a2ui5 DEFINITION PUBLIC.
     CONSTANTS c_area_menu TYPE string VALUE `S000`.
     CONSTANTS c_max_depth TYPE i VALUE 12.
 
-    " Colours of the classic SAP GUI toolbar icons - the full palette lives
-    " in ZCL_ZLK05_GUI_FRAME, only the colours used on this screen are here
+    " Colours of the classic SAP GUI toolbar icons
+    CONSTANTS c_col_green  TYPE string VALUE `#107e3e`.
+    CONSTANTS c_col_yellow TYPE string VALUE `#e9730c`.
+    CONSTANTS c_col_red    TYPE string VALUE `#bb0000`.
     CONSTANTS c_col_blue   TYPE string VALUE `#0a6ed1`.
     CONSTANTS c_col_grey   TYPE string VALUE `#6a6d70`.
     CONSTANTS c_col_gold   TYPE string VALUE `#e9a800`.
@@ -116,6 +118,14 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
       " Favorites and SAP Menu start expanded, like the SAP GUI does
       mt_expanded = VALUE #( ( c_key_fav ) ( c_key_menu ) ).
       view_display( ).
+    ELSEIF client->check_on_navigated( ).
+      " A transaction was left with F3 / the Back arrow and handed control
+      " back to the entry screen. The framework supplies an EMPTY event here
+      " and check_on_init is already false, so without this branch nothing
+      " would be rendered: the response would carry no view and the browser
+      " would keep showing the screen of the transaction that was just left.
+      " That is what made Back look dead and F3 only work on the second try.
+      view_display( ).
     ELSEIF client->check_on_event( ).
       on_event( ).
     ENDIF.
@@ -125,61 +135,18 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
 
   METHOD init_menu.
 
-    " Transactions implemented in this environment - transaction code,
-    " standard SAP transaction text, implementing app.
-    " An empty CLASS means the transaction is listed but not implemented.
-    mt_all_tcodes = VALUE #(
-      " ----- Tools - ABAP Workbench - Development -----
-      ( tcode = `SE80`  text = `Object Navigator`            icon = `sap-icon://tree`               class = `ZCL_SE80_UI` )
-      ( tcode = `SE38`  text = `ABAP Editor`                 icon = `sap-icon://document-text`      class = `ZCL_SE38_A2U5` )
-      ( tcode = `SE11`  text = `ABAP Dictionary`             icon = `sap-icon://database`           class = `ZCL_SE11_A2U5` )
-      ( tcode = `SE24`  text = `Class Builder`               icon = `sap-icon://course-book`        class = `ZCL_SE24_A2U5` )
-      ( tcode = `SE37`  text = `Function Builder`            icon = `sap-icon://wrench`             class = `ZCL_SE37_A2U5` )
-      ( tcode = `SE16N` text = `General Table Display`       icon = `sap-icon://table-view`         class = `ZCL_SE16N_A2U5` )
-      ( tcode = `SE16`  text = `Data Browser`                icon = `sap-icon://grid`               class = `ZCL_SE16N_A2U5` )
-      " ----- Tools - Administration - Monitor -----
-      ( tcode = `SM21`  text = `Online System Log Analysis`  icon = `sap-icon://newspaper`          class = `ZCL_SM21_A2U5` )
-      ( tcode = `SM37`  text = `Overview of Job Selection`   icon = `sap-icon://history`            class = `ZCL_SM37_A2U5` )
-      ( tcode = `SM50`  text = `Work Process Overview`       icon = `sap-icon://performance`        class = `ZCL_SM50_A2U5` )
-      ( tcode = `SM66`  text = `Global Work Process Overview` icon = `sap-icon://performance`       class = `ZCL_SM50_A2U5` )
-      ( tcode = `SM12`  text = `Display and Delete Locks`    icon = `sap-icon://locked`             class = `ZCL_SM12_A2U5` )
-      ( tcode = `ST22`  text = `ABAP Dump Analysis`          icon = `sap-icon://alert`              class = `ZCL_ST22_A2U5` )
-      ( tcode = `ST02`  text = `Setups/Tune Buffers`         icon = `sap-icon://database`           class = `ZCL_ST02_A2U5` )
-      ( tcode = `ST05`  text = `Performance Trace`           icon = `sap-icon://measuring-point`    class = `ZCL_ST05_A2U5` )
-      " ----- Tools - Administration - User & Client -----
-      ( tcode = `SU01`  text = `User Maintenance`            icon = `sap-icon://person-placeholder` class = `ZCL_SU01_A2U5` )
-      ( tcode = `SCC4`  text = `Client Administration`       icon = `sap-icon://official-service`   class = `ZCL_SCC4_A2U5` )
-      ( tcode = `RZ10`  text = `Edit Profiles`               icon = `sap-icon://action-settings`    class = `ZCL_RZ11_A2U5` )
-      ( tcode = `RZ11`  text = `Profile Parameter Maintenance` icon = `sap-icon://action-settings`  class = `ZCL_RZ11_A2U5` )
-      " ----- Tools - Transport -----
-      ( tcode = `STMS`  text = `Transport Management System`  icon = `sap-icon://shipping-status`    class = `ZCL_STMS_A2U5` )
-      " ----- Not available in this environment -----
-      ( tcode = `SE93`  text = `Maintain Transaction`         icon = `sap-icon://action-settings`    class = `` )
-      ( tcode = `SM30`  text = `Call View Maintenance`        icon = `sap-icon://table-view`         class = `` ) ).
-
-    " Favorites - the transactions used most often
-    mt_favorites = VALUE #(
-      ( tcode = `SE80`  text = `Object Navigator`           icon = `sap-icon://tree`        class = `ZCL_SE80_UI` )
-      ( tcode = `SE16N` text = `General Table Display`      icon = `sap-icon://table-view`  class = `ZCL_SE16N_A2U5` )
-      ( tcode = `SE11`  text = `ABAP Dictionary`            icon = `sap-icon://database`    class = `ZCL_SE11_A2U5` )
-      ( tcode = `SE38`  text = `ABAP Editor`                icon = `sap-icon://document-text` class = `ZCL_SE38_A2U5` )
-      ( tcode = `SM37`  text = `Overview of Job Selection`  icon = `sap-icon://history`     class = `ZCL_SM37_A2U5` )
-      ( tcode = `ST22`  text = `ABAP Dump Analysis`         icon = `sap-icon://alert`       class = `ZCL_ST22_A2U5` )
-      ( tcode = `SM21`  text = `Online System Log Analysis` icon = `sap-icon://newspaper`   class = `ZCL_SM21_A2U5` ) ).
+    " The list of transactions lives in the router - the command field of
+    " every screen dispatches through the same table.
+    mt_all_tcodes = CORRESPONDING #( zcl_zlk05_tcode_router=>get_apps( ) ).
+    mt_favorites  = CORRESPONDING #( zcl_zlk05_tcode_router=>get_favorites( ) ).
 
   ENDMETHOD.
 
 
   METHOD normalize_command.
 
-    " Accept the SAP GUI command field syntax: /nSE80, /oSE80, SE80
-    result = to_upper( condense( iv_command ) ).
-    IF result CP `/N*` OR result CP `/O*`.
-      result = substring( val = result off = 2 ).
-    ELSEIF result CP `/*`.
-      result = substring( val = result off = 1 ).
-    ENDIF.
-    CONDENSE result NO-GAPS.
+    " Command field syntax of the SAP GUI - the router owns the rules
+    result = zcl_zlk05_tcode_router=>normalize_command( iv_command ).
 
   ENDMETHOD.
 
@@ -214,14 +181,10 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
     CLEAR: mv_message, mv_msg_type.
 
     CASE lv_event.
-      WHEN 'EXECUTE'.
-        IF mv_command IS INITIAL.
-          mv_message  = `Enter a transaction code.`.
-          mv_msg_type = `Warning`.
-        ELSE.
-          IF start_transaction( normalize_command( mv_command ) ) = abap_true.
-            RETURN.
-          ENDIF.
+      WHEN zcl_zlk05_gui_frame=>c_ev_command.
+        " command field - Enter in the field or the green tick
+        IF start_transaction( mv_command ) = abap_true.
+          RETURN.
         ENDIF.
 
       WHEN 'TCODE_CLICK'.
@@ -246,53 +209,27 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
 
   METHOD start_transaction.
 
-    result = abap_false.
+    " Starting a transaction is the job of the router - it is reached from
+    " the command field, from the tree and from every other screen.
+    DATA lv_result TYPE string.
 
-    DATA(lv_tcode) = to_upper( condense( iv_tcode ) ).
-    IF lv_tcode IS INITIAL.
-      mv_message  = `Enter a transaction code.`.
-      mv_msg_type = `Warning`.
-      RETURN.
+    zcl_zlk05_tcode_router=>run(
+      EXPORTING iv_command  = iv_tcode
+                io_client   = client
+      IMPORTING ev_message  = mv_message
+                ev_msg_type = mv_msg_type
+      RECEIVING result      = lv_result ).
+
+    result = xsdbool( lv_result = zcl_zlk05_tcode_router=>c_nav ).
+    IF result = abap_true.
+      CLEAR mv_command.
     ENDIF.
-
-    READ TABLE mt_all_tcodes WITH KEY tcode = lv_tcode ASSIGNING FIELD-SYMBOL(<tc>).
-    IF sy-subrc <> 0.
-      " Not implemented here - the SAP menu tree shows the whole area menu,
-      " so tell the difference between "unknown" and "not built yet".
-      IF zcl_zlk05_sys_api=>transaction_exists( lv_tcode ) = abap_true.
-        mv_message  = |Transaction { lv_tcode } is not available in this environment.|.
-        mv_msg_type = `Warning`.
-      ELSE.
-        mv_message  = |Transaction { lv_tcode } does not exist.|.
-        mv_msg_type = `Error`.
-      ENDIF.
-      RETURN.
-    ENDIF.
-
-    IF <tc>-class IS INITIAL.
-      mv_message  = |Transaction { lv_tcode } is not available in this environment.|.
-      mv_msg_type = `Warning`.
-      RETURN.
-    ENDIF.
-
-    TRY.
-        DATA lo_app TYPE REF TO z2ui5_if_app.
-        CREATE OBJECT lo_app TYPE (<tc>-class).
-        client->nav_app_call( lo_app ).
-        CLEAR mv_command.
-        result = abap_true.
-      CATCH cx_root INTO DATA(lx).
-        mv_message  = |Error starting transaction { lv_tcode }: { lx->get_text( ) }|.
-        mv_msg_type = `Error`.
-    ENDTRY.
 
   ENDMETHOD.
 
 
-* =====================================================================
-*  View
-* =====================================================================
   METHOD view_display.
+    " ===== View =====
 
     DATA(view) = z2ui5_cl_ai_xml=>factory( ).
 
@@ -318,7 +255,7 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
     zcl_zlk05_gui_frame=>build_system_bar(
         io_parent    = page
         iv_cmd_value = client->_bind( mv_command )
-        iv_cmd_event = client->_event( `EXECUTE` ) ).
+        iv_cmd_event = client->_event( zcl_zlk05_gui_frame=>c_ev_command ) ).
 
     " band 3 - title bar
     zcl_zlk05_gui_frame=>build_title_bar( io_parent = page
@@ -356,6 +293,11 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
         val   = client->cs_event-set_focus
         t_arg = VALUE #( ( `idCommandField` ) ) ).
 
+    " F3 and friends - the entry screen is the root of the session, so
+    " Back is not registered here
+    zcl_zlk05_gui_frame=>register_keys( io_client    = client
+                                        iv_back_name = `` ).
+
     client->view_display( view->stringify( ) ).
 
   ENDMETHOD.
@@ -363,15 +305,25 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
 
   METHOD build_work_area.
 
-    " Work area - menu tree on the left, logon image area on the right
+    " Work area - menu tree on the left, logon image area on the right.
+    " Both halves carry FlexItemData: without it the flex box shrinks the
+    " tree column down to the width of its shortest line.
     DATA(flex) = io_parent->open( `HBox`
         )->a( n = `width`      v = `100%`
-        )->a( n = `alignItems` v = `Stretch` ).
+        )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
+        )->a( n = `alignItems` v = `Stretch`
+        )->a( n = `renderType` v = `Bare` ).
 
     DATA(scroll) = flex->open( `ScrollContainer`
-        )->a( n = `width`    v = `32%`
-        )->a( n = `height`   v = `calc(100vh - 12rem)`
-        )->a( n = `vertical` v = `true` ).
+        )->a( n = `height`     v = `100%`
+        )->a( n = `vertical`   v = `true`
+        )->a( n = `horizontal` v = `true` ).
+
+    scroll->open( `layoutData`
+        )->leaf( `FlexItemData`
+        )->a( n = `growFactor`   v = `0`
+        )->a( n = `shrinkFactor` v = `0`
+        )->a( n = `baseSize`     v = `30rem` ).
 
     DATA(list) = scroll->open( `List`
         )->a( n = `showSeparators`   v = `None`
@@ -381,25 +333,36 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
 
     build_tree_items( list->open( `items` ) ).
 
-    " The SAP GUI shows the logon image here. The image is delivered by the
-    " SAP GUI installation and not by the server, so the area shows the SAP
-    " logo as a watermark instead.
-    flex->leaf( n = `Icon` ns = `core`
-        )->a( n = `src`             v = `sap-icon://SAP-logo-shape`
-        )->a( n = `size`            v = `11rem`
-        )->a( n = `color`           v = `rgba(255,255,255,0.20)`
-        )->a( n = `backgroundColor` v = `#1c4f7c`
-        )->a( n = `width`           v = `68%`
-        )->a( n = `height`          v = `calc(100vh - 12rem)`
-        )->a( n = `tooltip`         v = `SAP Easy Access Logon Screen` ).
+    " The SAP GUI shows the logon image here. That image is delivered by the
+    " SAP GUI installation and not by the server, so this area shows the SAP
+    " logo as a watermark and says so.
+    DATA(image_area) = flex->open( `VBox`
+        )->a( n = `height`         v = `100%`
+        )->a( n = `justifyContent` v = `Center`
+        )->a( n = `alignItems`     v = `Center` ).
+
+    image_area->open( `layoutData`
+        )->leaf( `FlexItemData`
+        )->a( n = `growFactor`   v = `1`
+        )->a( n = `shrinkFactor` v = `1`
+        )->a( n = `baseSize`     v = `0%` ).
+
+    image_area->leaf( n = `Icon` ns = `core`
+        )->a( n = `src`     v = `sap-icon://SAP-logo-shape`
+        )->a( n = `size`    v = `9rem`
+        )->a( n = `color`   v = `#d5dce3`
+        )->a( n = `tooltip` v = `Logon image - delivered by the SAP GUI installation, not by the server` ).
+
+    image_area->leaf( `Text`
+        )->a( n = `text`      v = `Logon image of the SAP GUI installation - not available in this environment`
+        )->a( n = `textAlign` v = `Center`
+        )->a( n = `class`    v = `sapUiSmallMarginTop` ).
 
   ENDMETHOD.
 
 
-* =====================================================================
-*  Tree
-* =====================================================================
   METHOD build_tree_items.
+    " ===== Tree =====
 
     " ----- Favorites -----
     DATA(lv_fav_open) = is_expanded( c_key_fav ).
@@ -579,22 +542,26 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
         )->a( n = `color` v = iv_icon_color
         )->a( n = `class` v = `sapUiTinyMarginBegin` ).
 
+    " wrapping off - a tree line of the SAP GUI is one line, never two
     IF iv_as_link = abap_true.
       row->leaf( `Link`
-          )->a( n = `text`  v = iv_text
-          )->a( n = `press` v = iv_press
-          )->a( n = `class` v = `sapUiTinyMarginBegin` ).
+          )->a( n = `text`     v = iv_text
+          )->a( n = `press`    v = iv_press
+          )->a( n = `wrapping` v = `false`
+          )->a( n = `class`    v = `sapUiTinyMarginBegin` ).
     ELSE.
       row->leaf( `Text`
-          )->a( n = `text`  v = iv_text
-          )->a( n = `class` v = `sapUiTinyMarginBegin` ).
+          )->a( n = `text`     v = iv_text
+          )->a( n = `wrapping` v = `false`
+          )->a( n = `class`    v = `sapUiTinyMarginBegin` ).
     ENDIF.
 
     IF iv_suffix IS NOT INITIAL.
       row->leaf( `Text`
-          )->a( n = `text`    v = |({ iv_suffix })|
-          )->a( n = `class`   v = `sapUiTinyMarginBegin`
-          )->a( n = `tooltip` v = |Transaction { iv_suffix }| ).
+          )->a( n = `text`     v = |({ iv_suffix })|
+          )->a( n = `wrapping` v = `false`
+          )->a( n = `class`    v = `sapUiTinyMarginBegin`
+          )->a( n = `tooltip`  v = |Transaction { iv_suffix }| ).
     ENDIF.
 
   ENDMETHOD.

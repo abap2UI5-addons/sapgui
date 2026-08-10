@@ -21,6 +21,11 @@ CLASS ltcl_su01_a2u5 DEFINITION FINAL FOR TESTING
     METHODS list_lock_state       FOR TESTING.
     METHODS list_back_nav_wired   FOR TESTING.
     METHODS list_status_bar       FOR TESTING.
+    METHODS list_has_gui_frame    FOR TESTING.
+    METHODS list_keys_registered  FOR TESTING.
+    METHODS list_command_field    FOR TESTING.
+    METHODS list_drilldown_wired  FOR TESTING.
+    METHODS list_unavailable_shown FOR TESTING.
     METHODS list_empty_is_sane    FOR TESTING.
     METHODS message_reaches_view  FOR TESTING.
 
@@ -29,6 +34,8 @@ CLASS ltcl_su01_a2u5 DEFINITION FINAL FOR TESTING
     METHODS roles_validity        FOR TESTING.
     METHODS roles_without_roles   FOR TESTING.
     METHODS roles_back_to_list    FOR TESTING.
+    METHODS roles_f3_stays_inside FOR TESTING.
+    METHODS roles_has_gui_frame   FOR TESTING.
 ENDCLASS.
 
 
@@ -99,15 +106,20 @@ CLASS ltcl_su01_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD list_selection_screen.
+    " the initial screen of SU01 asks for one thing: the user name. The field
+    " now lives in the work area of the frame, not in a subHeader.
     given_userlist( ).
     mo_cut->view_display( ).
 
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( mo_dbl->count_children( `subHeader` ) > 0 )
-        msg = 'the selection screen (subHeader) is empty' ).
+        act = xsdbool( find( val = mo_dbl->mv_view sub = `idUserName` ) >= 0 )
+        msg = 'the User input field is missing' ).
     cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view sub = `User` ) >= 0 )
         msg = 'the User field label is missing' ).
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event( `EXECUTE` )
+        msg = 'the selection is not wired to the EXECUTE event' ).
   ENDMETHOD.
 
   METHOD list_lock_state.
@@ -133,9 +145,78 @@ CLASS ltcl_su01_a2u5 IMPLEMENTATION.
     mo_cut->view_display( ).
 
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( find( val = mo_dbl->mv_view sub = `MOCK_NAV_LEAVE` ) >= 0
-                   AND find( val = mo_dbl->mv_view sub = `showNavButton` ) >= 0 )
+        act = xsdbool( find( val = mo_dbl->mv_view sub = `MOCK_NAV_LEAVE` ) >= 0 )
         msg = 'F3 back navigation to the calling app is not wired' ).
+  ENDMETHOD.
+
+  METHOD list_has_gui_frame.
+    " menu bar and application function bar carry the original texts of
+    " SAPLSUID_MAINTENANCE
+    given_userlist( ).
+    mo_cut->view_display( ).
+
+    LOOP AT VALUE string_table( ( `User` ) ( `Edit` ) ( `Goto` ) ( `Information` )
+                                ( `Environment` ) ( `System` ) ( `Help` )
+                                ( `Display` ) ( `Create User` ) ( `Change Password` )
+                                ( `Mass Changes` ) ( `Information System` ) )
+         INTO DATA(lv_text).
+      cl_abap_unit_assert=>assert_true(
+          act = xsdbool( find( val = mo_dbl->mv_view sub = lv_text ) >= 0 )
+          msg = |the SAP GUI frame does not show "{ lv_text }"| ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD list_keys_registered.
+    " the shortcut registry lives in the frontend and survives a transaction
+    " switch, so every screen has to state its own binding for every key
+    given_userlist( ).
+    mo_cut->view_display( ).
+
+    LOOP AT VALUE string_table( ( `F3` ) ( `Shift+F3` ) ( `F12` ) )
+         INTO DATA(lv_key).
+      cl_abap_unit_assert=>assert_true(
+          act = mo_dbl->has_shortcut( iv_keys  = lv_key
+                                      iv_event = zcl_zlk05_gui_frame=>c_ev_back )
+          msg = |{ lv_key } is not registered for Back| ).
+    ENDLOOP.
+
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_shortcut( iv_keys  = `F8`
+                                    iv_event = `EXECUTE` )
+        msg = 'F8 is not registered for the Display function' ).
+  ENDMETHOD.
+
+  METHOD list_command_field.
+    given_userlist( ).
+    mo_cut->view_display( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event( zcl_zlk05_gui_frame=>c_ev_command )
+        msg = 'the command field is not wired to the frame command event' ).
+  ENDMETHOD.
+
+  METHOD list_drilldown_wired.
+    " the user name has to carry the row key, otherwise the drill down into
+    " the roles opens the wrong user
+    given_userlist( ).
+    mo_cut->view_display( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event( `DISPLAY` )
+        msg = 'the drill down into the role assignment is not wired' ).
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event_arg( `BNAME` )
+        msg = 'the drill down does not carry the user of the row' ).
+  ENDMETHOD.
+
+  METHOD list_unavailable_shown.
+    given_userlist( ).
+    mo_cut->view_display( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( find( val = mo_dbl->mv_view
+                             sub = `not available in this environment` ) >= 0 )
+        msg = 'the disabled SU01 functions do not explain themselves' ).
   ENDMETHOD.
 
   METHOD list_status_bar.
@@ -162,10 +243,9 @@ CLASS ltcl_su01_a2u5 IMPLEMENTATION.
     mo_cut->view_display( ).
 
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( find( val = mo_dbl->mv_view sub = `MessageStrip` ) >= 0
-                   AND find( val = mo_dbl->mv_view
+        act = xsdbool( find( val = mo_dbl->mv_view
                              sub = `User ZUNKNOWN does not exist.` ) >= 0 )
-        msg = 'the message text never reaches the selection screen' ).
+        msg = 'the message text never reaches the status bar' ).
   ENDMETHOD.
 
   " ===================== role assignment =====================
@@ -178,13 +258,19 @@ CLASS ltcl_su01_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD roles_title.
+    " the original title of the SU01 display screen is "Display Users"
+    " (RSMPTEXTS, SAPLSUID_MAINTENANCE / MAIND) - the user and the tab are
+    " named next to it in the title bar
     given_role_list( ).
     mo_cut->view_detail( ).
 
     cl_abap_unit_assert=>assert_true(
+        act = xsdbool( find( val = mo_dbl->mv_view sub = `Display Users` ) >= 0 )
+        msg = 'the original SU01 display screen title is missing' ).
+    cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view
-                             sub = `Display User DEVELOPER: Roles` ) >= 0 )
-        msg = 'the role list does not name the user in the title' ).
+                             sub = `User DEVELOPER - Roles` ) >= 0 )
+        msg = 'the role list does not name the user in the title bar' ).
   ENDMETHOD.
 
   METHOD roles_validity.
@@ -215,12 +301,45 @@ CLASS ltcl_su01_a2u5 IMPLEMENTATION.
     mo_cut->view_detail( ).
 
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( find( val = mo_dbl->mv_view sub = `navButtonPress` ) >= 0 )
-        msg = 'the role list has no back navigation' ).
+        act = mo_dbl->has_event( `BACK_TO_LIST` )
+        msg = 'the role list has no back navigation to the initial screen' ).
     cl_abap_unit_assert=>assert_equals(
         exp = -1
         act = find( val = mo_dbl->mv_view sub = `MOCK_NAV_LEAVE` )
         msg = 'the role list leaves the app instead of returning to the user list' ).
+  ENDMETHOD.
+
+  METHOD roles_f3_stays_inside.
+    " F3 on a screen INSIDE the transaction has to go back one screen, not
+    " leave SU01 - the frame is told the screen event for that
+    given_role_list( ).
+    mo_cut->view_detail( ).
+
+    LOOP AT VALUE string_table( ( `F3` ) ( `Shift+F3` ) ( `F12` ) )
+         INTO DATA(lv_key).
+      cl_abap_unit_assert=>assert_true(
+          act = mo_dbl->has_shortcut( iv_keys  = lv_key
+                                      iv_event = `BACK_TO_LIST` )
+          msg = |{ lv_key } does not return to the initial screen| ).
+      cl_abap_unit_assert=>assert_false(
+          act = mo_dbl->has_shortcut( iv_keys  = lv_key
+                                      iv_event = zcl_zlk05_gui_frame=>c_ev_back )
+          msg = |{ lv_key } leaves the transaction instead of the screen| ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD roles_has_gui_frame.
+    given_role_list( ).
+    mo_cut->view_detail( ).
+
+    LOOP AT VALUE string_table( ( `User` ) ( `Edit` ) ( `Goto` ) ( `Information` )
+                                ( `Environment` ) ( `Back` ) ( `Details` )
+                                ( `References` ) ( `System-Dependent Data` ) )
+         INTO DATA(lv_text).
+      cl_abap_unit_assert=>assert_true(
+          act = xsdbool( find( val = mo_dbl->mv_view sub = lv_text ) >= 0 )
+          msg = |the SAP GUI frame does not show "{ lv_text }"| ).
+    ENDLOOP.
   ENDMETHOD.
 
 ENDCLASS.

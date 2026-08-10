@@ -21,6 +21,11 @@ CLASS ltcl_se11_a2u5 DEFINITION FINAL FOR TESTING
     METHODS list_selection_screen  FOR TESTING.
     METHODS list_back_nav_wired    FOR TESTING.
     METHODS list_status_bar        FOR TESTING.
+    METHODS list_has_gui_frame     FOR TESTING.
+    METHODS list_keys_registered   FOR TESTING.
+    METHODS list_command_field     FOR TESTING.
+    METHODS list_drilldown_wired   FOR TESTING.
+    METHODS list_unavailable_shown FOR TESTING.
     METHODS list_empty_is_sane     FOR TESTING.
     METHODS message_reaches_view   FOR TESTING.
 
@@ -28,7 +33,10 @@ CLASS ltcl_se11_a2u5 DEFINITION FINAL FOR TESTING
     METHODS detail_table_is_sane   FOR TESTING.
     METHODS detail_table_title     FOR TESTING.
     METHODS detail_dtel_is_sane    FOR TESTING.
+    METHODS detail_object_named    FOR TESTING.
     METHODS detail_back_to_list    FOR TESTING.
+    METHODS detail_f3_stays_inside FOR TESTING.
+    METHODS detail_has_gui_frame   FOR TESTING.
 ENDCLASS.
 
 
@@ -105,14 +113,14 @@ CLASS ltcl_se11_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD list_selection_screen.
-    " the selection fields belong into the subHeader - that is what makes
-    " the app look like the SE11 entry dynpro instead of a plain list
+    " the selection fields live in the work area of the frame, the way the
+    " SE11 entry dynpro has them
     given_hitlist( ).
     mo_cut->view_display( ).
 
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( mo_dbl->count_children( `subHeader` ) > 0 )
-        msg = 'the selection screen (subHeader) is empty' ).
+        act = xsdbool( find( val = mo_dbl->mv_view sub = `idObjName` ) >= 0 )
+        msg = 'the Object Name input field is missing' ).
 
     cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view sub = `Object Name` ) >= 0 )
@@ -134,10 +142,78 @@ CLASS ltcl_se11_a2u5 IMPLEMENTATION.
     " F3 / back arrow returns to the calling app (SAP Easy Access)
     cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view sub = `MOCK_NAV_LEAVE` ) >= 0 )
-        msg = 'navButtonPress is not wired to _event_nav_app_leave( )' ).
+        msg = 'the Back arrow of the system function bar is not wired to leave' ).
+  ENDMETHOD.
+
+  METHOD list_has_gui_frame.
+    " menu bar and application function bar carry the original texts of the
+    " Dictionary
+    given_hitlist( ).
+    mo_cut->view_display( ).
+
+    LOOP AT VALUE string_table( ( `Dictionary Object` ) ( `Edit` ) ( `Goto` )
+                                ( `Utilities` ) ( `Environment` ) ( `System` )
+                                ( `Help` ) ( `Display` ) ( `Activate` )
+                                ( `Database Utility` ) ( `Activation Log` )
+                                ( `Other Dictionary Objects...` ) )
+         INTO DATA(lv_text).
+      cl_abap_unit_assert=>assert_true(
+          act = xsdbool( find( val = mo_dbl->mv_view sub = lv_text ) >= 0 )
+          msg = |the SAP GUI frame does not show "{ lv_text }"| ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD list_keys_registered.
+    " the shortcut registry lives in the frontend and survives a transaction
+    " switch, so every screen has to state its own binding for every key
+    given_hitlist( ).
+    mo_cut->view_display( ).
+
+    LOOP AT VALUE string_table( ( `F3` ) ( `Shift+F3` ) ( `F12` ) )
+         INTO DATA(lv_key).
+      cl_abap_unit_assert=>assert_true(
+          act = mo_dbl->has_shortcut( iv_keys  = lv_key
+                                      iv_event = zcl_zlk05_gui_frame=>c_ev_back )
+          msg = |{ lv_key } is not registered for Back| ).
+    ENDLOOP.
+
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( find( val = mo_dbl->mv_view sub = `showNavButton` ) >= 0 )
-        msg = 'showNavButton is not bound to check_app_prev_stack( )' ).
+        act = mo_dbl->has_shortcut( iv_keys  = `F8`
+                                    iv_event = `EXECUTE` )
+        msg = 'F8 is not registered for the Display function' ).
+  ENDMETHOD.
+
+  METHOD list_command_field.
+    given_hitlist( ).
+    mo_cut->view_display( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event( zcl_zlk05_gui_frame=>c_ev_command )
+        msg = 'the command field is not wired to the frame command event' ).
+  ENDMETHOD.
+
+  METHOD list_drilldown_wired.
+    " the object name has to carry the row key, otherwise the drill down
+    " opens the wrong object
+    given_hitlist( ).
+    mo_cut->view_display( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event( `DISPLAY` )
+        msg = 'the drill down into the field list is not wired' ).
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event_arg( `NAME` )
+        msg = 'the drill down does not carry the object of the row' ).
+  ENDMETHOD.
+
+  METHOD list_unavailable_shown.
+    given_hitlist( ).
+    mo_cut->view_display( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( find( val = mo_dbl->mv_view
+                             sub = `not available in this environment` ) >= 0 )
+        msg = 'the disabled SE11 functions do not explain themselves' ).
   ENDMETHOD.
 
   METHOD list_status_bar.
@@ -172,12 +248,9 @@ CLASS ltcl_se11_a2u5 IMPLEMENTATION.
     mo_cut->view_display( ).
 
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( find( val = mo_dbl->mv_view sub = `MessageStrip` ) >= 0 )
-        msg = 'the message is not rendered as a MessageStrip' ).
-    cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view
                              sub = `Object MARZ does not exist.` ) >= 0 )
-        msg = 'the message text never reaches the selection screen' ).
+        msg = 'the message text never reaches the status bar' ).
   ENDMETHOD.
 
   " ===================== display screens =====================
@@ -222,6 +295,18 @@ CLASS ltcl_se11_a2u5 IMPLEMENTATION.
         msg = 'the data element display does not carry the original SE11 title' ).
   ENDMETHOD.
 
+  METHOD detail_object_named.
+    " the display screen has to name the object it shows - the field list
+    " alone says nothing about where it comes from
+    given_table_detail( ).
+    mo_cut->view_detail( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( find( val = mo_dbl->mv_view sub = `Database table` ) >= 0
+                   AND find( val = mo_dbl->mv_view sub = `MARA` ) >= 0 )
+        msg = 'the display screen does not name the table it shows' ).
+  ENDMETHOD.
+
   METHOD detail_back_to_list.
     " from the display screen F3 must return to the initial screen, not leave
     " the app - otherwise the user loses the hit list
@@ -229,15 +314,49 @@ CLASS ltcl_se11_a2u5 IMPLEMENTATION.
     mo_cut->view_detail( ).
 
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( find( val = mo_dbl->mv_view sub = `navButtonPress` ) >= 0 )
-        msg = 'the display screen has no back navigation' ).
+        act = mo_dbl->has_event( `BACK_TO_LIST` )
+        msg = 'the display screen has no back navigation to the initial screen' ).
     cl_abap_unit_assert=>assert_equals(
         exp = -1
         act = find( val = mo_dbl->mv_view sub = `MOCK_NAV_LEAVE` )
         msg = 'the display screen leaves the app instead of returning to the list' ).
     cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view sub = `sap-icon://nav-back` ) >= 0 )
-        msg = 'the Back button is missing in the footer' ).
+        msg = 'the Back button is missing in the application function bar' ).
+  ENDMETHOD.
+
+  METHOD detail_f3_stays_inside.
+    " F3 on a screen INSIDE the transaction has to go back one screen, not
+    " leave SE11 - the frame is told the screen event for that
+    given_table_detail( ).
+    mo_cut->view_detail( ).
+
+    LOOP AT VALUE string_table( ( `F3` ) ( `Shift+F3` ) ( `F12` ) )
+         INTO DATA(lv_key).
+      cl_abap_unit_assert=>assert_true(
+          act = mo_dbl->has_shortcut( iv_keys  = lv_key
+                                      iv_event = `BACK_TO_LIST` )
+          msg = |{ lv_key } does not return to the initial screen| ).
+      cl_abap_unit_assert=>assert_false(
+          act = mo_dbl->has_shortcut( iv_keys  = lv_key
+                                      iv_event = zcl_zlk05_gui_frame=>c_ev_back )
+          msg = |{ lv_key } leaves the transaction instead of the screen| ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD detail_has_gui_frame.
+    given_table_detail( ).
+    mo_cut->view_detail( ).
+
+    LOOP AT VALUE string_table( ( `Dictionary Object` ) ( `Edit` ) ( `Goto` )
+                                ( `Utilities` ) ( `Environment` ) ( `Back` )
+                                ( `Activate` ) ( `Where-Used List` )
+                                ( `Object Directory Entry` ) )
+         INTO DATA(lv_text).
+      cl_abap_unit_assert=>assert_true(
+          act = xsdbool( find( val = mo_dbl->mv_view sub = lv_text ) >= 0 )
+          msg = |the SAP GUI frame does not show "{ lv_text }"| ).
+    ENDLOOP.
   ENDMETHOD.
 
 ENDCLASS.

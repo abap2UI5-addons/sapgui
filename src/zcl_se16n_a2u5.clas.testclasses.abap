@@ -41,10 +41,60 @@ CLASS ltcl_se16n DEFINITION FINAL FOR TESTING
     " --- the classic SAP GUI window frame ---
     METHODS view_1_has_gui_frame  FOR TESTING.
     METHODS view_3_has_gui_frame  FOR TESTING.
+
+    " --- returning from another transaction (F3 there) ---
+    METHODS navigated_renders_step_1 FOR TESTING.
+    METHODS navigated_renders_step_3 FOR TESTING.
 ENDCLASS.
 
 
 CLASS ltcl_se16n IMPLEMENTATION.
+
+  " ===================== navigated back to =====================
+  " A transaction that is returned to gets NO event and check_on_init is
+  " already false - only check_on_navigated is set. An app that ignores that
+  " flag renders nothing, the response carries no view and the browser keeps
+  " showing the screen of the transaction that was just left. These two tests
+  " pin the branch that prevents it.
+
+  METHOD navigated_renders_step_1.
+
+    mo_dbl->mv_on_init      = abap_false.
+    mo_dbl->mv_on_event     = abap_false.
+    mo_dbl->mv_on_navigated = abap_true.
+
+    mo_cut->z2ui5_if_app~main( mo_dbl ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+        act = mo_dbl->mv_view
+        msg = `navigating back must render the initial screen again` ).
+    assert_wellformed( `step 1 after navigation` ).
+
+  ENDMETHOD.
+
+  METHOD navigated_renders_step_3.
+
+    " the step the transaction was standing on has to come back, not step 1
+    given_two_columns( ).
+    mo_cut->mv_step  = 3.
+    mo_cut->mt_rows  = VALUE #( ( c01 = `4711` c02 = `FERT` ) ).
+    mo_cut->mv_total_rows = 1.
+
+    mo_dbl->mv_on_init      = abap_false.
+    mo_dbl->mv_on_event     = abap_false.
+    mo_dbl->mv_on_navigated = abap_true.
+
+    mo_cut->z2ui5_if_app~main( mo_dbl ).
+
+    assert_wellformed( `step 3 after navigation` ).
+    " the result list carries the table name in its title bar, the initial
+    " screen does not - that tells the two screens apart
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( find( val = mo_dbl->mv_view
+                             sub = `Display of Entries Found` ) >= 0 )
+        msg = `navigating back must return to the result list, not to step 1` ).
+
+  ENDMETHOD.
 
   METHOD setup.
     mo_cut = NEW #( ).

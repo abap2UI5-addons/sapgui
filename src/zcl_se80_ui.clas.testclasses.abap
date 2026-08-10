@@ -18,6 +18,11 @@ CLASS ltcl_se80_ui DEFINITION FINAL FOR TESTING
     METHODS view_fullscreen      FOR TESTING.
     METHODS toolbars_are_filled  FOR TESTING.
     METHODS back_button_wired    FOR TESTING.
+    METHODS has_gui_frame        FOR TESTING.
+    METHODS keys_registered      FOR TESTING.
+    METHODS command_field_wired  FOR TESTING.
+    METHODS app_bar_greys_out    FOR TESTING.
+    METHODS message_reaches_bar  FOR TESTING.
 
     " --- Where-Used / Used Objects popup ---
     METHODS popup_single_root    FOR TESTING.
@@ -102,10 +107,95 @@ CLASS ltcl_se80_ui IMPLEMENTATION.
     " F3 / back arrow to the calling app (SAP Easy Access)
     cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view sub = `MOCK_NAV_LEAVE` ) >= 0 )
-        msg = 'navButtonPress is not wired to _event_nav_app_leave( )' ).
+        msg = 'the Back arrow of the system function bar is not wired to leave' ).
+  ENDMETHOD.
+
+  METHOD has_gui_frame.
+    " the window sits in the shared frame: original screen title and the
+    " original SE80 menu bar of SAPLWB_INITIAL_TOOL
+    given_object_loaded( ).
+    mo_cut->view_display( ).
+
+    LOOP AT VALUE string_table( ( `Object Navigator` ) ( `Workbench` ) ( `Edit` )
+                                ( `Goto` ) ( `Utilities` ) ( `Environment` )
+                                ( `Test` ) ( `Worklist` ) ( `System` ) ( `Help` )
+                                ( `idCommandField` ) )
+         INTO DATA(lv_text).
+      cl_abap_unit_assert=>assert_true(
+          act = xsdbool( find( val = mo_dbl->mv_view sub = lv_text ) >= 0 )
+          msg = |the SAP GUI frame does not show "{ lv_text }"| ).
+    ENDLOOP.
+
+    " the loaded object is named next to the title
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( find( val = mo_dbl->mv_view sub = `showNavButton` ) >= 0 )
-        msg = 'showNavButton is not bound to check_app_prev_stack( )' ).
+        act = xsdbool( find( val = mo_dbl->mv_view
+                             sub = `Class ZCL_SE16N_A2U5` ) >= 0 )
+        msg = 'the title bar does not name the object that is loaded' ).
+  ENDMETHOD.
+
+  METHOD keys_registered.
+    " the shortcut registry lives in the frontend and survives a transaction
+    " switch, so every screen has to state its own binding for every key
+    given_object_loaded( ).
+    mo_cut->view_display( ).
+
+    LOOP AT VALUE string_table( ( `F3` ) ( `Shift+F3` ) ( `F12` ) )
+         INTO DATA(lv_key).
+      cl_abap_unit_assert=>assert_true(
+          act = mo_dbl->has_shortcut( iv_keys  = lv_key
+                                      iv_event = zcl_zlk05_gui_frame=>c_ev_back )
+          msg = |{ lv_key } is not registered for Back| ).
+    ENDLOOP.
+
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_shortcut( iv_keys  = `Ctrl+S`
+                                    iv_event = `SAVE` )
+        msg = 'Ctrl+S is not registered for Save' ).
+  ENDMETHOD.
+
+  METHOD command_field_wired.
+    given_object_loaded( ).
+    mo_cut->view_display( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event( zcl_zlk05_gui_frame=>c_ev_command )
+        msg = 'the command field is not wired to the frame command event' ).
+  ENDMETHOD.
+
+  METHOD app_bar_greys_out.
+    " Without an object loaded the object functions do not apply. The SAP GUI
+    " greys them out - a handler that still fires would run against an empty
+    " object name.
+    CLEAR mo_cut->mv_cur_obj_name.
+    mo_cut->view_display( ).
+
+    DATA(lt_btn) = mo_cut->app_buttons( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( line_exists( lt_btn[ tooltip = `Activate` ] ) )
+        msg = 'the Activate function disappeared instead of being greyed out' ).
+    cl_abap_unit_assert=>assert_equals(
+        exp = abap_true
+        act = lt_btn[ tooltip = `Activate` ]-disabled
+        msg = 'Activate is offered although no object is loaded' ).
+
+    " Refresh works without an object and has to stay usable
+    cl_abap_unit_assert=>assert_equals(
+        exp = abap_false
+        act = lt_btn[ tooltip = `Refresh` ]-disabled
+        msg = 'Refresh was greyed out although it needs no object' ).
+  ENDMETHOD.
+
+  METHOD message_reaches_bar.
+    given_object_loaded( ).
+    mo_cut->mv_message  = `Object ZCL_X is locked by DEVELOPER.`.
+    mo_cut->mv_msg_type = `Error`.
+    mo_cut->view_display( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( find( val = mo_dbl->mv_view
+                             sub = `Object ZCL_X is locked by DEVELOPER.` ) >= 0 )
+        msg = 'the message never reaches the screen' ).
   ENDMETHOD.
 
   " ===================== popup =====================

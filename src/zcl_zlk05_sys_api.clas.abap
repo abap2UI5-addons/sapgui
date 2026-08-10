@@ -637,10 +637,10 @@ CLASS zcl_zlk05_sys_api DEFINITION PUBLIC FINAL CREATE PUBLIC.
 * =====================================================================
 *  SAP Easy Access - area menu (SE43 hierarchy)
 * =====================================================================
-    "! One entry of an SAP area menu. Folders carry either children
-    "! inside the same structure or a reference to a sub structure,
-    "! transactions carry a transaction code.
     TYPES:
+      "! One entry of an SAP area menu. Folders carry either children
+      "! inside the same structure or a reference to a sub structure,
+      "! transactions carry a transaction code.
       BEGIN OF ty_s_menu_node,
         node_key  TYPE string,       " structure + node, unique per entry
         struct_id TYPE string,
@@ -669,6 +669,98 @@ CLASS zcl_zlk05_sys_api DEFINITION PUBLIC FINAL CREATE PUBLIC.
     "! Short text of a transaction as shown by the SAP GUI
     CLASS-METHODS get_transaction_text
       IMPORTING iv_tcode      TYPE string
+      RETURNING VALUE(result) TYPE string.
+
+* =====================================================================
+*  SE93 - Maintain Transaction
+* =====================================================================
+    TYPES:
+      "! One row of the transaction hit list
+      BEGIN OF ty_s_tcode,
+        tcode   TYPE string,
+        ttext   TYPE string,
+        pgmna   TYPE string,
+        dypno   TYPE string,
+        tc_type TYPE string,
+      END OF ty_s_tcode.
+    TYPES ty_t_tcode TYPE STANDARD TABLE OF ty_s_tcode WITH EMPTY KEY.
+
+    TYPES:
+      "! One default value of a parameter transaction (TSTCP-PARAM)
+      BEGIN OF ty_s_tc_param,
+        field TYPE string,
+        value TYPE string,
+      END OF ty_s_tc_param.
+    TYPES ty_t_tc_param TYPE STANDARD TABLE OF ty_s_tc_param WITH EMPTY KEY.
+
+    TYPES:
+      "! One authorization check value of a transaction (TSTCA)
+      BEGIN OF ty_s_tc_auth,
+        objct TYPE string,
+        field TYPE string,
+        value TYPE string,
+      END OF ty_s_tc_auth.
+    TYPES ty_t_tc_auth TYPE STANDARD TABLE OF ty_s_tc_auth WITH EMPTY KEY.
+
+    TYPES:
+      "! Everything SE93 shows for one transaction. Which fields carry a
+      "! value depends on TC_TYPE - the original has one display screen per
+      "! type (SAPLSEUK 0310 dialog, 0320 report, 0330 parameter,
+      "! 0331 variant, 0360 object).
+      BEGIN OF ty_s_tcode_detail,
+        found       TYPE abap_bool,
+        tcode       TYPE string,
+        ttext       TYPE string,
+        tc_type     TYPE string,
+        " dialog and report transaction
+        pgmna       TYPE string,
+        dypno       TYPE string,
+        repo_vari   TYPE string,
+        " object transaction
+        classname   TYPE string,
+        method      TYPE string,
+        s_local     TYPE abap_bool,
+        s_trframe   TYPE abap_bool,
+        "! S synchronous, U asynchronous, L local - LSEUKTOP c_oo_synchron
+        upd_mode    TYPE string,
+        " parameter and variant transaction
+        call_tcode  TYPE string,
+        variant     TYPE string,
+        s_ind_vari  TYPE abap_bool,
+        skip_first  TYPE abap_bool,
+        start_tcode TYPE abap_bool,
+        params      TYPE ty_t_tc_param,
+        " start options
+        locked_sm01 TYPE abap_bool,
+        trans_var   TYPE abap_bool,
+        " authorization object
+        auth_objct  TYPE string,
+        auth        TYPE ty_t_tc_auth,
+        " classification (TSTCC)
+        profi_tran  TYPE abap_bool,
+        iac_ewt     TYPE abap_bool,
+        s_win32     TYPE abap_bool,
+        s_platin    TYPE abap_bool,
+        s_webgui    TYPE abap_bool,
+      END OF ty_s_tcode_detail.
+
+    "! Transactions of TSTC with their short text and derived type.
+    CLASS-METHODS get_transactions
+      IMPORTING iv_pattern    TYPE string OPTIONAL
+                iv_max        TYPE i DEFAULT 200
+      RETURNING VALUE(result) TYPE ty_t_tcode.
+
+    "! Everything SE93 shows for one transaction.
+    CLASS-METHODS get_transaction_detail
+      IMPORTING iv_tcode      TYPE string
+      RETURNING VALUE(result) TYPE ty_s_tcode_detail.
+
+    "! A text symbol of SAPLSEUK, the program behind SE93. The names of the
+    "! transaction types live there (001 Dialog, 002 Report, 003 Parameter,
+    "! 019 Variant, 028 Object Transaction), so they are read from the
+    "! original instead of being duplicated here.
+    CLASS-METHODS seuk_text
+      IMPORTING iv_key        TYPE string
       RETURNING VALUE(result) TYPE string.
 
   PRIVATE SECTION.
@@ -706,6 +798,41 @@ CLASS zcl_zlk05_sys_api DEFINITION PUBLIC FINAL CREATE PUBLIC.
     CLASS-METHODS menu_text
       IMPORTING it_texts      TYPE ty_t_hier_text
                 iv_node_id    TYPE hier_guid
+      RETURNING VALUE(result) TYPE string.
+
+* ---------------------------------------------------------------------
+*  SE93 - transaction type, derived the way SAPLSEUK derives it
+* ---------------------------------------------------------------------
+    " Bits of TSTC-CINFO, taken from LSEUKTOP
+    CONSTANTS c_cinfo_men TYPE x LENGTH 1 VALUE '01'.  " area menu
+    CONSTANTS c_cinfo_par TYPE x LENGTH 1 VALUE '02'.  " parameter trans.
+    CONSTANTS c_cinfo_chk TYPE x LENGTH 1 VALUE '04'.  " with check object
+    CONSTANTS c_cinfo_obj TYPE x LENGTH 1 VALUE '08'.  " object transaction
+    CONSTANTS c_cinfo_rpv TYPE x LENGTH 1 VALUE '10'.  " report with variant
+    CONSTANTS c_cinfo_enq TYPE x LENGTH 1 VALUE '20'.  " locked via SM01
+    CONSTANTS c_cinfo_rep TYPE x LENGTH 1 VALUE '80'.  " report transaction
+
+    "! Transaction that carries the OO framework - LSEUKTOP c_oo_tcode
+    CONSTANTS c_oo_tcode TYPE string VALUE `OS_APPLICATION`.
+
+    " Text pool of SAPLSEUK, read on first access
+    CLASS-DATA mt_seuk_text TYPE STANDARD TABLE OF textpool WITH EMPTY KEY.
+
+    CLASS-METHODS tcode_type_text
+      IMPORTING iv_cinfo      TYPE tstc-cinfo
+                iv_param      TYPE string OPTIONAL
+      RETURNING VALUE(result) TYPE string.
+
+    "! LSEUKF01, FORM split_parameters
+    CLASS-METHODS split_tcode_parameters
+      IMPORTING iv_param  TYPE string
+      CHANGING  cs_detail TYPE ty_s_tcode_detail.
+
+    "! One \TAG= component of the parameter string of an OO transaction.
+    "! LSEUKF01, FORM split_parameters_comp.
+    CLASS-METHODS oo_component
+      IMPORTING iv_param      TYPE string
+                iv_tag        TYPE string
       RETURNING VALUE(result) TYPE string.
 
 ENDCLASS.
@@ -772,13 +899,13 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
     IF to_upper( iv_kind ) = 'DTEL'.
 
-      SELECT d~rollname, d~datatype, d~leng, d~as4user, d~as4date,
-             t~ddtext
-        FROM dd04l AS d
+      SELECT FROM dd04l AS d
         LEFT OUTER JOIN dd04t AS t
           ON  t~rollname   = d~rollname
           AND t~ddlanguage = @sy-langu
           AND t~as4local   = 'A'
+        FIELDS d~rollname, d~datatype, d~leng, d~as4user, d~as4date,
+               t~ddtext
         WHERE d~rollname LIKE @lv_like
           AND d~as4local = 'A'
         ORDER BY d~rollname
@@ -796,12 +923,12 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
     ELSE.
 
-      SELECT d~tabname, d~tabclass, d~as4user, d~as4date, t~ddtext
-        FROM dd02l AS d
+      SELECT FROM dd02l AS d
         LEFT OUTER JOIN dd02t AS t
           ON  t~tabname    = d~tabname
           AND t~ddlanguage = @sy-langu
           AND t~as4local   = 'A'
+        FIELDS d~tabname, d~tabclass, d~as4user, d~as4date, t~ddtext
         WHERE d~tabname LIKE @lv_like
           AND d~as4local = 'A'
         ORDER BY d~tabname
@@ -825,13 +952,13 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
     DATA(lv_tab) = CONV tabname( to_upper( condense( iv_tabname ) ) ).
 
-    SELECT f~position, f~fieldname, f~keyflag, f~rollname,
-           f~datatype, f~leng, f~decimals, t~ddtext
-      FROM dd03l AS f
+    SELECT FROM dd03l AS f
       LEFT OUTER JOIN dd04t AS t
         ON  t~rollname   = f~rollname
         AND t~ddlanguage = @sy-langu
         AND t~as4local   = 'A'
+      FIELDS f~position, f~fieldname, f~keyflag, f~rollname,
+             f~datatype, f~leng, f~decimals, t~ddtext
       WHERE f~tabname    = @lv_tab
         AND f~as4local   = 'A'
         AND f~fieldname NOT LIKE '.%'
@@ -897,11 +1024,11 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
     DATA(lv_like) = to_like_pattern( iv_pattern ).
 
-    SELECT c~clsname, c~clstype, t~descript
-      FROM seoclass AS c
+    SELECT FROM seoclass AS c
       LEFT OUTER JOIN seoclasstx AS t
         ON  t~clsname = c~clsname
         AND t~langu   = @sy-langu
+      FIELDS c~clsname, c~clstype, t~descript
       WHERE c~clsname LIKE @lv_like
       ORDER BY c~clsname
       INTO TABLE @DATA(lt_cls)
@@ -920,12 +1047,12 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
     DATA(lv_cls) = CONV seoclsname( to_upper( condense( iv_clsname ) ) ).
 
-    SELECT c~cmpname, c~cmptype, c~mtdtype, d~exposure, d~redefin
-      FROM seocompo AS c
+    SELECT FROM seocompo AS c
       LEFT OUTER JOIN seocompodf AS d
         ON  d~clsname = c~clsname
         AND d~cmpname = c~cmpname
         AND d~version = '1'
+      FIELDS c~cmpname, c~cmptype, c~mtdtype, d~exposure, d~redefin
       WHERE c~clsname = @lv_cls
       ORDER BY c~cmptype, c~cmpname
       INTO TABLE @DATA(lt_cmp).
@@ -960,13 +1087,13 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
     DATA(lv_like) = to_like_pattern( iv_pattern ).
 
-    SELECT f~funcname, f~fmode, e~area, t~stext
-      FROM tfdir AS f
+    SELECT FROM tfdir AS f
       LEFT OUTER JOIN enlfdir AS e
         ON e~funcname = f~funcname
       LEFT OUTER JOIN tftit AS t
         ON  t~funcname = f~funcname
         AND t~spras    = @sy-langu
+      FIELDS f~funcname, f~fmode, e~area, t~stext
       WHERE f~funcname LIKE @lv_like
       ORDER BY f~funcname
       INTO TABLE @DATA(lt_fm)
@@ -1022,12 +1149,12 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
     DATA(lv_like) = to_like_pattern( iv_pattern ).
 
-    SELECT d~name, d~subc, d~cnam, d~udat, a~devclass
-      FROM trdir AS d
+    SELECT FROM trdir AS d
       LEFT OUTER JOIN tadir AS a
         ON  a~pgmid    = 'R3TR'
         AND a~object   = 'PROG'
         AND a~obj_name = d~name
+      FIELDS d~name, d~subc, d~cnam, d~udat, a~devclass
       WHERE d~name LIKE @lv_like
       ORDER BY d~name
       INTO TABLE @DATA(lt_prog)
@@ -1294,14 +1421,14 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
     DATA(lv_like) = to_like_pattern( iv_pattern ).
 
-    SELECT u~bname, u~ustyp, u~uflag, u~gltgv, u~gltgb,
-           u~trdat, u~aname, a~name_first, a~name_last
-      FROM usr02 AS u
+    SELECT FROM usr02 AS u
       LEFT OUTER JOIN usr21 AS p
         ON p~bname = u~bname
       LEFT OUTER JOIN adrp AS a
         ON  a~persnumber = p~persnumber
         AND a~nation     = @space
+      FIELDS u~bname, u~ustyp, u~uflag, u~gltgv, u~gltgb,
+             u~trdat, u~aname, a~name_first, a~name_last
       WHERE u~bname LIKE @lv_like
       ORDER BY u~bname
       INTO TABLE @DATA(lt_users)
@@ -1593,12 +1720,12 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
     DATA(lv_user) = to_like_pattern( iv_user ).
     DATA(lv_stat) = CONV trstatus( to_upper( condense( iv_status ) ) ).
 
-    SELECT h~trkorr, h~trfunction, h~trstatus, h~tarsystem,
-           h~as4user, h~as4date, h~as4time, h~strkorr, t~as4text
-      FROM e070 AS h
+    SELECT FROM e070 AS h
       LEFT OUTER JOIN e07t AS t
         ON  t~trkorr = h~trkorr
         AND t~langu  = @sy-langu
+      FIELDS h~trkorr, h~trfunction, h~trstatus, h~tarsystem,
+             h~as4user, h~as4date, h~as4time, h~strkorr, t~as4text
       WHERE h~as4user LIKE @lv_user
         AND ( h~trstatus = @lv_stat OR @lv_stat = '' )
       ORDER BY h~as4date DESCENDING, h~as4time DESCENDING
@@ -1714,7 +1841,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
     LOOP AT lt_meta ASSIGNING FIELD-SYMBOL(<m>).
 
-      IF to_upper( <m>-name ) NP lv_pattern.
+      IF NOT to_upper( <m>-name ) CP lv_pattern.
         CONTINUE.
       ENDIF.
 
@@ -1725,7 +1852,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
       APPEND VALUE #(
         paraname = <m>-name
-        value    = get_param_value( CONV string( <m>-name ) )
+        value    = get_param_value( <m>-name )
         grp      = <m>-pgroup
         ptype    = param_type_text( <m>-type )
         dynamic  = COND string( WHEN <m>-is_dynamic = 1 THEN `X` ELSE `` )
@@ -1794,7 +1921,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
     IF lv_rc <> 0 OR ls_meta-name IS INITIAL.
       result = VALUE #(
-        ( label = `Name`  value = CONV string( lv_name ) )
+        ( label = `Name`  value = lv_name )
         ( label = `Value`
           value = |Parameter { lv_name } is not known to this instance.| ) ).
       RETURN.
@@ -1812,22 +1939,22 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
       IMPORTING value = lv_rec
                 note  = lv_note ).
 
-    DATA(lv_restr) = CONV string( ls_meta-restriction_values ).
+    DATA(lv_restr) = ls_meta-restriction_values.
     IF ls_meta-type = 203 OR ls_meta-type = 204.
       SPLIT lv_restr AT ` ` INTO DATA(lv_low) DATA(lv_high).
       lv_restr = |Interval [{ lv_low },{ lv_high }]|.
     ENDIF.
 
     result = VALUE #(
-      ( label = `Name`                     value = CONV string( ls_meta-name ) )
-      ( label = `Value`                    value = get_param_value( CONV string( ls_meta-name ) ) )
+      ( label = `Name`                     value = ls_meta-name )
+      ( label = `Value`                    value = get_param_value( ls_meta-name ) )
       ( label = `Resulting Source`         value = param_origin_text( lv_origin ) )
       ( label = `Type`                     value = param_type_text( ls_meta-type ) )
       ( label = `Further Selection Criteria` value = lv_restr )
-      ( label = `Unit`                     value = CONV string( ls_meta-unit ) )
-      ( label = `Parameter Group`          value = CONV string( ls_meta-pgroup ) )
-      ( label = `Parameter Description`    value = CONV string( ls_meta-description ) )
-      ( label = `CSN Component`            value = CONV string( ls_meta-csn_component ) )
+      ( label = `Unit`                     value = ls_meta-unit )
+      ( label = `Parameter Group`          value = ls_meta-pgroup )
+      ( label = `Parameter Description`    value = ls_meta-description )
+      ( label = `CSN Component`            value = ls_meta-csn_component )
       ( label = `System-Wide Parameter`    value = yes_no( ls_meta-is_system ) )
       ( label = `Dynamic Parameter`        value = yes_no( ls_meta-is_dynamic ) )
       ( label = `Vector Parameter`         value = yes_no( ls_meta-is_vector ) )
@@ -1985,18 +2112,19 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
     es_state-state_known = abap_true.
 
     " the trace type flags sit in the named sub structure TRACE_TYPES
-    es_state-sql_on  = xsdbool( ls_raw-trace_types-sql_on  IS NOT INITIAL ).
-    es_state-buf_on  = xsdbool( ls_raw-trace_types-buf_on  IS NOT INITIAL ).
-    es_state-enq_on  = xsdbool( ls_raw-trace_types-enq_on  IS NOT INITIAL ).
-    es_state-rfc_on  = xsdbool( ls_raw-trace_types-rfc_on  IS NOT INITIAL ).
-    es_state-http_on = xsdbool( ls_raw-trace_types-http_on IS NOT INITIAL ).
-    es_state-amc_on  = xsdbool( ls_raw-trace_types-amc_on  IS NOT INITIAL ).
-    es_state-apc_on  = xsdbool( ls_raw-trace_types-apc_on  IS NOT INITIAL ).
-    es_state-auth_on = xsdbool( ls_raw-trace_types-auth_on IS NOT INITIAL ).
-    es_state-stack_on     = xsdbool( ls_raw-stack_trace_on IS NOT INITIAL ).
-    es_state-progress_on  = xsdbool( ls_raw-progress_indicator_on IS NOT INITIAL ).
-    es_state-filter_on    = xsdbool( ls_raw-filter_on IS NOT INITIAL ).
-    es_state-incl_missing = xsdbool( ls_raw-include_missing_table_name_on IS NOT INITIAL ).
+    es_state-sql_on  = COND #( WHEN ls_raw-trace_types-sql_on  IS NOT INITIAL THEN abap_true ).
+    es_state-buf_on  = COND #( WHEN ls_raw-trace_types-buf_on  IS NOT INITIAL THEN abap_true ).
+    es_state-enq_on  = COND #( WHEN ls_raw-trace_types-enq_on  IS NOT INITIAL THEN abap_true ).
+    es_state-rfc_on  = COND #( WHEN ls_raw-trace_types-rfc_on  IS NOT INITIAL THEN abap_true ).
+    es_state-http_on = COND #( WHEN ls_raw-trace_types-http_on IS NOT INITIAL THEN abap_true ).
+    es_state-amc_on  = COND #( WHEN ls_raw-trace_types-amc_on  IS NOT INITIAL THEN abap_true ).
+    es_state-apc_on  = COND #( WHEN ls_raw-trace_types-apc_on  IS NOT INITIAL THEN abap_true ).
+    es_state-auth_on = COND #( WHEN ls_raw-trace_types-auth_on IS NOT INITIAL THEN abap_true ).
+    es_state-stack_on     = COND #( WHEN ls_raw-stack_trace_on IS NOT INITIAL THEN abap_true ).
+    es_state-progress_on  = COND #( WHEN ls_raw-progress_indicator_on IS NOT INITIAL THEN abap_true ).
+    es_state-filter_on    = COND #( WHEN ls_raw-filter_on IS NOT INITIAL THEN abap_true ).
+    es_state-incl_missing = COND #( WHEN ls_raw-include_missing_table_name_on IS NOT INITIAL
+                                    THEN abap_true ).
 
     es_state-trace_user   = ls_raw-trace_user.
     es_state-tcode        = ls_raw-transaction_code.
@@ -2024,27 +2152,13 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
     " which trace types are recording right now?
     DATA lt_active TYPE string_table.
 
-    IF es_state-sql_on = abap_true.
-      APPEND `SQL Trace` TO lt_active.
-    ENDIF.
-    IF es_state-buf_on = abap_true.
-      APPEND `Buffer Trace` TO lt_active.
-    ENDIF.
-    IF es_state-enq_on = abap_true.
-      APPEND `Enqueue Trace` TO lt_active.
-    ENDIF.
-    IF es_state-rfc_on = abap_true.
-      APPEND `RFC Trace` TO lt_active.
-    ENDIF.
-    IF es_state-http_on = abap_true.
-      APPEND `HTTP Trace` TO lt_active.
-    ENDIF.
-    IF es_state-amc_on = abap_true.
-      APPEND `AMC Trace` TO lt_active.
-    ENDIF.
-    IF es_state-apc_on = abap_true.
-      APPEND `APC trace` TO lt_active.
-    ENDIF.
+    IF es_state-sql_on  = abap_true. APPEND `SQL Trace`     TO lt_active. ENDIF.
+    IF es_state-buf_on  = abap_true. APPEND `Buffer Trace`  TO lt_active. ENDIF.
+    IF es_state-enq_on  = abap_true. APPEND `Enqueue Trace` TO lt_active. ENDIF.
+    IF es_state-rfc_on  = abap_true. APPEND `RFC Trace`     TO lt_active. ENDIF.
+    IF es_state-http_on = abap_true. APPEND `HTTP Trace`    TO lt_active. ENDIF.
+    IF es_state-amc_on  = abap_true. APPEND `AMC Trace`     TO lt_active. ENDIF.
+    IF es_state-apc_on  = abap_true. APPEND `APC trace`     TO lt_active. ENDIF.
 
     IF lt_active IS INITIAL.
       es_state-any_on     = abap_false.
@@ -2065,11 +2179,11 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
   ENDMETHOD.
 
-* =====================================================================
-*  SAP Easy Access - area menu
-* =====================================================================
   METHOD read_hierarchy.
 
+    " SAP Easy Access - area menu.
+    " A banner comment between ENDMETHOD and METHOD cannot be stored by
+    " ADT and gets dropped on the next edit there, so it lives in here.
     " already read in this roll area?
     READ TABLE mt_hier_buffer INTO result WITH KEY struct_id = iv_struct_id.
     IF sy-subrc = 0.
@@ -2198,7 +2312,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    SELECT SINGLE @abap_true FROM tstc WHERE tcode = @lv_tcode INTO @result.
+    SELECT SINGLE @abap_true FROM tstc INTO @result WHERE tcode = @lv_tcode.
 
   ENDMETHOD.
 
@@ -2209,9 +2323,284 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    SELECT SINGLE ttext FROM tstct
-      WHERE sprsl = 'E' AND tcode = @lv_tcode
-      INTO @result ##SUBRC_OK.
+    SELECT SINGLE ttext FROM tstct INTO @result
+      WHERE sprsl = 'E' AND tcode = @lv_tcode.
+
+  ENDMETHOD.
+
+  METHOD seuk_text.
+
+    " SE93 - Maintain Transaction
+    IF mt_seuk_text IS INITIAL.
+      READ TEXTPOOL 'SAPLSEUK' INTO mt_seuk_text LANGUAGE sy-langu.
+      IF mt_seuk_text IS INITIAL.
+        " the text pool is not translated into the logon language
+        READ TEXTPOOL 'SAPLSEUK' INTO mt_seuk_text LANGUAGE 'E'.
+      ENDIF.
+    ENDIF.
+
+    DATA lv_key TYPE textpool-key.
+    lv_key = iv_key.
+    result = VALUE #( mt_seuk_text[ id = 'I' key = lv_key ]-entry OPTIONAL ).
+
+  ENDMETHOD.
+
+
+  METHOD tcode_type_text.
+
+    " LSEUKF01, FORM select_tstc_tables. The order of the checks is the one
+    " of the original and it matters: a report transaction with a variant
+    " carries the report bit as well, and an object transaction built on the
+    " OO framework is stored as a parameter transaction.
+    IF iv_cinfo O c_cinfo_rep.
+      result = seuk_text( `002` ).            " Report Transaction
+
+    ELSEIF iv_cinfo O c_cinfo_obj.
+      result = seuk_text( `028` ).            " Object Transaction
+
+    ELSEIF iv_cinfo O c_cinfo_par.
+      IF iv_param IS NOT INITIAL AND iv_param(1) = '@'.
+        result = seuk_text( `019` ).          " Variant Transaction
+      ELSEIF iv_param CS c_oo_tcode.
+        result = seuk_text( `028` ).          " Object Transaction, framework
+      ELSE.
+        result = seuk_text( `003` ).          " Parameter Transaction
+      ENDIF.
+
+    ELSEIF iv_cinfo O c_cinfo_men.
+      " area menu - the original shows no transaction type for it
+      CLEAR result.
+
+    ELSE.
+      result = seuk_text( `001` ).            " Dialog Transaction
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD oo_component.
+
+    " The value of \TAG= runs up to the next backslash or to the end.
+    DATA(lv_pos) = find( val = iv_param sub = iv_tag ).
+    IF lv_pos < 0.
+      RETURN.
+    ENDIF.
+
+    result = substring( val = iv_param off = lv_pos + strlen( iv_tag ) ).
+
+    DATA(lv_end) = find( val = result sub = '\' ).
+    IF lv_end >= 0.
+      result = substring( val = result len = lv_end ).
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD split_tcode_parameters.
+
+    " LSEUKF01, FORM split_parameters. The first character of TSTCP-PARAM
+    " decides how the rest of the string is read.
+    DATA(lv_rest) = iv_param.
+    IF lv_rest IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    CASE lv_rest(1).
+
+      WHEN '\'.
+        " object transaction without the OO framework
+        DATA(lv_prog) = oo_component( iv_param = lv_rest iv_tag = '\PROGRAM=' ).
+        IF lv_prog IS NOT INITIAL.
+          cs_detail-pgmna = lv_prog.
+        ENDIF.
+        cs_detail-classname = oo_component( iv_param = lv_rest iv_tag = '\CLASS=' ).
+        cs_detail-method    = oo_component( iv_param = lv_rest iv_tag = '\METHOD=' ).
+        " a program in the parameter string means: class local to it
+        cs_detail-s_local   = xsdbool( cs_detail-pgmna IS NOT INITIAL ).
+        RETURN.
+
+      WHEN '@'.
+        " transaction variant, @@ marks a cross-client one
+        DATA(lv_off) = 1.
+        IF strlen( lv_rest ) >= 2 AND lv_rest(2) = '@@'.
+          cs_detail-s_ind_vari = abap_true.
+          lv_off = 2.
+        ENDIF.
+        DATA(lv_vari) = substring( val = lv_rest off = lv_off ).
+        SPLIT lv_vari AT ` ` INTO cs_detail-call_tcode cs_detail-variant.
+        RETURN.
+
+      WHEN '/'.
+        " parameter transaction that starts another transaction. The second
+        " character is a flag, * of it skips the initial screen, and the
+        " transaction code always starts at offset 2.
+        cs_detail-start_tcode = abap_true.
+        IF strlen( lv_rest ) >= 2 AND substring( val = lv_rest off = 1 len = 1 ) = '*'.
+          cs_detail-skip_first = abap_true.
+        ENDIF.
+        IF strlen( lv_rest ) <= 2.
+          RETURN.
+        ENDIF.
+        DATA(lv_call) = substring( val = lv_rest off = 2 ).
+        SPLIT lv_call AT ` ` INTO cs_detail-call_tcode lv_rest.
+
+      WHEN OTHERS.
+        " parameter transaction that starts a program and screen
+    ENDCASE.
+
+    " what is left is the list of default values, field=value;field=value
+    SPLIT lv_rest AT ';' INTO TABLE DATA(lt_pair).
+    LOOP AT lt_pair INTO DATA(lv_pair).
+      IF lv_pair NS '='.
+        CONTINUE.
+      ENDIF.
+      SPLIT lv_pair AT '=' INTO DATA(lv_field) DATA(lv_value).
+      lv_field = condense( lv_field ).
+      IF lv_field IS INITIAL.
+        CONTINUE.
+      ENDIF.
+      APPEND VALUE #( field = lv_field
+                      value = condense( lv_value ) ) TO cs_detail-params.
+    ENDLOOP.
+
+    " object transaction on the OO framework - class, method and update mode
+    " travel as ordinary default values
+    IF cs_detail-call_tcode <> c_oo_tcode.
+      RETURN.
+    ENDIF.
+
+    cs_detail-s_trframe = abap_true.
+    LOOP AT cs_detail-params INTO DATA(ls_param).
+      CASE ls_param-field.
+        WHEN `CLASS`.  cs_detail-classname = ls_param-value.
+        WHEN `METHOD`. cs_detail-method    = ls_param-value.
+        WHEN `UPDATE_MODE`.
+          cs_detail-upd_mode = COND string(
+              WHEN ls_param-value = `S` THEN `S`
+              WHEN ls_param-value = `U` THEN `U`
+              ELSE `L` ).
+      ENDCASE.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD get_transactions.
+
+    DATA(lv_like) = to_like_pattern( iv_pattern ).
+
+    SELECT FROM tstc AS t
+      LEFT OUTER JOIN tstct AS x
+        ON  x~tcode = t~tcode
+        AND x~sprsl = @sy-langu
+      LEFT OUTER JOIN tstcp AS p
+        ON  p~tcode = t~tcode
+      FIELDS t~tcode, t~pgmna, t~dypno, t~cinfo, x~ttext, p~param
+      WHERE t~tcode LIKE @lv_like
+      ORDER BY t~tcode
+      INTO TABLE @DATA(lt_raw)
+      UP TO @iv_max ROWS.
+
+    LOOP AT lt_raw ASSIGNING FIELD-SYMBOL(<r>).
+      APPEND VALUE #(
+          tcode   = <r>-tcode
+          ttext   = <r>-ttext
+          pgmna   = <r>-pgmna
+          dypno   = COND string( WHEN <r>-dypno IS INITIAL
+                                 THEN `` ELSE |{ <r>-dypno }| )
+          tc_type = tcode_type_text( iv_cinfo = <r>-cinfo
+                                     iv_param = CONV string( <r>-param ) ) )
+          TO result.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+  METHOD get_transaction_detail.
+
+    DATA(lv_tcode) = CONV tcode( to_upper( condense( iv_tcode ) ) ).
+    IF lv_tcode IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    SELECT SINGLE FROM tstc
+      FIELDS tcode, pgmna, dypno, cinfo, arbgb
+      WHERE tcode = @lv_tcode
+      INTO @DATA(ls_tstc).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    result-found = abap_true.
+    result-tcode = ls_tstc-tcode.
+    result-pgmna = ls_tstc-pgmna.
+
+    SELECT SINGLE ttext FROM tstct INTO @result-ttext
+      WHERE sprsl = @sy-langu AND tcode = @lv_tcode.
+
+    SELECT SINGLE param FROM tstcp INTO @DATA(lv_param)
+      WHERE tcode = @lv_tcode.
+
+    DATA(lv_par_str) = CONV string( lv_param ).
+    result-tc_type = tcode_type_text( iv_cinfo = ls_tstc-cinfo
+                                      iv_param = lv_par_str ).
+
+    " Start options - LSEUKF01, FORM select_tstc_tables. ARBGB '&&' switches
+    " the standard transaction variant off.
+    IF ls_tstc-cinfo O c_cinfo_enq.
+      result-locked_sm01 = abap_true.
+    ENDIF.
+    result-trans_var = xsdbool( ls_tstc-arbgb <> '&&' ).
+
+    " A report transaction without a screen number runs on 1000.
+    IF ls_tstc-dypno IS NOT INITIAL.
+      result-dypno = |{ ls_tstc-dypno }|.
+    ELSEIF ls_tstc-cinfo O c_cinfo_rep.
+      result-dypno = `1000`.
+    ENDIF.
+
+    IF ls_tstc-cinfo O c_cinfo_rep.
+      " the variant of a report transaction is the whole parameter string
+      IF ls_tstc-cinfo O c_cinfo_rpv.
+        result-repo_vari = lv_par_str.
+      ENDIF.
+    ELSEIF ls_tstc-cinfo O c_cinfo_obj OR ls_tstc-cinfo O c_cinfo_par.
+      split_tcode_parameters( EXPORTING iv_param  = lv_par_str
+                              CHANGING  cs_detail = result ).
+    ENDIF.
+
+    " authorization object with its check values
+    IF ls_tstc-cinfo O c_cinfo_chk.
+      SELECT objct, field, value FROM tstca
+        WHERE tcode = @lv_tcode
+        ORDER BY field
+        INTO TABLE @DATA(lt_auth).
+      LOOP AT lt_auth ASSIGNING FIELD-SYMBOL(<a>).
+        result-auth_objct = <a>-objct.
+        APPEND VALUE #( objct = <a>-objct
+                        field = <a>-field
+                        value = <a>-value ) TO result-auth.
+      ENDLOOP.
+    ENDIF.
+
+    " classification - LSEUKF01, FORM select_tstcc
+    SELECT SINGLE FROM tstcc
+      FIELDS s_webgui, s_win32, s_platin
+      WHERE tcode = @lv_tcode
+      INTO @DATA(ls_tstcc).
+
+    result-s_win32  = xsdbool( ls_tstcc-s_win32  IS NOT INITIAL ).
+    result-s_platin = xsdbool( ls_tstcc-s_platin IS NOT INITIAL ).
+    CASE ls_tstcc-s_webgui.
+      WHEN '1'.
+        result-s_webgui   = abap_true.
+        result-profi_tran = abap_true.
+      WHEN '2'.
+        result-s_webgui = abap_true.
+        result-iac_ewt  = abap_true.
+      WHEN OTHERS.
+        result-profi_tran = abap_true.
+    ENDCASE.
 
   ENDMETHOD.
 

@@ -1,7 +1,37 @@
 CLASS zcl_se11_a2u5 DEFINITION PUBLIC.
 
+* ---------------------------------------------------------------------
+*  SE11 - ABAP Dictionary
+*
+*  Screen titles, menu bar, function and field texts are the original
+*  ones of the Dictionary (RSMPTEXTS / D021T):
+*
+*    T  SAPLSD_ENTRY DD_ENTRY  ABAP Dictionary: Initial Screen
+*       SAPLSEDS TS1  Dictionary: Display Table &
+*       SAPLSEDS ES1  Dictionary: Display Data Element &
+*    M  Dictionary Object  Edit  Goto  Utilities  Environment
+*    F  WB_DISPLAY Display   WB_EDIT Change   WB_CREATE Create
+*       WB_DELETE Delete     WB_CHECK Check   WB_ACTIVATE Activate
+*       WB_WHERE_USED_LIST Where-Used List
+*       DD_FURTHER_OBJECTS Other Dictionary Objects...
+*       DD_DBASE_UTILITY Database Utility
+*       DD_ACT_PROTOCOL Activation Log     WB_PRINT Print...
+*    D  1000  Database table / View / Domain / Search help /
+*             Lock object / Type Group, buttons Display Change Create
+*
+*  Two screens: the initial screen with the object name and the hit
+*  list, and the field list of a table or the properties of a data
+*  element. Everything that would change an object is present but
+*  disabled.
+* ---------------------------------------------------------------------
+
   PUBLIC SECTION.
     INTERFACES z2ui5_if_app.
+
+    CONSTANTS c_na TYPE string VALUE `not available in this environment`.
+
+    "! Content of the command field of the system function bar
+    DATA mv_command TYPE string.
 
     DATA mv_objname TYPE string.
     DATA mv_kind    TYPE string.
@@ -19,9 +49,17 @@ CLASS zcl_se11_a2u5 DEFINITION PUBLIC.
     METHODS view_display.
     METHODS view_detail.
     METHODS on_event.
+    "! Renders the screen the app is currently standing on. Needed twice:
+    "! after an event that only changed the mode, and - most importantly -
+    "! when the transaction is navigated back to from another one, where the
+    "! framework supplies no event at all.
+    METHODS render.
     METHODS do_search.
     METHODS do_open
       IMPORTING iv_name TYPE string.
+    "! The menu bar is the same on both screens of the transaction.
+    METHODS menu_entries
+      RETURNING VALUE(result) TYPE string_table.
 
   PRIVATE SECTION.
 ENDCLASS.
@@ -37,6 +75,14 @@ CLASS zcl_se11_a2u5 IMPLEMENTATION.
       mv_kind = `TABL`.
       mv_mode = `LIST`.
       view_display( ).
+    ELSEIF client->check_on_navigated( ).
+      " Another transaction was left with F3 / the Back arrow and handed
+      " control back to this one. The framework supplies an EMPTY event here
+      " and check_on_init is already false, so without this branch nothing
+      " would be rendered: the response would carry no view and the browser
+      " would keep showing the screen of the transaction that was just left.
+      " That is what made Back look dead and F3 only work on the second try.
+      render( ).
     ELSEIF client->check_on_event( ).
       on_event( ).
     ENDIF.
@@ -49,6 +95,20 @@ CLASS zcl_se11_a2u5 IMPLEMENTATION.
     DATA(lv_event) = client->get( )-event.
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
+
+    " the command field and Back belong to the frame - they work the
+    " same way on every screen of every transaction
+    DATA lv_frame TYPE string.
+    zcl_zlk05_gui_frame=>handle_frame_event(
+      EXPORTING io_client   = client
+                iv_event    = lv_event
+                iv_command  = mv_command
+      IMPORTING ev_message  = mv_message
+                ev_msg_type = mv_msgtype
+      RECEIVING result      = lv_frame ).
+    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+      RETURN.
+    ENDIF.
 
     CASE lv_event.
 
@@ -66,11 +126,25 @@ CLASS zcl_se11_a2u5 IMPLEMENTATION.
       WHEN OTHERS.
     ENDCASE.
 
+    render( ).
+
+  ENDMETHOD.
+
+  METHOD render.
+
     IF mv_mode = `DETAIL`.
       view_detail( ).
     ELSE.
       view_display( ).
     ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD menu_entries.
+
+    result = VALUE #( ( `Dictionary Object` ) ( `Edit` ) ( `Goto` )
+                      ( `Utilities` ) ( `Environment` ) ( `System` ) ( `Help` ) ).
 
   ENDMETHOD.
 
@@ -123,90 +197,142 @@ CLASS zcl_se11_a2u5 IMPLEMENTATION.
   METHOD view_display.
 
     DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
-    DATA(page) = view->open( n = `View` ns = `mvc`
-        )->a( n = `xmlns`     v = `sap.m`
-        )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
-        )->open( `Shell`
-        )->open( `Page`
-            )->a( n = `title`          v = `ABAP Dictionary: Initial Screen`
-            )->a( n = `showNavButton`  v = z2ui5_cl_ai_xml=>as_bool( client->check_app_prev_stack( ) )
-            )->a( n = `navButtonPress` v = client->_event_nav_app_leave( ) ).
+    " band 6 - status bar
+    zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
+                                          iv_message  = mv_message
+                                          iv_msg_type = mv_msgtype ).
 
-    " ===== Selection screen =====
-    DATA(sel) = page->open( `subHeader` )->open( `OverflowToolbar` ).
-    sel->leaf( `Label`
-        )->a( n = `text` v = `Object Name`
-        )->leaf( `Input`
-            )->a( n = `id`          v = `idObjName`
-            )->a( n = `value`       v = client->_bind( mv_objname )
-            )->a( n = `placeholder` v = `e.g. MARA or MAR*`
-            )->a( n = `width`       v = `18rem`
-            )->a( n = `submit`      v = client->_event( `EXECUTE` ) ).
+    " band 1 - menu bar
+    zcl_zlk05_gui_frame=>build_menu_bar( io_parent  = page
+                                        it_entries = menu_entries( ) ).
+
+    " band 2 - system function bar. Entry screen of the transaction, so
+    " Back leaves it.
+    zcl_zlk05_gui_frame=>build_system_bar(
+        io_parent     = page
+        iv_cmd_value  = client->_bind( mv_command )
+        iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
+        iv_back_event = client->_event_nav_app_leave( ) ).
+
+    " band 3 - title bar
+    zcl_zlk05_gui_frame=>build_title_bar(
+        io_parent = page
+        iv_title  = `ABAP Dictionary: Initial Screen` ).
+
+    " band 4 - application function bar
+    zcl_zlk05_gui_frame=>build_app_bar(
+        io_parent  = page
+        it_buttons = VALUE #(
+            ( text = `Display` icon = `sap-icon://display`
+              tooltip = `Display the objects of the selection (F8)`
+              press = client->_event( `EXECUTE` ) )
+            ( sep = abap_true )
+            ( icon = `sap-icon://edit` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Change - { c_na }| )
+            ( icon = `sap-icon://add` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Create - { c_na }| )
+            ( icon = `sap-icon://delete` color = zcl_zlk05_gui_frame=>c_red
+              tooltip = |Delete - { c_na }| )
+            ( sep = abap_true )
+            ( icon = `sap-icon://check-availability` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Check - { c_na }| )
+            ( icon = `sap-icon://accept` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Activate - { c_na }| )
+            ( icon = `sap-icon://chain-link` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Where-Used List - { c_na }| )
+            ( sep = abap_true )
+            ( icon = `sap-icon://database` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Database Utility - { c_na }| )
+            ( icon = `sap-icon://activity-items` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Activation Log - { c_na }| )
+            ( icon = `sap-icon://open-folder` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Other Dictionary Objects... - { c_na }| ) ) ).
+
+    " band 5 - work area. The initial screen of SE11 is the list of object
+    " kinds - Database table, View, Data type, Type Group, Domain,
+    " Search help, Lock object - with one name field each. This app reads
+    " tables/views and data elements, so the kind is a drop down.
+    DATA(work) = page->open( `ScrollContainer`
+        )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
+        )->a( n = `vertical`   v = `true`
+        )->a( n = `horizontal` v = `true` ).
+
+    DATA(sel) = work->open( `HBox`
+        )->a( n = `alignItems` v = `Center`
+        )->a( n = `class`      v = `sapUiSmallMargin` ).
+
+    zcl_zlk05_gui_frame=>add_label( io_parent = sel
+                                   iv_text   = `Object Name` ).
+
+    sel->leaf( `Input`
+        )->a( n = `id`          v = `idObjName`
+        )->a( n = `value`       v = client->_bind( mv_objname )
+        )->a( n = `placeholder` v = `e.g. MARA or MAR*`
+        )->a( n = `width`       v = `18rem`
+        )->a( n = `submit`      v = client->_event( `EXECUTE` ) ).
 
     DATA(seg) = sel->open( `Select`
         )->a( n = `selectedKey` v = client->_bind( mv_kind )
-        )->a( n = `width`       v = `13rem` ).
+        )->a( n = `width`       v = `15rem` ).
     DATA(segi) = seg->open( `items` ).
     segi->leaf( n = `Item` ns = `core`
-        )->a( n = `xmlns:core` v = `sap.ui.core`
         )->a( n = `key`        v = `TABL`
         )->a( n = `text`       v = `Database Table / View`
         )->leaf( n = `Item` ns = `core`
             )->a( n = `key`  v = `DTEL`
             )->a( n = `text` v = `Data Element` ).
-    seg->shut( ).
-
-    sel->leaf( `Button`
-        )->a( n = `text`  v = `Display`
-        )->a( n = `icon`  v = `sap-icon://display`
-        )->a( n = `type`  v = `Emphasized`
-        )->a( n = `press` v = client->_event( `EXECUTE` ) ).
 
     client->follow_up_action(
         val   = client->cs_event-set_focus
         t_arg = VALUE #( ( `idObjName` ) ) ).
 
-    IF mv_message IS NOT INITIAL.
-      page->leaf( `MessageStrip`
-          )->a( n = `text`     v = mv_message
-          )->a( n = `type`     v = mv_msgtype
-          )->a( n = `showIcon` v = `true`
-          )->a( n = `class`    v = `sapUiTinyMargin` ).
-    ENDIF.
+    DATA(grid) = work->open( n = `Table` ns = `table`
+        )->a( n = `rows`                v = client->_bind( mt_objects )
+        )->a( n = `visibleRowCountMode` v = `Auto`
+        )->a( n = `selectionMode`       v = `Single`
+        )->a( n = `rowHeight`           v = `26`
+        )->a( n = `minAutoRowCount`     v = `10` ).
 
-    " ===== Result list =====
-    DATA(tab) = page->open( `Table`
-        )->a( n = `items`      v = client->_bind( mt_objects )
-        )->a( n = `sticky`     v = `ColumnHeaders`
-        )->a( n = `growing`    v = `true`
-        )->a( n = `class`      v = `sapUiSizeCompact` ).
+    DATA(cols) = grid->open( n = `columns` ns = `table` ).
 
-    DATA(cols) = tab->open( `columns` ).
-    cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Name` )->shut(
-        )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Type` )->shut(
-        )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Short Description` )->shut(
-        )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Last Changed By` )->shut(
-        )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Changed On` )->shut( ).
+    DATA(lt_col) = VALUE string_table(
+        ( `Name|NAME|20rem` )
+        ( `Type|TABCLASS|12rem` )
+        ( `Short Description|DESCR|40rem` )
+        ( `Last Changed By|AUTHOR|12rem` )
+        ( `Changed On|CHDATE|9rem` ) ).
 
-    cols->shut( )->open( `items`
-        )->open( `ColumnListItem`
-            )->a( n = `type`  v = `Navigation`
+    LOOP AT lt_col INTO DATA(lv_col).
+      SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
+      DATA(col) = cols->open( n = `Column` ns = `table`
+          )->a( n = `width` v = lv_wid ).
+      col->open( n = `label` ns = `table`
+          )->leaf( `Label` )->a( n = `text` v = lv_head )->shut( )->shut( ).
+
+      DATA(tmpl) = col->open( n = `template` ns = `table` ).
+      IF lv_fld = `NAME`.
+        " the object name drills down to the field list. The handler has to
+        " sit INSIDE the row template - only there does ${NAME} resolve to
+        " the row.
+        tmpl->leaf( `Link`
+            )->a( n = `text`  v = |\{{ lv_fld }\}|
             )->a( n = `press` v = client->_event( val   = `DISPLAY`
-                                                 t_arg = VALUE #( ( `${NAME}` ) ) )
-            )->open( `cells`
-                )->leaf( `Text` )->a( n = `text` v = `{NAME}`
-                )->leaf( `Text` )->a( n = `text` v = `{TABCLASS}`
-                )->leaf( `Text` )->a( n = `text` v = `{DESCR}`
-                )->leaf( `Text` )->a( n = `text` v = `{AUTHOR}`
-                )->leaf( `Text` )->a( n = `text` v = `{CHDATE}` ).
+                                                 t_arg = VALUE #( ( `${NAME}` ) ) ) ).
+      ELSE.
+        tmpl->leaf( `Text`
+            )->a( n = `text`     v = |\{{ lv_fld }\}|
+            )->a( n = `wrapping` v = `false` ).
+      ENDIF.
+      col->shut( ).
+    ENDLOOP.
 
-    " ===== Status bar =====
-    page->open( `footer` )->open( `OverflowToolbar`
-        )->leaf( `ToolbarSpacer`
-        )->leaf( `Label` )->a( n = `text` v = |System { sy-sysid } | &&
-                                              |Client { sy-mandt } | &&
-                                              |User { sy-uname }| ).
+    " function keys of the SAP GUI - F3 / Shift+F3 / F12 and F8
+    zcl_zlk05_gui_frame=>register_keys(
+        io_client    = client
+        iv_back_name = zcl_zlk05_gui_frame=>c_ev_back
+        iv_exec_name = `EXECUTE` ).
 
     client->view_display( view->stringify( ) ).
 
@@ -216,75 +342,133 @@ CLASS zcl_se11_a2u5 IMPLEMENTATION.
   METHOD view_detail.
 
     DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
+    " band 6 - status bar
+    zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
+                                          iv_message  = mv_message
+                                          iv_msg_type = mv_msgtype ).
+
+    " band 1 - menu bar
+    zcl_zlk05_gui_frame=>build_menu_bar( io_parent  = page
+                                        it_entries = menu_entries( ) ).
+
+    " band 2 - system function bar. Second screen of the transaction, so
+    " Back returns to the initial screen instead of leaving SE11.
+    zcl_zlk05_gui_frame=>build_system_bar(
+        io_parent     = page
+        iv_cmd_value  = client->_bind( mv_command )
+        iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
+        iv_back_event = client->_event( `BACK_TO_LIST` ) ).
+
+    " band 3 - title bar. The Dictionary has one title per object kind:
+    " TS1 Dictionary: Display Table & / ES1 ... Data Element &
     DATA(lv_title) = COND string(
         WHEN mv_kind = `DTEL`
         THEN |Dictionary: Display Data Element { mv_current }|
         ELSE |Dictionary: Display Table { mv_current }| ).
 
-    DATA(page) = view->open( n = `View` ns = `mvc`
-        )->a( n = `xmlns`     v = `sap.m`
-        )->a( n = `xmlns:mvc` v = `sap.ui.core.mvc`
-        )->open( `Shell`
-        )->open( `Page`
-            )->a( n = `title`          v = lv_title
-            )->a( n = `showNavButton`  v = `true`
-            )->a( n = `navButtonPress` v = client->_event( `BACK_TO_LIST` ) ).
+    zcl_zlk05_gui_frame=>build_title_bar(
+        io_parent = page
+        iv_title  = lv_title ).
+
+    " band 4 - application function bar
+    zcl_zlk05_gui_frame=>build_app_bar(
+        io_parent  = page
+        it_buttons = VALUE #(
+            ( text = `Back` icon = `sap-icon://nav-back`
+              tooltip = `Back to the initial screen (F3)`
+              press = client->_event( `BACK_TO_LIST` ) )
+            ( sep = abap_true )
+            ( icon = `sap-icon://edit` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Change - { c_na }| )
+            ( icon = `sap-icon://check-availability` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Check - { c_na }| )
+            ( icon = `sap-icon://accept` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Activate - { c_na }| )
+            ( sep = abap_true )
+            ( icon = `sap-icon://chain-link` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Where-Used List - { c_na }| )
+            ( icon = `sap-icon://database` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Database Utility - { c_na }| )
+            ( icon = `sap-icon://history` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Version Management - { c_na }| )
+            ( sep = abap_true )
+            ( icon = `sap-icon://form` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Object Directory Entry - { c_na }| )
+            ( icon = `sap-icon://print` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Print... - { c_na }| ) ) ).
+
+    " band 5 - work area
+    DATA(work) = page->open( `ScrollContainer`
+        )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
+        )->a( n = `vertical`   v = `true`
+        )->a( n = `horizontal` v = `true` ).
+
+    DATA(hdr) = work->open( `HBox`
+        )->a( n = `alignItems` v = `Center`
+        )->a( n = `class`      v = `sapUiSmallMargin` ).
+
+    zcl_zlk05_gui_frame=>add_label(
+        io_parent = hdr
+        iv_text   = COND string( WHEN mv_kind = `DTEL`
+                                 THEN `Data element` ELSE `Database table` ) ).
+
+    hdr->leaf( `Text` )->a( n = `text` v = mv_current ).
+
+    DATA lt_col TYPE string_table.
+    DATA lv_rows TYPE string.
 
     IF mv_kind = `DTEL`.
-
-      DATA(dtab) = page->open( `Table`
-          )->a( n = `items` v = client->_bind( mt_detail )
-          )->a( n = `class` v = `sapUiSizeCompact` ).
-      dtab->open( `columns`
-          )->open( `Column` )->a( n = `width` v = `18rem`
-              )->leaf( `Text` )->a( n = `text` v = `Property` )->shut(
-          )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Value` )->shut(
-          )->shut( )->open( `items`
-              )->open( `ColumnListItem` )->open( `cells`
-                  )->leaf( `Text` )->a( n = `text` v = `{LABEL}`
-                  )->leaf( `Text` )->a( n = `text` v = `{VALUE}` ).
-
+      " the property list of a data element
+      lt_col = VALUE #( ( `Property|LABEL|20rem` )
+                        ( `Value|VALUE|40rem` ) ).
+      lv_rows = client->_bind( mt_detail ).
     ELSE.
-
-      DATA(ftab) = page->open( `Table`
-          )->a( n = `items`   v = client->_bind( mt_fields )
-          )->a( n = `sticky`  v = `ColumnHeaders`
-          )->a( n = `growing` v = `true`
-          )->a( n = `class`   v = `sapUiSizeCompact` ).
-
-      DATA(fcols) = ftab->open( `columns` ).
-      fcols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Pos.` )->shut(
-          )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Field` )->shut(
-          )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Key` )->shut(
-          )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Data Element` )->shut(
-          )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Type` )->shut(
-          )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Length` )->shut(
-          )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Dec.` )->shut(
-          )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Short Description` )->shut( ).
-
-      fcols->shut( )->open( `items`
-          )->open( `ColumnListItem` )->open( `cells`
-              )->leaf( `Text` )->a( n = `text` v = `{POS}`
-              )->leaf( `Text` )->a( n = `text` v = `{FIELDNAME}`
-              )->leaf( `Text` )->a( n = `text` v = `{KEYFLAG}`
-              )->leaf( `Text` )->a( n = `text` v = `{ROLLNAME}`
-              )->leaf( `Text` )->a( n = `text` v = `{DATATYPE}`
-              )->leaf( `Text` )->a( n = `text` v = `{LENG}`
-              )->leaf( `Text` )->a( n = `text` v = `{DECIMALS}`
-              )->leaf( `Text` )->a( n = `text` v = `{DESCR}` ).
-
+      " the field list of a table, in the column order of the original
+      lt_col = VALUE #( ( `Pos.|POS|4rem` )
+                        ( `Field|FIELDNAME|18rem` )
+                        ( `Key|KEYFLAG|4rem` )
+                        ( `Data element|ROLLNAME|18rem` )
+                        ( `Type|DATATYPE|6rem` )
+                        ( `Length|LENG|6rem` )
+                        ( `Dec.|DECIMALS|5rem` )
+                        ( `Short Description|DESCR|36rem` ) ).
+      lv_rows = client->_bind( mt_fields ).
     ENDIF.
 
-    page->open( `footer` )->open( `OverflowToolbar`
-        )->leaf( `Button`
-            )->a( n = `text`  v = `Back`
-            )->a( n = `icon`  v = `sap-icon://nav-back`
-            )->a( n = `press` v = client->_event( `BACK_TO_LIST` )
-        )->leaf( `ToolbarSpacer`
-        )->leaf( `Label` )->a( n = `text` v = |System { sy-sysid } | &&
-                                              |Client { sy-mandt } | &&
-                                              |User { sy-uname }| ).
+    DATA(grid) = work->open( n = `Table` ns = `table`
+        )->a( n = `rows`                v = lv_rows
+        )->a( n = `visibleRowCountMode` v = `Auto`
+        )->a( n = `selectionMode`       v = `Single`
+        )->a( n = `rowHeight`           v = `26`
+        )->a( n = `minAutoRowCount`     v = `10` ).
+
+    DATA(cols) = grid->open( n = `columns` ns = `table` ).
+
+    LOOP AT lt_col INTO DATA(lv_col).
+      SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
+      DATA(col) = cols->open( n = `Column` ns = `table`
+          )->a( n = `width` v = lv_wid ).
+      col->open( n = `label` ns = `table`
+          )->leaf( `Label` )->a( n = `text` v = lv_head )->shut( )->shut( ).
+      col->open( n = `template` ns = `table`
+          )->leaf( `Text`
+              )->a( n = `text`     v = |\{{ lv_fld }\}|
+              )->a( n = `wrapping` v = `false` ).
+      col->shut( ).
+    ENDLOOP.
+
+    DATA(lv_count) = COND i( WHEN mv_kind = `DTEL`
+                             THEN lines( mt_detail ) ELSE lines( mt_fields ) ).
+    work->leaf( `Text`
+        )->a( n = `text`  v = |{ lv_count } row(s) - display only|
+        )->a( n = `class` v = `sapUiTinyMargin` ).
+
+    " F3 goes back one screen here, not out of the transaction
+    zcl_zlk05_gui_frame=>register_keys(
+        io_client    = client
+        iv_back_name = `BACK_TO_LIST` ).
 
     client->view_display( view->stringify( ) ).
 

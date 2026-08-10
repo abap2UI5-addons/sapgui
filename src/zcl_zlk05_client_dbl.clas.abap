@@ -14,6 +14,11 @@ CLASS zcl_zlk05_client_dbl DEFINITION
     DATA mv_model_updates TYPE i.
     DATA mt_follow_up     TYPE string_table.
 
+    " Every follow-up action with its arguments, as `ACTION:arg1,arg2`.
+    " The key registrations of the frame travel this way, so a test can
+    " check that F3 really reached the frontend.
+    DATA mt_follow_up_arg TYPE string_table.
+
     " Every backend event the app registered while building the view, in the
     " form `EVENT_NAME|arg1|arg2|...`. The view XML itself only carries the
     " opaque handler expression, so this is the only way a test can check
@@ -24,9 +29,21 @@ CLASS zcl_zlk05_client_dbl DEFINITION
     DATA mv_prev_stack    TYPE abap_bool VALUE abap_true.
     DATA mv_on_init       TYPE abap_bool.
     DATA mv_on_event      TYPE abap_bool.
+    "! Set by the framework when the app is reached through nav_app_call or
+    "! nav_app_leave. On a leave the event is EMPTY and check_on_init is
+    "! already false, so an app that does not evaluate this flag renders
+    "! nothing at all and the screen of the transaction just left stays on
+    "! the browser. Steerable here so a test can cover that path.
+    DATA mv_on_navigated  TYPE abap_bool.
     DATA ms_get           TYPE z2ui5_if_types=>ty_s_get.
 
     METHODS reset.
+
+    " True when that key combination was registered for that event.
+    METHODS has_shortcut
+      IMPORTING iv_keys       TYPE string
+                iv_event      TYPE string
+      RETURNING VALUE(result) TYPE abap_bool.
 
     " True when the app registered an event with exactly this name.
     METHODS has_event
@@ -78,12 +95,17 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
 
   METHOD reset.
     CLEAR: mv_view, mv_popup, mv_popover, mv_nav_call, mv_nav_leave,
-           mv_model_updates, mt_follow_up, mt_events.
+           mv_model_updates, mt_follow_up, mt_follow_up_arg, mt_events.
+  ENDMETHOD.
+
+  METHOD has_shortcut.
+    result = xsdbool( line_exists( mt_follow_up_arg[
+        table_line = |KEYBOARD_SHORTCUT:{ iv_keys },{ iv_event }| ] ) ).
   ENDMETHOD.
 
   METHOD has_event.
     LOOP AT mt_events INTO DATA(lv_entry).
-      SPLIT lv_entry AT `|` INTO DATA(lv_name) DATA(lv_args) ##NEEDED.
+      SPLIT lv_entry AT `|` INTO DATA(lv_name) DATA(lv_args).
       IF lv_name = iv_name.
         result = abap_true.
         RETURN.
@@ -93,7 +115,7 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
 
   METHOD has_event_arg.
     LOOP AT mt_events INTO DATA(lv_entry).
-      SPLIT lv_entry AT `|` INTO DATA(lv_name) DATA(lv_args) ##NEEDED.
+      SPLIT lv_entry AT `|` INTO DATA(lv_name) DATA(lv_args).
       IF lv_args IS NOT INITIAL AND find( val = lv_args sub = iv_sub ) >= 0.
         result = abap_true.
         RETURN.
@@ -130,7 +152,7 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
     DATA(lv_xml) = COND string( WHEN iv_xml IS SUPPLIED THEN iv_xml ELSE mv_view ).
     parse( lv_xml ).
 
-    DATA(lo_nodes) = mo_doc->get_elements_by_tag_name( iv_name ).
+    DATA(lo_nodes) = mo_doc->get_elements_by_tag_name( name = iv_name ).
     DATA(lo_iter)  = lo_nodes->create_iterator( ).
 
     DO.
@@ -180,7 +202,7 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
     DATA(lv_xml) = COND string( WHEN iv_xml IS SUPPLIED THEN iv_xml ELSE mv_view ).
     parse( lv_xml ).
 
-    DATA(lo_node) = mo_doc->find_from_name( iv_name ).
+    DATA(lo_node) = mo_doc->find_from_name( name = iv_name ).
     IF lo_node IS NOT BOUND.
       result = -1.
       RETURN.
@@ -215,6 +237,7 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
 
   METHOD z2ui5_if_client~follow_up_action.
     APPEND val TO mt_follow_up.
+    APPEND |{ val }:{ concat_lines_of( table = t_arg sep = `,` ) }| TO mt_follow_up_arg.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~nav_app_call.
@@ -275,6 +298,7 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
   " ---------- not relevant for view tests ----------
 
   METHOD z2ui5_if_client~check_on_navigated.
+    result = mv_on_navigated.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~get_app.

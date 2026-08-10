@@ -22,6 +22,10 @@ CLASS ltcl_scc4_a2u5 DEFINITION FINAL FOR TESTING
     METHODS view_texts_not_codes  FOR TESTING.
     METHODS view_current_client   FOR TESTING.
     METHODS view_back_nav_wired   FOR TESTING.
+    METHODS view_has_gui_frame    FOR TESTING.
+    METHODS view_keys_registered  FOR TESTING.
+    METHODS view_command_field    FOR TESTING.
+    METHODS view_unavailable_shown FOR TESTING.
     METHODS view_empty_is_sane    FOR TESTING.
     METHODS message_reaches_view  FOR TESTING.
 ENDCLASS.
@@ -147,17 +151,15 @@ CLASS ltcl_scc4_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD view_current_client.
-    " the footer tells the user which client he is looking from - important
+    " the status bar tells the user which client he is looking from - important
     " because SCC4 lists all clients of the system, not just the current one
     given_clientlist( ).
     mo_cut->view_display( ).
 
     cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view
-                             sub = |Logged on to client { sy-mandt }| ) >= 0
-                   AND find( val = mo_dbl->mv_view
-                             sub = |in system { sy-sysid }| ) >= 0 )
-        msg = 'the footer does not state the current client and system' ).
+                             sub = |System { sy-sysid } - Client { sy-mandt }| ) >= 0 )
+        msg = 'the status bar does not state the current client and system' ).
   ENDMETHOD.
 
   METHOD view_back_nav_wired.
@@ -166,9 +168,64 @@ CLASS ltcl_scc4_a2u5 IMPLEMENTATION.
     mo_cut->view_display( ).
 
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( find( val = mo_dbl->mv_view sub = `MOCK_NAV_LEAVE` ) >= 0
-                   AND find( val = mo_dbl->mv_view sub = `showNavButton` ) >= 0 )
+        act = xsdbool( find( val = mo_dbl->mv_view sub = `MOCK_NAV_LEAVE` ) >= 0 )
         msg = 'F3 back navigation to the calling app is not wired' ).
+  ENDMETHOD.
+
+  METHOD view_has_gui_frame.
+    " menu bar and application function bar carry the original texts of the
+    " generated view maintenance SAPLSVIM
+    given_clientlist( ).
+    mo_cut->view_display( ).
+
+    LOOP AT VALUE string_table( ( `Table View` ) ( `Edit` ) ( `Goto` ) ( `Selection` )
+                                ( `Utilities` ) ( `System` ) ( `Help` )
+                                ( `Details` ) ( `New Entries` ) ( `Copy As...` )
+                                ( `Display -&gt; Change` ) ( `Position Cursor...` )
+                                ( `Configuration Help` ) )
+         INTO DATA(lv_text).
+      cl_abap_unit_assert=>assert_true(
+          act = xsdbool( find( val = mo_dbl->mv_view sub = lv_text ) >= 0 )
+          msg = |the SAP GUI frame does not show "{ lv_text }"| ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD view_keys_registered.
+    " the shortcut registry lives in the frontend and survives a transaction
+    " switch, so every screen has to state its own binding for every key
+    given_clientlist( ).
+    mo_cut->view_display( ).
+
+    LOOP AT VALUE string_table( ( `F3` ) ( `Shift+F3` ) ( `F12` ) )
+         INTO DATA(lv_key).
+      cl_abap_unit_assert=>assert_true(
+          act = mo_dbl->has_shortcut( iv_keys  = lv_key
+                                      iv_event = zcl_zlk05_gui_frame=>c_ev_back )
+          msg = |{ lv_key } is not registered for Back| ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD view_command_field.
+    " the command field has to be active on every screen, exactly like in the
+    " SAP GUI - it is the only way to reach another transaction
+    given_clientlist( ).
+    mo_cut->view_display( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event( zcl_zlk05_gui_frame=>c_ev_command )
+        msg = 'the command field is not wired to the frame command event' ).
+  ENDMETHOD.
+
+  METHOD view_unavailable_shown.
+    " everything that would change a client stays visible but has to explain
+    " itself - a dead button without a reason looks like a defect
+    given_clientlist( ).
+    mo_cut->view_display( ).
+
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( find( val = mo_dbl->mv_view
+                             sub = `not available in this environment` ) >= 0 )
+        msg = 'the disabled SCC4 functions do not explain themselves' ).
   ENDMETHOD.
 
   METHOD view_empty_is_sane.
@@ -184,10 +241,9 @@ CLASS ltcl_scc4_a2u5 IMPLEMENTATION.
     mo_cut->view_display( ).
 
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( find( val = mo_dbl->mv_view sub = `MessageStrip` ) >= 0
-                   AND find( val = mo_dbl->mv_view
+        act = xsdbool( find( val = mo_dbl->mv_view
                              sub = `Client table could not be read.` ) >= 0 )
-        msg = 'the message text never reaches the screen' ).
+        msg = 'the message text never reaches the status bar' ).
   ENDMETHOD.
 
 ENDCLASS.

@@ -26,10 +26,35 @@ CLASS ltcl_launcher DEFINITION FINAL FOR TESTING
     " --- view ---
     METHODS view_wellformed      FOR TESTING.
     METHODS view_shows_status    FOR TESTING.
+
+    " --- returning from a transaction (F3 there) ---
+    METHODS navigated_renders_entry FOR TESTING.
 ENDCLASS.
 
 
 CLASS ltcl_launcher IMPLEMENTATION.
+
+  METHOD navigated_renders_entry.
+
+    " F3 in a transaction hands control back to the entry screen. The
+    " framework supplies NO event and check_on_init is already false, so only
+    " check_on_navigated is set. Without that branch nothing is rendered, the
+    " response carries no view and the browser keeps showing the transaction
+    " that was just left - the Back arrow looks dead.
+    mo_dbl->mv_on_init      = abap_false.
+    mo_dbl->mv_on_event     = abap_false.
+    mo_dbl->mv_on_navigated = abap_true.
+
+    mo_cut->z2ui5_if_app~main( mo_dbl ).
+
+    cl_abap_unit_assert=>assert_not_initial(
+        act = mo_dbl->mv_view
+        msg = `navigating back must render the entry screen again` ).
+    cl_abap_unit_assert=>assert_initial(
+        act = mo_dbl->get_xml_errors( )
+        msg = `the entry screen after navigation is not well formed` ).
+
+  ENDMETHOD.
 
   METHOD setup.
     mo_cut = NEW #( ).
@@ -108,15 +133,54 @@ CLASS ltcl_launcher IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD listed_but_no_app.
-    " SE93 is listed in the SAP menu but has no app behind it
-    cl_abap_unit_assert=>assert_equals(
-        exp = abap_false
-        act = mo_cut->start_transaction( `SE93` ) ).
-    cl_abap_unit_assert=>assert_equals(
-        exp = `Warning` act = mo_cut->mv_msg_type ).
-    cl_abap_unit_assert=>assert_initial(
-        act = mo_dbl->mv_nav_call
-        msg = 'a listed but unimplemented transaction must not navigate' ).
+    " A transaction the menu lists without an app behind it must say so
+    " instead of doing nothing. WHICH transaction that is changes with
+    " every app that gets built, so the examples are taken from the list
+    " itself - a hardcoded code silently stops testing the moment it gets
+    " its app. That is exactly what happened to SE93 here.
+    LOOP AT mo_cut->mt_all_tcodes INTO DATA(ls_tc) WHERE class IS INITIAL.
+      mo_dbl->reset( ).
+
+      cl_abap_unit_assert=>assert_equals(
+          exp = abap_false
+          act = mo_cut->start_transaction( ls_tc-tcode )
+          msg = |listed transaction { ls_tc-tcode } must not start| ).
+      cl_abap_unit_assert=>assert_equals(
+          exp = `Warning`
+          act = mo_cut->mv_msg_type
+          msg = |listed transaction { ls_tc-tcode } must be answered with a warning| ).
+      cl_abap_unit_assert=>assert_initial(
+          act = mo_dbl->mv_nav_call
+          msg = |listed transaction { ls_tc-tcode } must not navigate| ).
+    ENDLOOP.
+
+    " The same answer is owed for a transaction that does exist in the
+    " system but is no part of this environment at all. This half of the
+    " test keeps working even when every listed transaction has its app.
+    DATA(lt_outside) = VALUE string_table(
+        ( `SM04` ) ( `SP01` ) ( `SM35` ) ( `SU53` ) ).
+
+    LOOP AT lt_outside INTO DATA(lv_tcode).
+      IF line_exists( mo_cut->mt_all_tcodes[ tcode = lv_tcode ] )
+         OR zcl_zlk05_sys_api=>transaction_exists( lv_tcode ) = abap_false.
+        CONTINUE.
+      ENDIF.
+
+      mo_dbl->reset( ).
+
+      cl_abap_unit_assert=>assert_equals(
+          exp = abap_false
+          act = mo_cut->start_transaction( lv_tcode )
+          msg = |{ lv_tcode } is not part of this environment and must not start| ).
+      cl_abap_unit_assert=>assert_equals(
+          exp = `Warning`
+          act = mo_cut->mv_msg_type
+          msg = |{ lv_tcode } exists in the system - that is a warning, not an error| ).
+      cl_abap_unit_assert=>assert_initial(
+          act = mo_dbl->mv_nav_call
+          msg = |{ lv_tcode } must not navigate anywhere| ).
+      EXIT.
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD core_tcodes_implemented.

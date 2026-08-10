@@ -24,7 +24,9 @@ CLASS zcl_st02_a2u5 DEFINITION PUBLIC.
 
     CONSTANTS c_na TYPE string VALUE `not available in this environment`.
 
-    DATA mv_message TYPE string.
+    DATA mv_command  TYPE string.
+
+    DATA mv_message  TYPE string.
     DATA mv_msgtype TYPE string.
     DATA mt_buffer  TYPE zcl_zlk05_sys_api=>ty_t_buffer.
     DATA mt_memory  TYPE zcl_zlk05_sys_api=>ty_t_kv.
@@ -49,6 +51,14 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
     IF client->check_on_init( ).
       do_refresh( ).
       view_display( ).
+    ELSEIF client->check_on_navigated( ).
+      " Another transaction was left with F3 / the Back arrow and handed
+      " control back to this one. The framework supplies an EMPTY event here
+      " and check_on_init is already false, so without this branch nothing
+      " would be rendered: the response would carry no view and the browser
+      " would keep showing the screen of the transaction that was just left.
+      " That is what made Back look dead and F3 only work on the second try.
+      view_display( ).
     ELSEIF client->check_on_event( ).
       on_event( ).
     ENDIF.
@@ -59,6 +69,20 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
   METHOD on_event.
 
     CLEAR: mv_message, mv_msgtype.
+
+    " the command field and Back belong to the frame - they work the
+    " same way on every screen of every transaction
+    DATA lv_frame TYPE string.
+    zcl_zlk05_gui_frame=>handle_frame_event(
+      EXPORTING io_client   = client
+                iv_event    = client->get( )-event
+                iv_command  = mv_command
+      IMPORTING ev_message  = mv_message
+                ev_msg_type = mv_msgtype
+      RECEIVING result      = lv_frame ).
+    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+      RETURN.
+    ENDIF.
 
     CASE client->get( )-event.
       WHEN 'REFRESH'.
@@ -107,6 +131,8 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
 
     zcl_zlk05_gui_frame=>build_system_bar(
         io_parent     = page
+        iv_cmd_value  = client->_bind( mv_command )
+        iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event_nav_app_leave( ) ).
 
     " T 000 - Tune Summary (&)
@@ -232,6 +258,11 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
     work->leaf( `Text`
         )->a( n = `text`  v = `Read via SAPTUNE_GET_SUMMARY_STATISTIC - display only`
         )->a( n = `class` v = `sapUiTinyMarginTop` ).
+
+    " function keys of the SAP GUI - F3 / Shift+F3 / F12 and F8
+    zcl_zlk05_gui_frame=>register_keys(
+        io_client    = client
+        iv_back_name = zcl_zlk05_gui_frame=>c_ev_back ).
 
     client->view_display( view->stringify( ) ).
 

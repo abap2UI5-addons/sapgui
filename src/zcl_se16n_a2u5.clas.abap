@@ -61,6 +61,7 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
     DATA mv_total_rows TYPE i.
 
     " --- Status message ---
+    DATA mv_command      TYPE string.
     DATA mv_message      TYPE string.
     DATA mv_message_type TYPE string VALUE `Information`.
 
@@ -108,6 +109,11 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
     "! lines of the selection screen. Called before every database read.
     METHODS crit_from_fields.
     METHODS on_event.
+    "! Renders the screen the app is currently standing on. Needed in three
+    "! places: after an unknown event, after a command-field message and -
+    "! most importantly - when the transaction is navigated back to from
+    "! another one, where the framework supplies no event at all.
+    METHODS render.
     METHODS load_metadata.
     METHODS execute_query.
     METHODS search_tables
@@ -139,6 +145,13 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
     me->client = client.
     IF client->check_on_init( ).
       view_step_1( ).
+    ELSEIF client->check_on_navigated( ).
+      " Another transaction was left with F3 and handed control back to this
+      " one. The framework supplies an EMPTY event here and check_on_init is
+      " already false, so without this branch nothing would be rendered: the
+      " response would carry no view and the browser would keep showing the
+      " screen of the transaction that was just left - Back and F3 look dead.
+      render( ).
     ELSEIF client->check_on_event( ).
       on_event( ).
     ENDIF.
@@ -147,6 +160,26 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
 
   METHOD on_event.
+
+    " the command field and Back belong to the frame - they work the same
+    " way on every screen of every transaction
+    DATA lv_frame TYPE string.
+    zcl_zlk05_gui_frame=>handle_frame_event(
+      EXPORTING io_client   = client
+                iv_event    = client->get( )-event
+                iv_command  = mv_command
+      IMPORTING ev_message  = mv_message
+                ev_msg_type = mv_message_type
+      RECEIVING result      = lv_frame ).
+
+    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+      RETURN.
+    ENDIF.
+    IF lv_frame = zcl_zlk05_gui_frame=>c_message.
+      " the message of the command field belongs on the current screen
+      render( ).
+      RETURN.
+    ENDIF.
 
     CASE client->get( )-event.
 
@@ -255,15 +288,19 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
         view_step_2( ).
 
       WHEN OTHERS.
-        CASE mv_step.
-          WHEN 3.
-            view_step_3( ).
-          WHEN 2.
-            view_step_2( ).
-          WHEN OTHERS.
-            view_step_1( ).
-        ENDCASE.
+        render( ).
 
+    ENDCASE.
+
+  ENDMETHOD.
+
+
+  METHOD render.
+
+    CASE mv_step.
+      WHEN 3.      view_step_3( ).
+      WHEN 2.      view_step_2( ).
+      WHEN OTHERS. view_step_1( ).
     ENDCASE.
 
   ENDMETHOD.
@@ -320,6 +357,8 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
     zcl_zlk05_gui_frame=>build_system_bar(
         io_parent     = page
+        iv_cmd_value  = client->_bind( mv_command )
+        iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = COND string( WHEN iv_loaded = abap_true
                                      THEN client->_event( `BACK_TO_INPUT` )
                                      ELSE client->_event_nav_app_leave( ) ) ).
@@ -551,6 +590,14 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
           t_arg = VALUE #( ( `idTableInput` ) ) ).
     ENDIF.
 
+    " function keys of the SAP GUI - F3 / Shift+F3 / F12 and F8
+    zcl_zlk05_gui_frame=>register_keys(
+        io_client    = client
+        iv_back_name = COND string( WHEN iv_loaded = abap_true
+                                       THEN `BACK_TO_INPUT`
+                                       ELSE zcl_zlk05_gui_frame=>c_ev_back )
+        iv_exec_name = `EXECUTE` ).
+
     client->view_display( view->stringify( ) ).
 
   ENDMETHOD.
@@ -572,6 +619,8 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
     zcl_zlk05_gui_frame=>build_system_bar(
         io_parent     = page
+        iv_cmd_value  = client->_bind( mv_command )
+        iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event( `BACK_TO_SEL` ) ).
 
     zcl_zlk05_gui_frame=>build_title_bar(
@@ -712,6 +761,12 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
               )->a( n = `text`     v = |\{{ <col>-col_id }\}|
               )->a( n = `wrapping` v = `false` ).
     ENDLOOP.
+
+    " function keys of the SAP GUI - F3 / Shift+F3 / F12 and F8
+    zcl_zlk05_gui_frame=>register_keys(
+        io_client    = client
+        iv_back_name = `BACK_TO_SEL`
+        iv_exec_name = `EXECUTE` ).
 
     client->view_display( view->stringify( ) ).
 
@@ -972,12 +1027,8 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
       CATCH cx_root.
         lv_max = c_default_max.
     ENDTRY.
-    IF lv_max <= 0.
-      lv_max = c_default_max.
-    ENDIF.
-    IF lv_max > c_max_cap.
-      lv_max = c_max_cap.
-    ENDIF.
+    IF lv_max <= 0. lv_max = c_default_max. ENDIF.
+    IF lv_max > c_max_cap. lv_max = c_max_cap. ENDIF.
 
     " Sort order
     DATA lt_order TYPE STANDARD TABLE OF string.

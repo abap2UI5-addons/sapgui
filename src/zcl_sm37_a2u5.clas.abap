@@ -33,7 +33,8 @@ CLASS zcl_sm37_a2u5 DEFINITION PUBLIC.
     DATA mv_status   TYPE string.
     DATA mv_mode     TYPE string.
     DATA mv_current  TYPE string.
-    DATA mv_message  TYPE string.
+    DATA mv_command   TYPE string.
+    DATA mv_message   TYPE string.
     DATA mv_msgtype  TYPE string.
     DATA mt_jobs     TYPE zcl_zlk05_sys_api=>ty_t_job.
     DATA mt_steps    TYPE zcl_zlk05_sys_api=>ty_t_jobstep.
@@ -44,6 +45,11 @@ CLASS zcl_sm37_a2u5 DEFINITION PUBLIC.
     METHODS view_display.
     METHODS view_detail.
     METHODS on_event.
+    "! Renders the screen the app is currently standing on. Needed twice:
+    "! after an event that only changed the mode, and - most importantly -
+    "! when the transaction is navigated back to from another one, where the
+    "! framework supplies no event at all.
+    METHODS render.
     METHODS do_search.
     METHODS do_open
       IMPORTING iv_jobname  TYPE string
@@ -64,6 +70,14 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
       mv_user = CONV string( sy-uname ).
       do_search( ).
       view_display( ).
+    ELSEIF client->check_on_navigated( ).
+      " Another transaction was left with F3 / the Back arrow and handed
+      " control back to this one. The framework supplies an EMPTY event here
+      " and check_on_init is already false, so without this branch nothing
+      " would be rendered: the response would carry no view and the browser
+      " would keep showing the screen of the transaction that was just left.
+      " That is what made Back look dead and F3 only work on the second try.
+      render( ).
     ELSEIF client->check_on_event( ).
       on_event( ).
     ENDIF.
@@ -76,6 +90,20 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
     DATA(lv_event) = client->get( )-event.
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
+
+    " the command field and Back belong to the frame - they work the
+    " same way on every screen of every transaction
+    DATA lv_frame TYPE string.
+    zcl_zlk05_gui_frame=>handle_frame_event(
+      EXPORTING io_client   = client
+                iv_event    = lv_event
+                iv_command  = mv_command
+      IMPORTING ev_message  = mv_message
+                ev_msg_type = mv_msgtype
+      RECEIVING result      = lv_frame ).
+    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+      RETURN.
+    ENDIF.
 
     CASE lv_event.
       WHEN 'EXECUTE'.
@@ -92,6 +120,12 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
         mv_mode = `LIST`.
       WHEN OTHERS.
     ENDCASE.
+
+    render( ).
+
+  ENDMETHOD.
+
+  METHOD render.
 
     IF mv_mode = `DETAIL`.
       view_detail( ).
@@ -155,6 +189,8 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
 
     zcl_zlk05_gui_frame=>build_system_bar(
         io_parent     = page
+        iv_cmd_value  = client->_bind( mv_command )
+        iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event_nav_app_leave( ) ).
 
     " T JOV_TITLE - Job Overview
@@ -312,6 +348,12 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
         )->a( n = `text`  v = `Display only - no job is released, cancelled or deleted here`
         )->a( n = `class` v = `sapUiTinyMarginTop` ).
 
+    " function keys of the SAP GUI - F3 / Shift+F3 / F12 and F8
+    zcl_zlk05_gui_frame=>register_keys(
+        io_client    = client
+        iv_back_name = zcl_zlk05_gui_frame=>c_ev_back
+        iv_exec_name = `EXECUTE` ).
+
     client->view_display( view->stringify( ) ).
 
   ENDMETHOD.
@@ -333,6 +375,8 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
 
     zcl_zlk05_gui_frame=>build_system_bar(
         io_parent     = page
+        iv_cmd_value  = client->_bind( mv_command )
+        iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event( `BACK_TO_LIST` ) ).
 
     " T STEP_TITLE - Step List Overview
@@ -403,6 +447,12 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
     work->leaf( `Text`
         )->a( n = `text`  v = |{ lines( mt_steps ) } step(s) of job { mv_current }|
         )->a( n = `class` v = `sapUiTinyMarginTop` ).
+
+    " function keys of the SAP GUI - F3 / Shift+F3 / F12 and F8
+    zcl_zlk05_gui_frame=>register_keys(
+        io_client    = client
+        iv_back_name = `BACK_TO_LIST`
+        iv_exec_name = `EXECUTE` ).
 
     client->view_display( view->stringify( ) ).
 
