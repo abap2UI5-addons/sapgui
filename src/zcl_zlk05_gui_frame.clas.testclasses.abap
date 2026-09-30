@@ -48,7 +48,7 @@ CLASS ltcl_frame IMPLEMENTATION.
 
   METHOD keys_back_default.
 
-    zcl_zlk05_gui_frame=>register_keys( io_client = mo_dbl ).
+    zcl_zlk05_gui_frame=>register_keys( mo_dbl ).
 
     " F3, Shift+F3 and F12 all leave the screen, exactly like in the GUI
     cl_abap_unit_assert=>assert_true(
@@ -73,9 +73,9 @@ CLASS ltcl_frame IMPLEMENTATION.
                                         iv_back_name = `BACK_TO_SEL` ).
 
     cl_abap_unit_assert=>assert_true(
-        act = mo_dbl->has_shortcut( iv_keys = `F3` iv_event = `BACK_TO_SEL` ) ).
+        mo_dbl->has_shortcut( iv_keys = `F3` iv_event = `BACK_TO_SEL` ) ).
     cl_abap_unit_assert=>assert_false(
-        act = mo_dbl->has_shortcut( iv_keys  = `F3`
+        mo_dbl->has_shortcut( iv_keys  = `F3`
                                     iv_event = zcl_zlk05_gui_frame=>c_ev_back ) ).
 
   ENDMETHOD.
@@ -107,23 +107,20 @@ CLASS ltcl_frame IMPLEMENTATION.
                                         iv_save_name = `SAVE` ).
 
     cl_abap_unit_assert=>assert_true(
-        act = mo_dbl->has_shortcut( iv_keys = `F8` iv_event = `EXECUTE` ) ).
+        mo_dbl->has_shortcut( iv_keys = `F8` iv_event = `EXECUTE` ) ).
     cl_abap_unit_assert=>assert_true(
-        act = mo_dbl->has_shortcut( iv_keys = `Ctrl+S` iv_event = `SAVE` ) ).
+        mo_dbl->has_shortcut( iv_keys = `Ctrl+S` iv_event = `SAVE` ) ).
 
   ENDMETHOD.
 
   METHOD event_back_leaves.
 
-    DATA lv_result TYPE string.
-
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client = mo_dbl
-                iv_event  = zcl_zlk05_gui_frame=>c_ev_back
-      RECEIVING result    = lv_result ).
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client = mo_dbl
+        iv_event  = zcl_zlk05_gui_frame=>c_ev_back ).
 
     cl_abap_unit_assert=>assert_equals( exp = zcl_zlk05_gui_frame=>c_navigated
-                                        act = lv_result ).
+                                        act = ls_frame-outcome ).
     cl_abap_unit_assert=>assert_equals( exp = abap_true
                                         act = mo_dbl->mv_nav_leave ).
 
@@ -131,16 +128,13 @@ CLASS ltcl_frame IMPLEMENTATION.
 
   METHOD event_command_starts.
 
-    DATA lv_result TYPE string.
-
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client  = mo_dbl
-                iv_event   = zcl_zlk05_gui_frame=>c_ev_command
-                iv_command = `/nsm37`
-      RECEIVING result     = lv_result ).
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = mo_dbl
+        iv_event   = zcl_zlk05_gui_frame=>c_ev_command
+        iv_command = `/nsm37` ).
 
     cl_abap_unit_assert=>assert_equals( exp = zcl_zlk05_gui_frame=>c_navigated
-                                        act = lv_result ).
+                                        act = ls_frame-outcome ).
     cl_abap_unit_assert=>assert_equals( exp = `ZCL_SM37_A2U5`
                                         act = mo_dbl->mv_nav_call ).
 
@@ -148,46 +142,36 @@ CLASS ltcl_frame IMPLEMENTATION.
 
   METHOD event_command_unknwn.
 
-    DATA lv_result TYPE string.
-    DATA lv_message TYPE string.
-    DATA lv_type TYPE string.
-
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client   = mo_dbl
-                iv_event    = zcl_zlk05_gui_frame=>c_ev_command
-                iv_command  = `ZZ_NO_SUCH_TCODE`
-      IMPORTING ev_message  = lv_message
-                ev_msg_type = lv_type
-      RECEIVING result      = lv_result ).
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = mo_dbl
+        iv_event   = zcl_zlk05_gui_frame=>c_ev_command
+        iv_command = `ZZ_NO_SUCH_TCODE` ).
 
     cl_abap_unit_assert=>assert_equals( exp = zcl_zlk05_gui_frame=>c_message
-                                        act = lv_result ).
-    cl_abap_unit_assert=>assert_not_initial( act = lv_message ).
-    cl_abap_unit_assert=>assert_equals( exp = `Error` act = lv_type ).
-    cl_abap_unit_assert=>assert_initial( act = mo_dbl->mv_nav_call ).
+                                        act = ls_frame-outcome ).
+    cl_abap_unit_assert=>assert_not_initial( ls_frame-message ).
+    cl_abap_unit_assert=>assert_equals( exp = `Error` act = ls_frame-msg_type ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->mv_nav_call ).
 
   ENDMETHOD.
 
   METHOD event_foreign.
 
     " an event of the screen itself must pass through untouched
-    DATA lv_result TYPE string.
-
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client = mo_dbl
-                iv_event  = `EXECUTE`
-      RECEIVING result    = lv_result ).
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client = mo_dbl
+        iv_event  = `EXECUTE` ).
 
     cl_abap_unit_assert=>assert_equals( exp = zcl_zlk05_gui_frame=>c_not_handled
-                                        act = lv_result ).
-    cl_abap_unit_assert=>assert_initial( act = mo_dbl->mv_nav_leave ).
-    cl_abap_unit_assert=>assert_initial( act = mo_dbl->mv_nav_call ).
+                                        act = ls_frame-outcome ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->mv_nav_leave ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->mv_nav_call ).
 
   ENDMETHOD.
 
   METHOD system_bar_xml.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     IF iv_with_command = abap_true.
@@ -197,7 +181,7 @@ CLASS ltcl_frame IMPLEMENTATION.
           iv_cmd_event = mo_dbl->z2ui5_if_client~_event(
                              zcl_zlk05_gui_frame=>c_ev_command ) ).
     ELSE.
-      zcl_zlk05_gui_frame=>build_system_bar( io_parent = page ).
+      zcl_zlk05_gui_frame=>build_system_bar( page ).
     ENDIF.
 
     result = view->stringify( ).
@@ -232,7 +216,7 @@ CLASS ltcl_frame IMPLEMENTATION.
 
   METHOD app_bar_xml.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_app_bar( io_parent  = page

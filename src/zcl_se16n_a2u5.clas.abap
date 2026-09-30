@@ -7,9 +7,6 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
     CONSTANTS c_default_max TYPE i VALUE 200.
     CONSTANTS c_max_cap     TYPE i VALUE 10000.
 
-    " Step state: 1=table name, 2=selection screen, 3=result list
-    DATA mv_step       TYPE i VALUE 1.
-
     " --- Step 1 ---
     DATA mv_table_name TYPE string.
     DATA mv_max_hits   TYPE string VALUE `200`.
@@ -41,7 +38,6 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
              high  TYPE string,
            END OF ty_s_crit,
            ty_t_crit TYPE STANDARD TABLE OF ty_s_crit WITH EMPTY KEY.
-    DATA mt_crit TYPE ty_t_crit.
 
     " --- Step 3: Result (fixed-width 50 string columns) ---
     TYPES: BEGIN OF ty_s_row,
@@ -58,12 +54,9 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
            END OF ty_s_row,
            ty_t_row TYPE STANDARD TABLE OF ty_s_row WITH EMPTY KEY.
     DATA mt_rows       TYPE ty_t_row.
-    DATA mv_total_rows TYPE i.
 
     " --- Status message ---
     DATA mv_command      TYPE string.
-    DATA mv_message      TYPE string.
-    DATA mv_message_type TYPE string VALUE `Information`.
 
     " --- Value help suggestions ---
     TYPES: BEGIN OF ty_s_suggest,
@@ -75,7 +68,6 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
 
     " --- Find in result list ---
     DATA mv_search     TYPE string.
-    DATA mv_show_shell TYPE abap_bool VALUE abap_true.
 
     " --- Variants (persisted in ZSE16N_A2U5_VAR) ---
     TYPES: BEGIN OF ty_s_variant_list,
@@ -93,9 +85,17 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
     DATA mv_variant_name TYPE string.
     "! selectedKey of the "Get Variant" dropdown
     DATA mv_variant_sel  TYPE string.
-    DATA mt_variant_list TYPE ty_t_variant_list.
 
   PROTECTED SECTION.
+    " Step state: 1=table name, 2=selection screen, 3=result list
+    DATA mv_step       TYPE i VALUE 1.
+    DATA mt_crit TYPE ty_t_crit.
+    DATA mv_total_rows TYPE i.
+    DATA mv_message      TYPE string.
+    DATA mv_message_type TYPE string VALUE `Information`.
+    DATA mv_show_shell TYPE abap_bool VALUE abap_true.
+    DATA mt_variant_list TYPE ty_t_variant_list.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_step_1.
@@ -163,25 +163,23 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
     " the command field and Back belong to the frame - they work the same
     " way on every screen of every transaction
-    DATA lv_frame TYPE string.
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client   = client
-                iv_event    = client->get( )-event
-                iv_command  = mv_command
-      IMPORTING ev_message  = mv_message
-                ev_msg_type = mv_message_type
-      RECEIVING result      = lv_frame ).
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = client
+        iv_event   = client->get_event( )
+        iv_command = mv_command ).
+    mv_message = ls_frame-message.
+    mv_message_type = ls_frame-msg_type.
 
-    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
       RETURN.
     ENDIF.
-    IF lv_frame = zcl_zlk05_gui_frame=>c_message.
+    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_message.
       " the message of the command field belongs on the current screen
       render( ).
       RETURN.
     ENDIF.
 
-    CASE client->get( )-event.
+    CASE client->get_event( ).
 
       WHEN `LOAD_METADATA`.
         load_metadata( ).
@@ -202,12 +200,10 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
             key  = lv_uuid
             sign = `I`
             opt  = `EQ` ) TO mt_crit.
-        client->view_model_update( ).
 
       WHEN `DEL_CRIT`.
         DATA(lv_key) = client->get_event_arg( ).
         DELETE mt_crit WHERE key = lv_key.
-        client->view_model_update( ).
 
       WHEN `EXECUTE`.
         execute_query( ).
@@ -226,7 +222,6 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
       WHEN `SUGGEST`.
         DATA(lv_term) = client->get_event_arg( ).
         search_tables( lv_term ).
-        client->view_model_update( ).
 
       WHEN `SEARCH_RESULT`.
         DATA(lv_search) = to_upper( mv_search ).
@@ -298,9 +293,12 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
   METHOD render.
 
     CASE mv_step.
-      WHEN 3.      view_step_3( ).
-      WHEN 2.      view_step_2( ).
-      WHEN OTHERS. view_step_1( ).
+      WHEN 3.
+        view_step_3( ).
+      WHEN 2.
+        view_step_2( ).
+      WHEN OTHERS.
+        view_step_1( ).
     ENDCASE.
 
   ENDMETHOD.
@@ -343,7 +341,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
   METHOD view_selection.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -402,35 +400,35 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
               tooltip = `Selection criteria - not available in this environment` ) ) ).
 
     " ----- Work area: the classic dynpro selection screen -----
-    DATA(work) = page->open( `VBox`
+    DATA(work) = page->ele( `VBox`
         )->a( n = `class`  v = `sapUiSmallMargin`
         )->a( n = `height` v = zcl_zlk05_gui_frame=>c_work_height ).
 
     " Table
-    DATA(row) = work->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(row) = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Table` ).
-    DATA(tab_input) = row->open( `Input`
+    DATA(tab_input) = row->ele( `Input`
         )->a( n = `id`              v = `idTableInput`
         )->a( n = `value`           v = client->_bind( mv_table_name )
         )->a( n = `width`           v = `17rem`
         )->a( n = `showSuggestion`  v = `true`
         )->a( n = `suggestionItems` v = client->_bind( mt_suggestions )
         )->a( n = `suggest`         v = client->_event(
-                  val   = `SUGGEST`
-                  t_arg = VALUE #( ( `${$parameters>/suggestValue}` ) ) )
+                  val = `SUGGEST`
+                  arg = `${$parameters>/suggestValue}` )
         )->a( n = `submit`          v = client->_event( `LOAD_METADATA` ) ).
-    tab_input->open( `suggestionItems`
-        )->leaf( n = `Item` ns = `core`
+    tab_input->ele( `suggestionItems`
+        )->tag( n = `Item` ns = `core`
             )->a( n = `text`           v = `{TABNAME}`
             )->a( n = `additionalText` v = `{DDTEXT}` ).
-    row->leaf( n = `Icon` ns = `core`
+    row->tag( n = `Icon` ns = `core`
         )->a( n = `src`     v = `sap-icon://arrow-right`
         )->a( n = `size`    v = `1rem`
         )->a( n = `color`   v = zcl_zlk05_gui_frame=>c_yellow
         )->a( n = `class`   v = `sapUiTinyMarginBegin`
         )->a( n = `tooltip` v = `Read the table definition`
         )->a( n = `press`   v = client->_event( `LOAD_METADATA` ) ).
-    row->leaf( n = `Icon` ns = `core`
+    row->tag( n = `Icon` ns = `core`
         )->a( n = `src`     v = `sap-icon://search`
         )->a( n = `size`    v = `1rem`
         )->a( n = `color`   v = zcl_zlk05_gui_frame=>c_blue
@@ -438,150 +436,150 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
         )->a( n = `tooltip` v = `Search for a table - type a part of the name in the field` ).
 
     " Text Table / No Texts
-    row = work->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    row = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Text Table` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `width`   v = `17rem`
         )->a( n = `enabled` v = `false`
         )->a( n = `tooltip` v = `Text table - not evaluated in this environment` ).
-    row->leaf( `CheckBox`
+    row->tag( `CheckBox`
         )->a( n = `text`    v = `No Texts`
         )->a( n = `enabled` v = `false`
         )->a( n = `class`   v = `sapUiMediumMarginBegin`
         )->a( n = `tooltip` v = `No texts - not available in this environment` ).
 
     " Displ. Variant - here the variants of this app are maintained
-    row = work->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    row = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Displ. Variant` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `value`       v = client->_bind( mv_variant_name )
         )->a( n = `width`       v = `9rem`
         )->a( n = `placeholder` v = `Variant`
         )->a( n = `tooltip`     v = `Name of the variant that is saved` ).
-    row->leaf( `Button`
+    row->tag( `Button`
         )->a( n = `icon`    v = `sap-icon://save`
         )->a( n = `type`    v = `Transparent`
         )->a( n = `tooltip` v = `Save the selection as a variant`
         )->a( n = `press`   v = client->_event( `SAVE_VARIANT` ) ).
-    DATA(var_sel) = row->open( `Select`
+    DATA(var_sel) = row->ele( `Select`
         )->a( n = `width`       v = `13rem`
         )->a( n = `selectedKey` v = client->_bind( mv_variant_sel )
         )->a( n = `tooltip`     v = `Get variant`
         )->a( n = `change`      v = client->_event( `LOAD_VARIANT` ) ).
-    DATA(var_items) = var_sel->open( `items` ).
-    var_items->leaf( n = `Item` ns = `core`
+    DATA(var_items) = var_sel->ele( `items` ).
+    var_items->tag( n = `Item` ns = `core`
         )->a( n = `key`  v = ``
         )->a( n = `text` v = `Get Variant...` ).
     LOOP AT mt_variant_list ASSIGNING FIELD-SYMBOL(<vl>).
-      var_items->leaf( n = `Item` ns = `core`
-          )->a( n = `key`  v = <vl>-id
-          )->a( n = `text` v = <vl>-name ).
+      var_items->tag( n = `Item` ns = `core`
+          )->a( n = `key`  t = <vl>-id
+          )->a( n = `text` t = <vl>-name ).
     ENDLOOP.
-    row->leaf( `Button`
+    row->tag( `Button`
         )->a( n = `icon`    v = `sap-icon://delete`
         )->a( n = `type`    v = `Transparent`
         )->a( n = `tooltip` v = `Delete the selected variant`
         )->a( n = `press`   v = client->_event( `DEL_VARIANT` ) ).
 
     " Max. Number of Hits / Maintain Entries
-    row = work->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    row = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Max. Number of Hits` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `value`   v = client->_bind( mv_max_hits )
         )->a( n = `width`   v = `6rem`
-        )->a( n = `tooltip` v = |Default { c_default_max }, maximum { c_max_cap }| ).
-    row->leaf( `CheckBox`
+        )->a( n = `tooltip` t = |Default { c_default_max }, maximum { c_max_cap }| ).
+    row->tag( `CheckBox`
         )->a( n = `text`    v = `Maintain Entries`
         )->a( n = `enabled` v = `false`
         )->a( n = `class`   v = `sapUiMediumMarginBegin`
         )->a( n = `tooltip` v = `Maintain entries - this app reads data only` ).
 
     " Get Field
-    row = work->open( `HBox`
+    row = work->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiSmallMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Get Field` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `width`   v = `17rem`
         )->a( n = `enabled` v = `false`
         )->a( n = `tooltip` v = `Get field - not available in this environment` ).
 
     " ----- Selection Criteria -----
-    work->leaf( `Title`
+    work->tag( `Title`
         )->a( n = `text`  v = `Selection Criteria`
         )->a( n = `level` v = `H4`
         )->a( n = `class` v = `sapUiSmallMarginTop` ).
 
-    DATA(scroll) = work->open( `ScrollContainer`
+    DATA(scroll) = work->ele( `ScrollContainer`
         )->a( n = `width`    v = `100%`
         )->a( n = `height`   v = `calc(100vh - 27rem)`
         )->a( n = `vertical` v = `true`
         )->a( n = `horizontal` v = `true` ).
 
-    DATA(crit) = scroll->open( `Table`
+    DATA(crit) = scroll->ele( `Table`
         )->a( n = `items`      v = client->_bind( mt_fields )
         )->a( n = `sticky`     v = `ColumnHeaders`
         )->a( n = `noDataText` v = `Enter a table name and choose Continue` ).
 
-    DATA(cols) = crit->open( `columns` ).
-    cols->open( `Column` )->a( n = `width` v = `14rem`
-        )->leaf( `Text` )->a( n = `text` v = `Fld Name` ).
-    cols->open( `Column` )->a( n = `width` v = `7rem`
-        )->leaf( `Text` )->a( n = `text` v = `O.` ).
-    cols->open( `Column` )->a( n = `width` v = `11rem`
-        )->leaf( `Text` )->a( n = `text` v = `Frm-Val.` ).
-    cols->open( `Column` )->a( n = `width` v = `11rem`
-        )->leaf( `Text` )->a( n = `text` v = `To-Value` ).
-    cols->open( `Column` )->a( n = `width` v = `4rem`
-        )->leaf( `Text` )->a( n = `text` v = `More` ).
-    cols->open( `Column` )->a( n = `width` v = `5rem`
-        )->leaf( `Text` )->a( n = `text` v = `Output` ).
-    cols->open( `Column` )->a( n = `width` v = `11rem`
-        )->leaf( `Text` )->a( n = `text` v = `Technical Name` ).
-    cols->open( `Column` )->a( n = `width` v = `8rem`
-        )->leaf( `Text` )->a( n = `text` v = `Sort` ).
+    DATA(cols) = crit->ele( `columns` ).
+    cols->ele( `Column` )->a( n = `width` v = `14rem`
+        )->tag( `Text` )->a( n = `text` v = `Fld Name` ).
+    cols->ele( `Column` )->a( n = `width` v = `7rem`
+        )->tag( `Text` )->a( n = `text` v = `O.` ).
+    cols->ele( `Column` )->a( n = `width` v = `11rem`
+        )->tag( `Text` )->a( n = `text` v = `Frm-Val.` ).
+    cols->ele( `Column` )->a( n = `width` v = `11rem`
+        )->tag( `Text` )->a( n = `text` v = `To-Value` ).
+    cols->ele( `Column` )->a( n = `width` v = `4rem`
+        )->tag( `Text` )->a( n = `text` v = `More` ).
+    cols->ele( `Column` )->a( n = `width` v = `5rem`
+        )->tag( `Text` )->a( n = `text` v = `Output` ).
+    cols->ele( `Column` )->a( n = `width` v = `11rem`
+        )->tag( `Text` )->a( n = `text` v = `Technical Name` ).
+    cols->ele( `Column` )->a( n = `width` v = `8rem`
+        )->tag( `Text` )->a( n = `text` v = `Sort` ).
 
-    DATA(cells) = crit->open( `items`
-        )->open( `ColumnListItem`
-        )->open( `cells` ).
+    DATA(cells) = crit->ele( `items`
+        )->ele( `ColumnListItem`
+        )->ele( `cells` ).
 
-    cells->leaf( `Text` )->a( n = `text` v = `{LABEL}` ).
+    cells->tag( `Text` )->a( n = `text` v = `{LABEL}` ).
 
-    DATA(opt_sel) = cells->open( `Select`
+    DATA(opt_sel) = cells->ele( `Select`
         )->a( n = `selectedKey` v = `{OPT}`
         )->a( n = `width`       v = `6.5rem`
         )->a( n = `tooltip`     v = `Selection option` ).
-    DATA(opt_items) = opt_sel->open( `items` ).
-    opt_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `EQ` )->a( n = `text` v = `=` ).
-    opt_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `NE` )->a( n = `text` v = `<>` ).
-    opt_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `BT` )->a( n = `text` v = `Between` ).
-    opt_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `CP` )->a( n = `text` v = `Pattern` ).
-    opt_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `GT` )->a( n = `text` v = `>` ).
-    opt_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `LT` )->a( n = `text` v = `<` ).
-    opt_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `GE` )->a( n = `text` v = `>=` ).
-    opt_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `LE` )->a( n = `text` v = `<=` ).
+    DATA(opt_items) = opt_sel->ele( `items` ).
+    opt_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `EQ` )->a( n = `text` v = `=` ).
+    opt_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `NE` )->a( n = `text` v = `<>` ).
+    opt_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `BT` )->a( n = `text` v = `Between` ).
+    opt_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `CP` )->a( n = `text` v = `Pattern` ).
+    opt_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `GT` )->a( n = `text` v = `>` ).
+    opt_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `LT` )->a( n = `text` v = `<` ).
+    opt_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `GE` )->a( n = `text` v = `>=` ).
+    opt_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `LE` )->a( n = `text` v = `<=` ).
 
-    cells->leaf( `Input` )->a( n = `value` v = `{LOW}` ).
-    cells->leaf( `Input` )->a( n = `value` v = `{HIGH}` ).
+    cells->tag( `Input` )->a( n = `value` v = `{LOW}` ).
+    cells->tag( `Input` )->a( n = `value` v = `{HIGH}` ).
 
-    cells->leaf( `Button`
+    cells->tag( `Button`
         )->a( n = `icon`    v = `sap-icon://multiselect-all`
         )->a( n = `type`    v = `Transparent`
         )->a( n = `enabled` v = `false`
         )->a( n = `tooltip` v = `Multiple selection - not available in this environment` ).
 
-    cells->leaf( `CheckBox` )->a( n = `selected` v = `{VISIBLE}` ).
-    cells->leaf( `Text`     )->a( n = `text`     v = `{FNAME}` ).
+    cells->tag( `CheckBox` )->a( n = `selected` v = `{VISIBLE}` ).
+    cells->tag( `Text`     )->a( n = `text`     v = `{FNAME}` ).
 
     " The sort column is not part of the original screen. It is kept here
     " because this app has no sortable ALV grid.
-    DATA(sort_sel) = cells->open( `Select`
+    DATA(sort_sel) = cells->ele( `Select`
         )->a( n = `selectedKey` v = `{SORT}`
         )->a( n = `width`       v = `7rem` ).
-    DATA(sort_items) = sort_sel->open( `items` ).
-    sort_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = ``  )->a( n = `text` v = `` ).
-    sort_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `A` )->a( n = `text` v = `Ascending` ).
-    sort_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `D` )->a( n = `text` v = `Descending` ).
+    DATA(sort_items) = sort_sel->ele( `items` ).
+    sort_items->tag( n = `Item` ns = `core` )->a( n = `key` v = ``  )->a( n = `text` v = `` ).
+    sort_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `A` )->a( n = `text` v = `Ascending` ).
+    sort_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `D` )->a( n = `text` v = `Descending` ).
 
     " The cursor sits in the table field, exactly like the SAP GUI
     IF iv_loaded = abap_false.
@@ -605,7 +603,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
   METHOD view_step_3.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -641,41 +639,41 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
               tooltip = `Technical information - not available in this environment` ) ) ).
 
     " ----- Work area -----
-    DATA(work) = page->open( `VBox`
+    DATA(work) = page->ele( `VBox`
         )->a( n = `class`  v = `sapUiSmallMargin`
         )->a( n = `height` v = zcl_zlk05_gui_frame=>c_work_height ).
 
-    DATA(row) = work->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(row) = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Search in Table` ).
-    row->leaf( `Text` )->a( n = `text` v = to_upper( mv_table_name ) ).
+    row->tag( `Text` )->a( n = `text` v = to_upper( mv_table_name ) ).
 
-    row = work->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    row = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Number of Hits` ).
-    row->leaf( `Text` )->a( n = `text` v = |{ mv_total_rows }| ).
+    row->tag( `Text` )->a( n = `text` t = |{ mv_total_rows }| ).
 
-    row = work->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    row = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Runtime` ).
-    row->leaf( `Text`
+    row->tag( `Text`
         )->a( n = `text`    v = `0`
         )->a( n = `tooltip` v = `Runtime is not measured in this environment` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row
                                     iv_text   = `Maximum No. of Hits`
                                     iv_width  = `13rem` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `value` v = client->_bind( mv_max_hits )
         )->a( n = `width` v = `6rem` ).
 
-    row = work->open( `HBox`
+    row = work->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiSmallMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Insert Column` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `width`   v = `17rem`
         )->a( n = `enabled` v = `false`
         )->a( n = `tooltip` v = `Insert column - use the Output column of the selection screen` ).
 
     " ----- ALV grid toolbar -----
-    DATA(alv_bar) = work->open( `Toolbar`
+    DATA(alv_bar) = work->ele( `Toolbar`
         )->a( n = `design` v = `Transparent`
         )->a( n = `height` v = `2.1rem` ).
 
@@ -692,13 +690,13 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
         is_button = VALUE #( sep = abap_true ) ).
 
     " Find - the SAP GUI opens a dialog here, the field is shown directly
-    alv_bar->leaf( n = `Icon` ns = `core`
+    alv_bar->tag( n = `Icon` ns = `core`
         )->a( n = `src`   v = `sap-icon://search`
         )->a( n = `size`  v = `1.05rem`
         )->a( n = `color` v = zcl_zlk05_gui_frame=>c_blue
         )->a( n = `class` v = `sapUiTinyMarginEnd`
         )->a( n = `tooltip` v = `Find` ).
-    alv_bar->leaf( `SearchField`
+    alv_bar->tag( `SearchField`
         )->a( n = `value`       v = client->_bind( mv_search )
         )->a( n = `placeholder` v = `Find in entries`
         )->a( n = `width`       v = `15rem`
@@ -713,10 +711,10 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
         is_button = VALUE #( icon = `sap-icon://excel-attachment` color = zcl_zlk05_gui_frame=>c_grey
                              tooltip = `Export - not available in this environment` ) ).
 
-    alv_bar->leaf( `ToolbarSpacer` ).
+    alv_bar->tag( `ToolbarSpacer` ).
 
-    alv_bar->leaf( `Text` )->a( n = `text` v = |{ mv_total_rows } Entries| ).
-    alv_bar->leaf( `ToolbarSeparator` ).
+    alv_bar->tag( `Text` )->a( n = `text` t = |{ mv_total_rows } Entries| ).
+    alv_bar->tag( `ToolbarSeparator` ).
     zcl_zlk05_gui_frame=>add_button( io_bar = alv_bar
         is_button = VALUE #(
             icon    = COND string( WHEN mv_show_shell = abap_true
@@ -737,7 +735,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
     " sap.ui.table.Table gives an ALV like grid with horizontal scrolling.
     " visibleRowCountMode=Auto fills the available height - a visibleRowCount
     " must NOT be supplied in addition.
-    DATA(grid) = work->open( n = `Table` ns = `table`
+    DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `xmlns:table`         v = `sap.ui.table`
         )->a( n = `rows`                v = client->_bind( mt_rows )
         )->a( n = `visibleRowCountMode` v = `Auto`
@@ -745,19 +743,19 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
         )->a( n = `rowHeight`           v = `28`
         )->a( n = `minAutoRowCount`     v = `10` ).
 
-    DATA(grid_cols) = grid->open( n = `columns` ns = `table` ).
+    DATA(grid_cols) = grid->ele( n = `columns` ns = `table` ).
     LOOP AT mt_fields ASSIGNING FIELD-SYMBOL(<col>).
       IF lv_any_visible = abap_true AND <col>-visible = abap_false.
         CONTINUE.
       ENDIF.
-      DATA(grid_col) = grid_cols->open( n = `Column` ns = `table`
+      DATA(grid_col) = grid_cols->ele( n = `Column` ns = `table`
           )->a( n = `width`          v = `8rem`
-          )->a( n = `sortProperty`   v = <col>-col_id
-          )->a( n = `filterProperty` v = <col>-col_id ).
-      grid_col->open( n = `label` ns = `table`
-          )->leaf( `Label` )->a( n = `text` v = <col>-fname ).
-      grid_col->open( n = `template` ns = `table`
-          )->leaf( `Text`
+          )->a( n = `sortProperty`   t = <col>-col_id
+          )->a( n = `filterProperty` t = <col>-col_id ).
+      grid_col->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` t = <col>-fname ).
+      grid_col->ele( n = `template` ns = `table`
+          )->tag( `Text`
               )->a( n = `text`     v = |\{{ <col>-col_id }\}|
               )->a( n = `wrapping` v = `false` ).
     ENDLOOP.
@@ -1027,18 +1025,22 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
       CATCH cx_root.
         lv_max = c_default_max.
     ENDTRY.
-    IF lv_max <= 0. lv_max = c_default_max. ENDIF.
-    IF lv_max > c_max_cap. lv_max = c_max_cap. ENDIF.
+    IF lv_max <= 0.
+      lv_max = c_default_max.
+    ENDIF.
+    IF lv_max > c_max_cap.
+      lv_max = c_max_cap.
+    ENDIF.
 
     " Sort order
-    DATA lt_order TYPE STANDARD TABLE OF string.
+    DATA lt_order TYPE string_table.
     LOOP AT mt_fields ASSIGNING FIELD-SYMBOL(<sf>) WHERE sort = 'A' OR sort = 'D'.
       APPEND |{ <sf>-fname } { COND #( WHEN <sf>-sort = 'A' THEN `ASCENDING` ELSE `DESCENDING` ) }| TO lt_order.
     ENDLOOP.
     DATA(lv_order) = concat_lines_of( table = lt_order sep = `, ` ).
 
     TRY.
-        CREATE DATA lr_data TYPE TABLE OF (mv_table_name).
+        CREATE DATA lr_data TYPE STANDARD TABLE OF (mv_table_name) WITH EMPTY KEY.
         ASSIGN lr_data->* TO FIELD-SYMBOL(<lt_data>).
 
         IF lv_order IS INITIAL.
@@ -1137,6 +1139,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
     DATA lv_json TYPE string.
     TRY.
+        " abap2ui5lint-disable-next-line non-released-api -- the stored variants are in this format, see README
         lv_json = z2ui5_cl_util=>json_stringify( ls_payload ).
       CATCH cx_root INTO DATA(lx_json).
         mv_message      = |Variant could not be serialized: { lx_json->get_text( ) }|.

@@ -26,6 +26,8 @@ CLASS zcl_sapgui_a2ui5 DEFINITION PUBLIC.
     TYPES ty_t_tcode TYPE STANDARD TABLE OF ty_s_tcode WITH EMPTY KEY.
 
     DATA mv_command    TYPE string.
+
+  PROTECTED SECTION.
     DATA mt_favorites  TYPE ty_t_tcode.
     DATA mt_all_tcodes TYPE ty_t_tcode.
     DATA mv_message    TYPE string.
@@ -37,7 +39,6 @@ CLASS zcl_sapgui_a2ui5 DEFINITION PUBLIC.
     "! Keys of the expanded tree folders
     DATA mt_expanded   TYPE string_table.
 
-  PROTECTED SECTION.
     DATA client TYPE REF TO z2ui5_if_client.
 
     CONSTANTS c_key_fav   TYPE string VALUE `#FAVORITES`.
@@ -46,9 +47,6 @@ CLASS zcl_sapgui_a2ui5 DEFINITION PUBLIC.
     CONSTANTS c_max_depth TYPE i VALUE 12.
 
     " Colours of the classic SAP GUI toolbar icons
-    CONSTANTS c_col_green  TYPE string VALUE `#107e3e`.
-    CONSTANTS c_col_yellow TYPE string VALUE `#e9730c`.
-    CONSTANTS c_col_red    TYPE string VALUE `#bb0000`.
     CONSTANTS c_col_blue   TYPE string VALUE `#0a6ed1`.
     CONSTANTS c_col_grey   TYPE string VALUE `#6a6d70`.
     CONSTANTS c_col_gold   TYPE string VALUE `#e9a800`.
@@ -77,19 +75,19 @@ CLASS zcl_sapgui_a2ui5 DEFINITION PUBLIC.
     " same on every screen and come from ZCL_ZLK05_GUI_FRAME. Only the work
     " area is specific to this screen.
     METHODS build_work_area
-      IMPORTING io_parent TYPE REF TO z2ui5_cl_ai_xml.
+      IMPORTING io_parent TYPE REF TO z2ui5_cl_ui5_view_builder.
 
     " --- tree rendering ---
     METHODS build_tree_items
-      IMPORTING io_items TYPE REF TO z2ui5_cl_ai_xml.
+      IMPORTING io_items TYPE REF TO z2ui5_cl_ui5_view_builder.
     METHODS build_menu_level
-      IMPORTING io_items     TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_items     TYPE REF TO z2ui5_cl_ui5_view_builder
                 iv_struct_id TYPE string
                 iv_node_id   TYPE string
                 iv_level     TYPE i
                 it_path      TYPE string_table.
     METHODS add_tree_row
-      IMPORTING io_items      TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_items      TYPE REF TO z2ui5_cl_ui5_view_builder
                 iv_level      TYPE i
                 iv_state      TYPE string
                 iv_icon       TYPE string
@@ -176,7 +174,7 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msg_type.
 
@@ -211,16 +209,12 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
 
     " Starting a transaction is the job of the router - it is reached from
     " the command field, from the tree and from every other screen.
-    DATA lv_result TYPE string.
+    DATA(ls_run) = zcl_zlk05_tcode_router=>run( iv_command = iv_tcode
+                                                io_client  = client ).
+    mv_message  = ls_run-message.
+    mv_msg_type = ls_run-msg_type.
 
-    zcl_zlk05_tcode_router=>run(
-      EXPORTING iv_command  = iv_tcode
-                io_client   = client
-      IMPORTING ev_message  = mv_message
-                ev_msg_type = mv_msg_type
-      RECEIVING result      = lv_result ).
-
-    result = xsdbool( lv_result = zcl_zlk05_tcode_router=>c_nav ).
+    result = xsdbool( ls_run-outcome = zcl_zlk05_tcode_router=>c_nav ).
     IF result = abap_true.
       CLEAR mv_command.
     ENDIF.
@@ -231,7 +225,7 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
   METHOD view_display.
     " ===== View =====
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
 
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
@@ -308,52 +302,52 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
     " Work area - menu tree on the left, logon image area on the right.
     " Both halves carry FlexItemData: without it the flex box shrinks the
     " tree column down to the width of its shortest line.
-    DATA(flex) = io_parent->open( `HBox`
+    DATA(flex) = io_parent->ele( `HBox`
         )->a( n = `width`      v = `100%`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `alignItems` v = `Stretch`
         )->a( n = `renderType` v = `Bare` ).
 
-    DATA(scroll) = flex->open( `ScrollContainer`
+    DATA(scroll) = flex->ele( `ScrollContainer`
         )->a( n = `height`     v = `100%`
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true` ).
 
-    scroll->open( `layoutData`
-        )->leaf( `FlexItemData`
+    scroll->ele( `layoutData`
+        )->tag( `FlexItemData`
         )->a( n = `growFactor`   v = `0`
         )->a( n = `shrinkFactor` v = `0`
         )->a( n = `baseSize`     v = `30rem` ).
 
-    DATA(list) = scroll->open( `List`
+    DATA(list) = scroll->ele( `List`
         )->a( n = `showSeparators`   v = `None`
         )->a( n = `backgroundDesign` v = `Solid`
         )->a( n = `mode`             v = `None`
         )->a( n = `noDataText`       v = `The SAP menu could not be read` ).
 
-    build_tree_items( list->open( `items` ) ).
+    build_tree_items( list->ele( `items` ) ).
 
     " The SAP GUI shows the logon image here. That image is delivered by the
     " SAP GUI installation and not by the server, so this area shows the SAP
     " logo as a watermark and says so.
-    DATA(image_area) = flex->open( `VBox`
+    DATA(image_area) = flex->ele( `VBox`
         )->a( n = `height`         v = `100%`
         )->a( n = `justifyContent` v = `Center`
         )->a( n = `alignItems`     v = `Center` ).
 
-    image_area->open( `layoutData`
-        )->leaf( `FlexItemData`
+    image_area->ele( `layoutData`
+        )->tag( `FlexItemData`
         )->a( n = `growFactor`   v = `1`
         )->a( n = `shrinkFactor` v = `1`
         )->a( n = `baseSize`     v = `0%` ).
 
-    image_area->leaf( n = `Icon` ns = `core`
+    image_area->tag( n = `Icon` ns = `core`
         )->a( n = `src`     v = `sap-icon://SAP-logo-shape`
         )->a( n = `size`    v = `9rem`
         )->a( n = `color`   v = `#d5dce3`
         )->a( n = `tooltip` v = `Logon image - delivered by the SAP GUI installation, not by the server` ).
 
-    image_area->leaf( `Text`
+    image_area->tag( `Text`
         )->a( n = `text`      v = `Logon image of the SAP GUI installation - not available in this environment`
         )->a( n = `textAlign` v = `Center`
         )->a( n = `class`    v = `sapUiSmallMarginTop` ).
@@ -375,8 +369,8 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
                                      THEN `sap-icon://open-folder` ELSE `sap-icon://folder-blank` )
         iv_icon_color = c_col_gold
         iv_text       = `Favorites`
-        iv_press      = client->_event( val   = `TREE_TOGGLE`
-                                        t_arg = VALUE #( ( c_key_fav ) ) ) ).
+        iv_press      = client->_event( val = `TREE_TOGGLE`
+                                        arg = c_key_fav ) ).
 
     IF lv_fav_open = abap_true.
       LOOP AT mt_favorites ASSIGNING FIELD-SYMBOL(<fav>).
@@ -388,8 +382,8 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
             iv_icon_color = c_col_gold
             iv_text       = |{ <fav>-tcode } - { <fav>-text }|
             iv_as_link    = abap_true
-            iv_press      = client->_event( val   = `TCODE_CLICK`
-                                            t_arg = VALUE #( ( <fav>-tcode ) ) ) ).
+            iv_press      = client->_event( val = `TCODE_CLICK`
+                                            arg = <fav>-tcode ) ).
       ENDLOOP.
     ENDIF.
 
@@ -404,8 +398,8 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
                                      THEN `sap-icon://open-folder` ELSE `sap-icon://folder-blank` )
         iv_icon_color = c_col_blue
         iv_text       = `SAP Menu`
-        iv_press      = client->_event( val   = `TREE_TOGGLE`
-                                        t_arg = VALUE #( ( c_key_menu ) ) ) ).
+        iv_press      = client->_event( val = `TREE_TOGGLE`
+                                        arg = c_key_menu ) ).
 
     IF lv_menu_open = abap_true.
       build_menu_level(
@@ -446,8 +440,8 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
             iv_text       = <nd>-text
             iv_as_link    = abap_true
             iv_suffix     = <nd>-tcode
-            iv_press      = client->_event( val   = `TCODE_CLICK`
-                                            t_arg = VALUE #( ( <nd>-tcode ) ) ) ).
+            iv_press      = client->_event( val = `TCODE_CLICK`
+                                            arg = <nd>-tcode ) ).
         CONTINUE.
       ENDIF.
 
@@ -461,8 +455,8 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
                                        THEN `sap-icon://open-folder` ELSE `sap-icon://folder-blank` )
           iv_icon_color = c_col_blue
           iv_text       = <nd>-text
-          iv_press      = client->_event( val   = `TREE_TOGGLE`
-                                          t_arg = VALUE #( ( <nd>-node_key ) ) ) ).
+          iv_press      = client->_event( val = `TREE_TOGGLE`
+                                          arg = <nd>-node_key ) ).
 
       IF lv_open = abap_false.
         CONTINUE.
@@ -504,7 +498,7 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
 
   METHOD add_tree_row.
 
-    DATA(item) = io_items->open( `CustomListItem` ).
+    DATA(item) = io_items->ele( `CustomListItem` ).
 
     " Folders react on the whole row, transactions on the link - that keeps
     " the press events apart and matches the look of the SAP GUI tree.
@@ -515,28 +509,28 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
           )->a( n = `press` v = iv_press ).
     ENDIF.
 
-    DATA(row) = item->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(row) = item->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
 
     " indentation of the tree level
-    row->leaf( `HBox` )->a( n = `width` v = |{ 4 + iv_level * 18 }px| ).
+    row->tag( `HBox` )->a( n = `width` v = |{ 4 + iv_level * 18 }px| ).
 
     " expander
     CASE iv_state.
       WHEN `OPEN`.
-        row->leaf( n = `Icon` ns = `core`
+        row->tag( n = `Icon` ns = `core`
             )->a( n = `src`   v = `sap-icon://navigation-down-arrow`
             )->a( n = `size`  v = `0.7rem`
             )->a( n = `color` v = c_col_grey ).
       WHEN `CLOSED`.
-        row->leaf( n = `Icon` ns = `core`
+        row->tag( n = `Icon` ns = `core`
             )->a( n = `src`   v = `sap-icon://navigation-right-arrow`
             )->a( n = `size`  v = `0.7rem`
             )->a( n = `color` v = c_col_grey ).
       WHEN OTHERS.
-        row->leaf( `HBox` )->a( n = `width` v = `0.7rem` ).
+        row->tag( `HBox` )->a( n = `width` v = `0.7rem` ).
     ENDCASE.
 
-    row->leaf( n = `Icon` ns = `core`
+    row->tag( n = `Icon` ns = `core`
         )->a( n = `src`   v = iv_icon
         )->a( n = `size`  v = `0.875rem`
         )->a( n = `color` v = iv_icon_color
@@ -544,24 +538,24 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
 
     " wrapping off - a tree line of the SAP GUI is one line, never two
     IF iv_as_link = abap_true.
-      row->leaf( `Link`
+      row->tag( `Link`
           )->a( n = `text`     v = iv_text
           )->a( n = `press`    v = iv_press
           )->a( n = `wrapping` v = `false`
           )->a( n = `class`    v = `sapUiTinyMarginBegin` ).
     ELSE.
-      row->leaf( `Text`
+      row->tag( `Text`
           )->a( n = `text`     v = iv_text
           )->a( n = `wrapping` v = `false`
           )->a( n = `class`    v = `sapUiTinyMarginBegin` ).
     ENDIF.
 
     IF iv_suffix IS NOT INITIAL.
-      row->leaf( `Text`
-          )->a( n = `text`     v = |({ iv_suffix })|
+      row->tag( `Text`
+          )->a( n = `text`     t = |({ iv_suffix })|
           )->a( n = `wrapping` v = `false`
           )->a( n = `class`    v = `sapUiTinyMarginBegin`
-          )->a( n = `tooltip`  v = |Transaction { iv_suffix }| ).
+          )->a( n = `tooltip`  t = |Transaction { iv_suffix }| ).
     ENDIF.
 
   ENDMETHOD.

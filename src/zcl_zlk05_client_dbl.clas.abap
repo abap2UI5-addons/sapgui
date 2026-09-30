@@ -11,7 +11,6 @@ CLASS zcl_zlk05_client_dbl DEFINITION
     DATA mv_popover       TYPE string.
     DATA mv_nav_call      TYPE string.
     DATA mv_nav_leave     TYPE abap_bool.
-    DATA mv_model_updates TYPE i.
     DATA mt_follow_up     TYPE string_table.
 
     " Every follow-up action with its arguments, as `ACTION:arg1,arg2`.
@@ -35,7 +34,7 @@ CLASS zcl_zlk05_client_dbl DEFINITION
     "! nothing at all and the screen of the transaction just left stays on
     "! the browser. Steerable here so a test can cover that path.
     DATA mv_on_navigated  TYPE abap_bool.
-    DATA ms_get           TYPE z2ui5_if_types=>ty_s_get.
+    DATA ms_get           TYPE z2ui5_if_client=>ty_s_get.
 
     METHODS reset.
 
@@ -95,7 +94,7 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
 
   METHOD reset.
     CLEAR: mv_view, mv_popup, mv_popover, mv_nav_call, mv_nav_leave,
-           mv_model_updates, mt_follow_up, mt_follow_up_arg, mt_events.
+           mt_follow_up, mt_follow_up_arg, mt_events.
   ENDMETHOD.
 
   METHOD has_shortcut.
@@ -105,7 +104,7 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
 
   METHOD has_event.
     LOOP AT mt_events INTO DATA(lv_entry).
-      SPLIT lv_entry AT `|` INTO DATA(lv_name) DATA(lv_args).
+      SPLIT lv_entry AT `|` INTO DATA(lv_name) DATA(lv_dummy).
       IF lv_name = iv_name.
         result = abap_true.
         RETURN.
@@ -115,7 +114,7 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
 
   METHOD has_event_arg.
     LOOP AT mt_events INTO DATA(lv_entry).
-      SPLIT lv_entry AT `|` INTO DATA(lv_name) DATA(lv_args).
+      SPLIT lv_entry AT `|` INTO DATA(lv_dummy) DATA(lv_args).
       IF lv_args IS NOT INITIAL AND find( val = lv_args sub = iv_sub ) >= 0.
         result = abap_true.
         RETURN.
@@ -152,7 +151,7 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
     DATA(lv_xml) = COND string( WHEN iv_xml IS SUPPLIED THEN iv_xml ELSE mv_view ).
     parse( lv_xml ).
 
-    DATA(lo_nodes) = mo_doc->get_elements_by_tag_name( name = iv_name ).
+    DATA(lo_nodes) = mo_doc->get_elements_by_tag_name( iv_name ).
     DATA(lo_iter)  = lo_nodes->create_iterator( ).
 
     DO.
@@ -202,7 +201,7 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
     DATA(lv_xml) = COND string( WHEN iv_xml IS SUPPLIED THEN iv_xml ELSE mv_view ).
     parse( lv_xml ).
 
-    DATA(lo_node) = mo_doc->find_from_name( name = iv_name ).
+    DATA(lo_node) = mo_doc->find_from_name( iv_name ).
     IF lo_node IS NOT BOUND.
       result = -1.
       RETURN.
@@ -232,10 +231,16 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~view_model_update.
-    mv_model_updates = mv_model_updates + 1.
+    " obsolete in abap2UI5 - changed bound data is pushed automatically
   ENDMETHOD.
 
   METHOD z2ui5_if_client~follow_up_action.
+    " like the framework: a consumed result is a wire in the view, not an
+    " action queued for this roundtrip
+    IF result IS SUPPLIED.
+      result = `MOCK_EVENT_CLIENT`.
+      RETURN.
+    ENDIF.
     APPEND val TO mt_follow_up.
     APPEND |{ val }:{ concat_lines_of( table = t_arg sep = `,` ) }| TO mt_follow_up_arg.
   ENDMETHOD.
@@ -267,6 +272,14 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
     result = ms_get.
   ENDMETHOD.
 
+  METHOD z2ui5_if_client~get_event.
+    result = ms_get-event.
+  ENDMETHOD.
+
+  METHOD z2ui5_if_client~get_event_arg.
+    result = VALUE #( ms_get-t_event_arg[ v ] OPTIONAL ).
+  ENDMETHOD.
+
   " ---------- binding / events ----------
 
   METHOD z2ui5_if_client~_bind.
@@ -277,9 +290,19 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
     result = `{/MOCK}`.
   ENDMETHOD.
 
+  METHOD z2ui5_if_client~_bind_path.
+    result = `/MOCK`.
+  ENDMETHOD.
+
   METHOD z2ui5_if_client~_event.
+    " arg is appended to t_arg, the same way the framework folds it in
+    DATA(lt_arg) = t_arg.
+    IF arg IS SUPPLIED.
+      APPEND CONV string( arg ) TO lt_arg.
+    ENDIF.
+
     DATA(lv_entry) = CONV string( val ).
-    LOOP AT t_arg INTO DATA(lv_arg).
+    LOOP AT lt_arg INTO DATA(lv_arg).
       lv_entry = lv_entry && `|` && lv_arg.
     ENDLOOP.
     APPEND lv_entry TO mt_events.
@@ -305,9 +328,6 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~get_app_prev.
-  ENDMETHOD.
-
-  METHOD z2ui5_if_client~get_event_arg.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~message_box_display.
@@ -346,16 +366,16 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
   METHOD z2ui5_if_client~popover_destroy.
   ENDMETHOD.
 
-  METHOD z2ui5_if_client~set_app_state_active.
+  METHOD z2ui5_if_client~app_state_set_active.
   ENDMETHOD.
 
-  METHOD z2ui5_if_client~set_nav_back.
+  METHOD z2ui5_if_client~app_state_get_href.
   ENDMETHOD.
 
-  METHOD z2ui5_if_client~set_nav_routing.
+  METHOD z2ui5_if_client~hash_set.
   ENDMETHOD.
 
-  METHOD z2ui5_if_client~set_push_state.
+  METHOD z2ui5_if_client~hash_replace.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~set_session_stateful.

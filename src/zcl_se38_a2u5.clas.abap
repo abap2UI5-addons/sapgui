@@ -4,15 +4,16 @@ CLASS zcl_se38_a2u5 DEFINITION PUBLIC.
     INTERFACES z2ui5_if_app.
 
     DATA mv_progname TYPE string.
-    DATA mv_mode     TYPE string.
-    DATA mv_current  TYPE string.
     DATA mv_source   TYPE string.
     DATA mv_command   TYPE string.
-    DATA mv_message   TYPE string.
-    DATA mv_msgtype  TYPE string.
     DATA mt_programs TYPE zcl_zlk05_sys_api=>ty_t_program.
 
   PROTECTED SECTION.
+    DATA mv_mode     TYPE string.
+    DATA mv_current  TYPE string.
+    DATA mv_message   TYPE string.
+    DATA mv_msgtype  TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -57,21 +58,19 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
 
     " the command field and Back belong to the frame - they work the
     " same way on every screen of every transaction
-    DATA lv_frame TYPE string.
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client   = client
-                iv_event    = lv_event
-                iv_command  = mv_command
-      IMPORTING ev_message  = mv_message
-                ev_msg_type = mv_msgtype
-      RECEIVING result      = lv_frame ).
-    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = client
+        iv_event   = lv_event
+        iv_command = mv_command ).
+    mv_message = ls_frame-message.
+    mv_msgtype = ls_frame-msg_type.
+    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
       RETURN.
     ENDIF.
 
@@ -142,7 +141,7 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
 
   METHOD view_display.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -196,28 +195,28 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
               tooltip = `Variants - not available in this environment` ) ) ).
 
     " ----- Work area: the SE38 initial dynpro -----
-    DATA(work) = page->open( `VBox`
+    DATA(work) = page->ele( `VBox`
         )->a( n = `class`  v = `sapUiSmallMargin`
         )->a( n = `height` v = zcl_zlk05_gui_frame=>c_work_height ).
 
-    DATA(row) = work->open( `HBox`
+    DATA(row) = work->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiSmallMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Program` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `id`          v = `idProgName`
         )->a( n = `value`       v = client->_bind( mv_progname )
         )->a( n = `width`       v = `17rem`
         )->a( n = `placeholder` v = `e.g. RSUSR002 or Z*`
         )->a( n = `submit`      v = client->_event( `DISPLAY_DIRECT` ) ).
-    row->leaf( n = `Icon` ns = `core`
+    row->tag( n = `Icon` ns = `core`
         )->a( n = `src`     v = `sap-icon://value-help`
         )->a( n = `size`    v = `1rem`
         )->a( n = `color`   v = zcl_zlk05_gui_frame=>c_blue
         )->a( n = `class`   v = `sapUiTinyMarginBegin`
         )->a( n = `tooltip` v = `Search for a program - use * as a wildcard`
         )->a( n = `press`   v = client->_event( `EXECUTE` ) ).
-    row->leaf( `Button`
+    row->tag( `Button`
         )->a( n = `text`    v = `Create`
         )->a( n = `icon`   v = `sap-icon://add-document`
         )->a( n = `enabled` v = `false`
@@ -225,46 +224,46 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
         )->a( n = `tooltip` v = `Create - this app never changes the repository` ).
 
     " ----- Subobjects -----
-    work->leaf( `Title`
+    work->tag( `Title`
         )->a( n = `text`  v = `Subobjects`
         )->a( n = `level` v = `H4`
         )->a( n = `class` v = `sapUiMediumMarginTop` ).
 
     " Only the source code can be read, the other subobjects would need
     " repository APIs that are not released here.
-    DATA(sub) = work->open( `Panel`
+    DATA(sub) = work->ele( `Panel`
         )->a( n = `width` v = `26rem`
-        )->open( `RadioButtonGroup`
+        )->ele( `RadioButtonGroup`
             )->a( n = `columns`       v = `1`
             )->a( n = `selectedIndex` v = `0`
-            )->open( `buttons` ).
+            )->ele( `buttons` ).
 
-    sub->leaf( `RadioButton` )->a( n = `text` v = `Source Code` ).
-    sub->leaf( `RadioButton`
+    sub->tag( `RadioButton` )->a( n = `text` v = `Source Code` ).
+    sub->tag( `RadioButton`
         )->a( n = `text`    v = `Variants`
         )->a( n = `enabled` v = `false`
         )->a( n = `tooltip` v = `Variants - not available in this environment` ).
-    sub->leaf( `RadioButton`
+    sub->tag( `RadioButton`
         )->a( n = `text`    v = `Attributes`
         )->a( n = `enabled` v = `false`
         )->a( n = `tooltip` v = `Attributes - not available in this environment` ).
-    sub->leaf( `RadioButton`
+    sub->tag( `RadioButton`
         )->a( n = `text`    v = `Text elements`
         )->a( n = `enabled` v = `false`
         )->a( n = `tooltip` v = `Text elements - not available in this environment` ).
-    sub->leaf( `RadioButton`
+    sub->tag( `RadioButton`
         )->a( n = `text`    v = `Documentation`
         )->a( n = `enabled` v = `false`
         )->a( n = `tooltip` v = `Documentation - not available in this environment` ).
 
     " ----- Display / Change -----
-    DATA(btn) = work->open( `HBox` )->a( n = `class` v = `sapUiSmallMarginTop` ).
-    btn->leaf( `Button`
+    DATA(btn) = work->ele( `HBox` )->a( n = `class` v = `sapUiSmallMarginTop` ).
+    btn->tag( `Button`
         )->a( n = `text`  v = `Display`
         )->a( n = `icon`  v = `sap-icon://display`
         )->a( n = `type`  v = `Emphasized`
         )->a( n = `press` v = client->_event( `DISPLAY_DIRECT` ) ).
-    btn->leaf( `Button`
+    btn->tag( `Button`
         )->a( n = `text`    v = `Change`
         )->a( n = `icon`    v = `sap-icon://edit`
         )->a( n = `enabled` v = `false`
@@ -275,30 +274,30 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
     " The original screen has no hit list. It is shown here because a
     " generic pattern like Z* has to lead somewhere.
     IF mt_programs IS NOT INITIAL.
-      DATA(tab) = work->open( `Table`
+      DATA(tab) = work->ele( `Table`
           )->a( n = `items`   v = client->_bind( mt_programs )
           )->a( n = `sticky`  v = `ColumnHeaders`
           )->a( n = `growing` v = `true`
           )->a( n = `class`   v = `sapUiSizeCompact sapUiMediumMarginTop` ).
 
-      DATA(cols) = tab->open( `columns` ).
-      cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Program` ).
-      cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Type` ).
-      cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Package` ).
-      cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Author` ).
-      cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Changed On` ).
+      DATA(cols) = tab->ele( `columns` ).
+      cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Program` ).
+      cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Type` ).
+      cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Package` ).
+      cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Author` ).
+      cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Changed On` ).
 
-      DATA(cells) = tab->open( `items`
-          )->open( `ColumnListItem`
+      DATA(cells) = tab->ele( `items`
+          )->ele( `ColumnListItem`
               )->a( n = `type`  v = `Navigation`
-              )->a( n = `press` v = client->_event( val   = `DISPLAY`
-                                                   t_arg = VALUE #( ( `${NAME}` ) ) )
-              )->open( `cells` ).
-      cells->leaf( `Text` )->a( n = `text` v = `{NAME}` ).
-      cells->leaf( `Text` )->a( n = `text` v = `{KIND}` ).
-      cells->leaf( `Text` )->a( n = `text` v = `{PACKAGE}` ).
-      cells->leaf( `Text` )->a( n = `text` v = `{AUTHOR}` ).
-      cells->leaf( `Text` )->a( n = `text` v = `{CHDATE}` ).
+              )->a( n = `press` v = client->_event( val = `DISPLAY`
+                                                    arg = `${NAME}` )
+              )->ele( `cells` ).
+      cells->tag( `Text` )->a( n = `text` v = `{NAME}` ).
+      cells->tag( `Text` )->a( n = `text` v = `{KIND}` ).
+      cells->tag( `Text` )->a( n = `text` v = `{PACKAGE}` ).
+      cells->tag( `Text` )->a( n = `text` v = `{AUTHOR}` ).
+      cells->tag( `Text` )->a( n = `text` v = `{CHDATE}` ).
     ENDIF.
 
     " the cursor sits in the program field, exactly like the SAP GUI
@@ -319,7 +318,7 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
 
   METHOD view_source.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -371,37 +370,37 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
               tooltip = `Text elements - not available in this environment` ) ) ).
 
     " ----- Work area: repository browser on the left, editor on the right -----
-    DATA(split) = page->open( `HBox`
+    DATA(split) = page->ele( `HBox`
         )->a( n = `width`      v = `100%`
         )->a( n = `alignItems` v = `Stretch`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height ).
 
-    DATA(browser) = split->open( `VBox` )->a( n = `width` v = `26%` ).
+    DATA(browser) = split->ele( `VBox` )->a( n = `width` v = `26%` ).
 
-    DATA(brow_head) = browser->open( `Toolbar`
+    DATA(brow_head) = browser->ele( `Toolbar`
         )->a( n = `design` v = `Info`
         )->a( n = `height` v = `1.9rem` ).
-    brow_head->leaf( n = `Icon` ns = `core`
+    brow_head->tag( n = `Icon` ns = `core`
         )->a( n = `src`   v = `sap-icon://tree`
         )->a( n = `size`  v = `0.9rem`
         )->a( n = `color` v = zcl_zlk05_gui_frame=>c_blue ).
-    brow_head->leaf( `Text` )->a( n = `text` v = `Repository Browser` ).
+    brow_head->tag( `Text` )->a( n = `text` v = `Repository Browser` ).
 
-    DATA(brow_row) = browser->open( `HBox`
+    DATA(brow_row) = browser->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
-    brow_row->leaf( `Input`
+    brow_row->tag( `Input`
         )->a( n = `value`  v = client->_bind( mv_progname )
         )->a( n = `width`  v = `12rem`
         )->a( n = `submit` v = client->_event( `EXECUTE` ) ).
-    brow_row->leaf( n = `Icon` ns = `core`
+    brow_row->tag( n = `Icon` ns = `core`
         )->a( n = `src`     v = `sap-icon://display`
         )->a( n = `size`    v = `1rem`
         )->a( n = `color`   v = zcl_zlk05_gui_frame=>c_blue
         )->a( n = `class`   v = `sapUiTinyMarginBegin`
         )->a( n = `tooltip` v = `Display the program`
         )->a( n = `press`   v = client->_event( `DISPLAY_DIRECT` ) ).
-    brow_row->leaf( n = `Icon` ns = `core`
+    brow_row->tag( n = `Icon` ns = `core`
         )->a( n = `src`     v = `sap-icon://search`
         )->a( n = `size`    v = `1rem`
         )->a( n = `color`   v = zcl_zlk05_gui_frame=>c_blue
@@ -410,41 +409,41 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
         )->a( n = `press`   v = client->_event( `EXECUTE` ) ).
 
     IF mt_programs IS NOT INITIAL.
-      DATA(brow_tab) = browser->open( `Table`
+      DATA(brow_tab) = browser->ele( `Table`
           )->a( n = `items`  v = client->_bind( mt_programs )
           )->a( n = `sticky` v = `ColumnHeaders`
           )->a( n = `class`  v = `sapUiSizeCompact` ).
 
-      DATA(brow_cols) = brow_tab->open( `columns` ).
-      brow_cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Object Name` ).
-      brow_cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Type` ).
+      DATA(brow_cols) = brow_tab->ele( `columns` ).
+      brow_cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Object Name` ).
+      brow_cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Type` ).
 
-      DATA(brow_cells) = brow_tab->open( `items`
-          )->open( `ColumnListItem`
+      DATA(brow_cells) = brow_tab->ele( `items`
+          )->ele( `ColumnListItem`
               )->a( n = `type`  v = `Active`
-              )->a( n = `press` v = client->_event( val   = `DISPLAY`
-                                                   t_arg = VALUE #( ( `${NAME}` ) ) )
-              )->open( `cells` ).
-      brow_cells->leaf( `Text` )->a( n = `text` v = `{NAME}` ).
-      brow_cells->leaf( `Text` )->a( n = `text` v = `{KIND}` ).
+              )->a( n = `press` v = client->_event( val = `DISPLAY`
+                                                    arg = `${NAME}` )
+              )->ele( `cells` ).
+      brow_cells->tag( `Text` )->a( n = `text` v = `{NAME}` ).
+      brow_cells->tag( `Text` )->a( n = `text` v = `{KIND}` ).
     ENDIF.
 
     " ----- Editor -----
-    DATA(editor) = split->open( `VBox`
+    DATA(editor) = split->ele( `VBox`
         )->a( n = `width` v = `74%`
         )->a( n = `class` v = `sapUiTinyMarginBegin` ).
 
-    DATA(head) = editor->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(head) = editor->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = head iv_text = `Report` ).
-    head->leaf( `Input`
-        )->a( n = `value`   v = mv_current
+    head->tag( `Input`
+        )->a( n = `value`   t = mv_current
         )->a( n = `width`   v = `17rem`
         )->a( n = `enabled` v = `false` ).
-    head->leaf( `Text`
+    head->tag( `Text`
         )->a( n = `text`  v = `Active`
         )->a( n = `class` v = `sapUiMediumMarginBegin` ).
 
-    editor->leaf( n = `CodeEditor` ns = `editor`
+    editor->tag( n = `CodeEditor` ns = `editor`
         )->a( n = `value`       v = client->_bind( mv_source )
         )->a( n = `type`        v = `abap`
         )->a( n = `height`      v = `calc(100vh - 17rem)`
@@ -452,18 +451,18 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
         )->a( n = `lineNumbers` v = `true` ).
 
     " the editor status line of SE38
-    DATA(foot) = editor->open( `Toolbar`
+    DATA(foot) = editor->ele( `Toolbar`
         )->a( n = `design` v = `Transparent`
         )->a( n = `height` v = `1.9rem` ).
-    foot->leaf( `Text` )->a( n = `text` v = `Scope: >` ).
-    foot->leaf( `ToolbarSpacer` ).
-    foot->leaf( `Text`
+    foot->tag( `Text` )->a( n = `text` v = `Scope: >` ).
+    foot->tag( `ToolbarSpacer` ).
+    foot->tag( `Text`
         )->a( n = `text`    v = `Display mode - source is read-only`
         )->a( n = `tooltip` v = `This app has no write path into the repository` ).
-    foot->leaf( `ToolbarSeparator` ).
-    foot->leaf( `Text` )->a( n = `text` v = |{ count( val = mv_source sub = cl_abap_char_utilities=>newline ) + 1 } lines| ).
-    foot->leaf( `ToolbarSeparator` ).
-    foot->leaf( `Text` )->a( n = `text` v = `ABAP` ).
+    foot->tag( `ToolbarSeparator` ).
+    foot->tag( `Text` )->a( n = `text` t = |{ count( val = mv_source sub = cl_abap_char_utilities=>newline ) + 1 } lines| ).
+    foot->tag( `ToolbarSeparator` ).
+    foot->tag( `Text` )->a( n = `text` v = `ABAP` ).
 
     " function keys of the SAP GUI - F3 / Shift+F3 / F12 and F8
     zcl_zlk05_gui_frame=>register_keys(

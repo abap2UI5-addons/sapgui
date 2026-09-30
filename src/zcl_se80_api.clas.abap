@@ -123,9 +123,7 @@ CLASS zcl_se80_api DEFINITION PUBLIC.
 
     " ===== Pretty Printer =====
     METHODS pretty_print
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-                iv_source     TYPE string
+      IMPORTING iv_source     TYPE string
       RETURNING VALUE(result) TYPE string.
 
     " ===== Metadata =====
@@ -298,7 +296,6 @@ CLASS zcl_se80_api DEFINITION PUBLIC.
 
     METHODS get_object_dependencies
       IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
       RETURNING VALUE(result) TYPE ty_t_usage.
 
     METHODS search_replace_source
@@ -528,7 +525,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
         result = read_bsp_source( iv_name ).
       WHEN 'XSLT'.
         result-syntax_mode = `xml`.
-        DATA lt_xslt TYPE STANDARD TABLE OF string.
+        DATA lt_xslt TYPE string_table.
         DATA lv_xn TYPE syrepid.
         lv_xn = iv_name.
         READ REPORT lv_xn INTO lt_xslt.
@@ -541,7 +538,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
       WHEN 'TYPE'.
         result-syntax_mode = `abap`.
-        DATA lt_tp TYPE STANDARD TABLE OF string.
+        DATA lt_tp TYPE string_table.
         DATA lv_tp TYPE syrepid.
         lv_tp = iv_name.
         READ REPORT lv_tp INTO lt_tp.
@@ -554,7 +551,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
       WHEN OTHERS.
         result-syntax_mode = `abap`.
-        DATA lt_src TYPE STANDARD TABLE OF string.
+        DATA lt_src TYPE string_table.
         DATA lv_rep TYPE syrepid.
         lv_rep = iv_name.
         READ REPORT lv_rep INTO lt_src.
@@ -577,16 +574,16 @@ CLASS zcl_se80_api IMPLEMENTATION.
           clif_name = iv_name
           version   = 'A'
           settings  = lo_settings ).
-        DATA lt_source TYPE STANDARD TABLE OF string.
+        DATA lt_source TYPE string_table.
         lo_src->if_oo_clif_source~get_source( IMPORTING source = lt_source ).
         result-source = concat_lines_of( table = lt_source sep = cl_abap_char_utilities=>newline ).
 
         " Local Types
         DATA(lv_cls) = CONV seoclsname( iv_name ).
-        DATA lt_loc TYPE STANDARD TABLE OF string.
+        DATA lt_loc TYPE string_table.
         DATA(lv_ccdef) = cl_oo_classname_service=>get_ccdef_name( lv_cls ).
         READ REPORT lv_ccdef INTO lt_loc.
-        DATA lt_imp TYPE STANDARD TABLE OF string.
+        DATA lt_imp TYPE string_table.
         DATA(lv_ccimp) = cl_oo_classname_service=>get_ccimp_name( lv_cls ).
         READ REPORT lv_ccimp INTO lt_imp.
         IF lt_imp IS NOT INITIAL.
@@ -598,7 +595,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
         result-source_local = concat_lines_of( table = lt_loc sep = cl_abap_char_utilities=>newline ).
 
         " Test Classes
-        DATA lt_tst TYPE STANDARD TABLE OF string.
+        DATA lt_tst TYPE string_table.
         DATA(lv_tst) = cl_oo_classname_service=>get_local_testclasses_include( lv_cls ).
         READ REPORT lv_tst INTO lt_tst.
         result-source_test = concat_lines_of( table = lt_tst sep = cl_abap_char_utilities=>newline ).
@@ -611,7 +608,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD read_program_source.
-    DATA lt_src TYPE STANDARD TABLE OF string.
+    DATA lt_src TYPE string_table.
     result-syntax_mode = `abap`.
     READ REPORT iv_name INTO lt_src.
     IF sy-subrc = 0.
@@ -624,7 +621,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD read_func_source.
-    DATA lt_src TYPE STANDARD TABLE OF string.
+    DATA lt_src TYPE string_table.
     result-syntax_mode = `abap`.
     SELECT SINGLE include FROM tfdir WHERE funcname = @iv_name INTO @DATA(lv_incl).
     IF sy-subrc = 0 AND lv_incl IS NOT INITIAL.
@@ -642,7 +639,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD read_fugr_source.
-    DATA lt_src TYPE STANDARD TABLE OF string.
+    DATA lt_src TYPE string_table.
     result-syntax_mode = `abap`.
     DATA(lv_prog) = CONV syrepid( |SAPL{ iv_name }| ).
     READ REPORT lv_prog INTO lt_src.
@@ -688,7 +685,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
           IF sy-subrc = 0 AND lo_page IS BOUND.
             DATA lt_content TYPE o2pageline_table.
             lo_page->get_page( IMPORTING p_content = lt_content EXCEPTIONS OTHERS = 0 ).
-            DATA lt_src TYPE STANDARD TABLE OF string.
+            DATA lt_src TYPE string_table.
             LOOP AT lt_content ASSIGNING FIELD-SYMBOL(<l>).
               APPEND CONV string( <l>-line ) TO lt_src.
             ENDLOOP.
@@ -705,7 +702,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD save_source.
-    DATA lt_source TYPE STANDARD TABLE OF string.
+    DATA lt_source TYPE string_table.
     SPLIT iv_source AT cl_abap_char_utilities=>newline INTO TABLE lt_source.
 
     CASE iv_type.
@@ -728,7 +725,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
                 lv_lock_warn = | Warning: object could not be locked ({ lx_lock->get_text( ) }).|.
             ENDTRY.
             " Read current source to initialize internal state
-            DATA lt_old TYPE STANDARD TABLE OF string.
+            DATA lt_old TYPE string_table.
             lo_src->if_oo_clif_source~get_source( IMPORTING source = lt_old ).
             " Set new source and save
             lo_src->if_oo_clif_source~set_source( lt_source ).
@@ -743,7 +740,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
       WHEN 'PROG' OR 'FUNC'.
         DATA lv_rep TYPE syrepid.
         IF iv_type = 'FUNC'.
-          SELECT SINGLE include FROM tfdir WHERE funcname = @iv_name INTO @lv_rep.
+          SELECT SINGLE include FROM tfdir WHERE funcname = @iv_name INTO @lv_rep ##SUBRC_OK.
         ELSE.
           lv_rep = iv_name.
         ENDIF.
@@ -767,7 +764,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD activate_object.
-    DATA lt_objects TYPE STANDARD TABLE OF dwinactiv.
+    DATA lt_objects TYPE STANDARD TABLE OF dwinactiv WITH EMPTY KEY.
     DATA ls_obj TYPE dwinactiv.
 
     ls_obj-object = SWITCH #( iv_type
@@ -800,7 +797,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD check_syntax.
-    DATA lt_source TYPE STANDARD TABLE OF string.
+    DATA lt_source TYPE string_table.
     SPLIT iv_source AT cl_abap_char_utilities=>newline INTO TABLE lt_source.
 
     CASE iv_type.
@@ -838,7 +835,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
       WHEN 'PROG' OR 'FUNC'.
         DATA lv_rep TYPE syrepid.
         IF iv_type = 'FUNC'.
-          SELECT SINGLE include FROM tfdir WHERE funcname = @iv_name INTO @lv_rep.
+          SELECT SINGLE include FROM tfdir WHERE funcname = @iv_name INTO @lv_rep ##SUBRC_OK.
         ELSE.
           lv_rep = iv_name.
         ENDIF.
@@ -860,9 +857,8 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD pretty_print.
-    " For classes, use CL_OO_CLIF_SOURCE pretty print
-    " For programs, use PRETTY_PRINTER function
-    DATA lt_source TYPE STANDARD TABLE OF string.
+    " PRETTY_PRINTER works on any source, class sections included
+    DATA lt_source TYPE string_table.
     SPLIT iv_source AT cl_abap_char_utilities=>newline INTO TABLE lt_source.
 
     CALL FUNCTION 'PRETTY_PRINTER'
@@ -917,7 +913,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
         LOOP AT lt_fld ASSIGNING FIELD-SYMBOL(<fld>).
           APPEND VALUE #(
             name    = CONV string( <fld>-fieldname )
-            keyflag = COND #( WHEN <fld>-keyflag = 'X' THEN `🔑` )
+            keyflag = COND #( WHEN <fld>-keyflag = 'X' THEN `Key` )
             typtype = CONV string( <fld>-datatype )
             type    = COND #( WHEN <fld>-rollname IS NOT INITIAL
                               THEN CONV string( <fld>-rollname )
@@ -1205,9 +1201,9 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
   METHOD compare_versions.
     " Compare active vs inactive version (for classes)
-    DATA lt_active TYPE STANDARD TABLE OF string.
-    DATA lt_inactive TYPE STANDARD TABLE OF string.
-    DATA lt_diff TYPE STANDARD TABLE OF string.
+    DATA lt_active TYPE string_table.
+    DATA lt_inactive TYPE string_table.
+    DATA lt_diff TYPE string_table.
 
     CASE iv_type.
       WHEN 'CLAS' OR 'INTF'.
@@ -1319,7 +1315,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
     DATA(lv_total) = count_lines( iv_source ).
     DATA lv_comments TYPE i.
     DATA lv_blanks TYPE i.
-    DATA lt_lines TYPE STANDARD TABLE OF string.
+    DATA lt_lines TYPE string_table.
     SPLIT iv_source AT cl_abap_char_utilities=>newline INTO TABLE lt_lines.
     LOOP AT lt_lines ASSIGNING FIELD-SYMBOL(<line>).
       DATA(lv_trimmed) = condense( <line> ).
@@ -1355,12 +1351,11 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
   METHOD get_table_content.
     " Preview first N rows of a table
-    DATA lt_lines TYPE STANDARD TABLE OF string.
+    DATA lt_lines TYPE string_table.
     TRY.
-        DATA(lv_sql) = |SELECT * FROM { iv_name } UP TO { iv_maxrows } ROWS|.
         " Use dynamic SELECT
         DATA lt_result TYPE REF TO data.
-        CREATE DATA lt_result TYPE STANDARD TABLE OF (iv_name).
+        CREATE DATA lt_result TYPE STANDARD TABLE OF (iv_name) WITH EMPTY KEY.
         FIELD-SYMBOLS <tab> TYPE STANDARD TABLE.
         ASSIGN lt_result->* TO <tab>.
         SELECT * FROM (iv_name) INTO TABLE @<tab> UP TO @iv_maxrows ROWS.
@@ -1424,7 +1419,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
     CASE iv_type.
       WHEN 'PROG'.
         " Copy source to new name, delete old
-        DATA lt_source TYPE STANDARD TABLE OF string.
+        DATA lt_source TYPE string_table.
         READ REPORT iv_old_name INTO lt_source.
         IF sy-subrc = 0.
           INSERT REPORT iv_new_name FROM lt_source.
@@ -1432,7 +1427,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
             " Register new
             SELECT SINGLE devclass FROM tadir
               WHERE pgmid = 'R3TR' AND object = 'PROG'
-              AND obj_name = @iv_old_name INTO @DATA(lv_pkg).
+              AND obj_name = @iv_old_name INTO @DATA(lv_pkg) ##SUBRC_OK.
             IF lv_pkg IS NOT INITIAL.
               CALL FUNCTION 'TR_TADIR_INTERFACE'
                 EXPORTING
@@ -1549,7 +1544,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
   METHOD get_package_path.
     " Build full package hierarchy path
     DATA lv_pkg TYPE devclass.
-    DATA lt_path TYPE STANDARD TABLE OF devclass.
+    DATA lt_path TYPE STANDARD TABLE OF devclass WITH EMPTY KEY.
     lv_pkg = iv_package.
     DO 10 TIMES.
       INSERT lv_pkg INTO lt_path INDEX 1.
@@ -1570,8 +1565,16 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD get_class_friends.
-    " Friends - simplified (table structure varies by release)
-    CLEAR result.
+    " Friends of the active version, SE24 tab Friends
+    SELECT refclsname FROM seofriends
+      WHERE clsname = @iv_name AND version = '1'
+      ORDER BY refclsname
+      INTO TABLE @DATA(lt_friends).
+    LOOP AT lt_friends ASSIGNING FIELD-SYMBOL(<friend>).
+      APPEND VALUE #(
+        name = CONV string( <friend>-refclsname )
+        type = `Friend` ) TO result.
+    ENDLOOP.
   ENDMETHOD.
 
 
@@ -1629,7 +1632,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
     " Foreign keys for a table
     SELECT fieldname, checktable FROM dd03l
       WHERE tabname = @iv_name AND as4local = 'A'
-      AND checktable IS NOT INITIAL AND checktable <> '*'
+      AND checktable <> ' ' AND checktable <> '*'
       AND fieldname NOT LIKE '.%'
       ORDER BY position
       INTO TABLE @DATA(lt_fk).
@@ -1756,7 +1759,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
   METHOD copy_object.
     CASE iv_source_type.
       WHEN 'PROG'.
-        DATA lt_source TYPE STANDARD TABLE OF string.
+        DATA lt_source TYPE string_table.
         READ REPORT iv_source_name INTO lt_source.
         IF sy-subrc = 0.
           INSERT REPORT iv_target_name FROM lt_source.
@@ -1810,7 +1813,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD create_program.
-    DATA lt_source TYPE STANDARD TABLE OF string.
+    DATA lt_source TYPE string_table.
     APPEND |REPORT { iv_name }.| TO lt_source.
 
     INSERT REPORT iv_name FROM lt_source.
@@ -1845,7 +1848,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
     SELECT SINGLE obj_name FROM tadir
       WHERE pgmid = 'R3TR' AND object = @iv_type
       AND obj_name = @iv_name
-      INTO @DATA(lv_found).
+      INTO @DATA(lv_dummy).
     IF sy-subrc <> 0.
       result = `Unknown`.
       RETURN.
@@ -1912,7 +1915,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
   METHOD lock_in_transport.
     DATA ls_e071 TYPE e071.
-    DATA lt_e071 TYPE STANDARD TABLE OF e071.
+    DATA lt_e071 TYPE STANDARD TABLE OF e071 WITH EMPTY KEY.
     ls_e071-pgmid = 'R3TR'.
     ls_e071-object = iv_type.
     ls_e071-obj_name = iv_name.
@@ -1937,8 +1940,8 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD get_documentation.
-    DATA lt_lines TYPE STANDARD TABLE OF string.
-    DATA lt_doc TYPE STANDARD TABLE OF tline.
+    DATA lt_lines TYPE string_table.
+    DATA lt_doc TYPE STANDARD TABLE OF tline WITH EMPTY KEY.
 
     CASE iv_type.
       WHEN 'CLAS' OR 'INTF'.
@@ -2012,10 +2015,10 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD get_text_elements.
-    DATA lt_lines TYPE STANDARD TABLE OF string.
+    DATA lt_lines TYPE string_table.
     CASE iv_type.
       WHEN 'PROG' OR 'CLAS' OR 'FUGR'.
-        DATA lt_textpool TYPE STANDARD TABLE OF textpool.
+        DATA lt_textpool TYPE STANDARD TABLE OF textpool WITH EMPTY KEY.
         DATA lv_prog TYPE syrepid.
         lv_prog = iv_name.
         READ TEXTPOOL lv_prog INTO lt_textpool LANGUAGE 'E'.
@@ -2038,19 +2041,19 @@ CLASS zcl_se80_api IMPLEMENTATION.
   METHOD get_object_description.
     CASE iv_type.
       WHEN 'CLAS' OR 'INTF'.
-        SELECT SINGLE descript FROM seoclasstx WHERE clsname = @iv_name AND langu = 'E' INTO @result.
+        SELECT SINGLE descript FROM seoclasstx WHERE clsname = @iv_name AND langu = 'E' INTO @result ##SUBRC_OK.
       WHEN 'PROG'.
-        SELECT SINGLE text FROM trdirt WHERE name = @iv_name AND sprsl = 'E' INTO @result.
+        SELECT SINGLE text FROM trdirt WHERE name = @iv_name AND sprsl = 'E' INTO @result ##SUBRC_OK.
       WHEN 'TABL' OR 'VIEW'.
-        SELECT SINGLE ddtext FROM dd02t WHERE tabname = @iv_name AND ddlanguage = 'E' INTO @result.
+        SELECT SINGLE ddtext FROM dd02t WHERE tabname = @iv_name AND ddlanguage = 'E' INTO @result ##SUBRC_OK.
       WHEN 'DTEL'.
-        SELECT SINGLE ddtext FROM dd04t WHERE rollname = @iv_name AND ddlanguage = 'E' INTO @result.
+        SELECT SINGLE ddtext FROM dd04t WHERE rollname = @iv_name AND ddlanguage = 'E' INTO @result ##SUBRC_OK.
       WHEN 'DOMA'.
-        SELECT SINGLE ddtext FROM dd01t WHERE domname = @iv_name AND ddlanguage = 'E' INTO @result.
+        SELECT SINGLE ddtext FROM dd01t WHERE domname = @iv_name AND ddlanguage = 'E' INTO @result ##SUBRC_OK.
       WHEN 'FUGR'.
-        SELECT SINGLE areat FROM tlibt WHERE area = @iv_name AND spras = 'E' INTO @result.
+        SELECT SINGLE areat FROM tlibt WHERE area = @iv_name AND spras = 'E' INTO @result ##SUBRC_OK.
       WHEN 'MSAG'.
-        SELECT SINGLE stext FROM t100a WHERE arbgb = @iv_name INTO @result.
+        SELECT SINGLE stext FROM t100a WHERE arbgb = @iv_name INTO @result ##SUBRC_OK.
       WHEN OTHERS.
         CLEAR result.
     ENDCASE.

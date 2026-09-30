@@ -44,15 +44,16 @@ CLASS zcl_st05_a2u5 DEFINITION PUBLIC.
     CONSTANTS c_ro TYPE string VALUE
       `status display - this app never switches a trace on or off`.
 
-    DATA mv_screen     TYPE string.
     DATA mv_command     TYPE string.
-    DATA mv_message     TYPE string.
-    DATA mv_msgtype    TYPE string.
-    DATA mv_show_param TYPE abap_bool.
     DATA ms_state      TYPE zcl_zlk05_sys_api=>ty_s_trace_state.
     DATA mt_param      TYPE zcl_zlk05_sys_api=>ty_t_kv.
 
   PROTECTED SECTION.
+    DATA mv_screen     TYPE string.
+    DATA mv_message     TYPE string.
+    DATA mv_msgtype    TYPE string.
+    DATA mv_show_param TYPE abap_bool.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -62,20 +63,20 @@ CLASS zcl_st05_a2u5 DEFINITION PUBLIC.
     METHODS do_refresh.
 
     METHODS add_check
-      IMPORTING io_parent TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_parent TYPE REF TO z2ui5_cl_ui5_view_builder
                 iv_text   TYPE string
                 iv_on     TYPE abap_bool
                 iv_tip    TYPE string OPTIONAL.
 
     METHODS add_field
-      IMPORTING io_parent TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_parent TYPE REF TO z2ui5_cl_ui5_view_builder
                 iv_label  TYPE string
                 iv_value  TYPE string OPTIONAL
                 iv_width  TYPE string DEFAULT `18rem`
                 iv_tip    TYPE string OPTIONAL.
 
     METHODS add_block_title
-      IMPORTING io_parent TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_parent TYPE REF TO z2ui5_cl_ui5_view_builder
                 iv_text   TYPE string
                 iv_first  TYPE abap_bool OPTIONAL.
 
@@ -114,19 +115,17 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
 
     " the command field and Back belong to the frame - they work the
     " same way on every screen of every transaction
-    DATA lv_frame TYPE string.
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client   = client
-                iv_event    = client->get( )-event
-                iv_command  = mv_command
-      IMPORTING ev_message  = mv_message
-                ev_msg_type = mv_msgtype
-      RECEIVING result      = lv_frame ).
-    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = client
+        iv_event   = client->get_event( )
+        iv_command = mv_command ).
+    mv_message = ls_frame-message.
+    mv_msgtype = ls_frame-msg_type.
+    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
       RETURN.
     ENDIF.
 
-    CASE client->get( )-event.
+    CASE client->get_event( ).
 
       WHEN 'REFRESH'.
         do_refresh( ).
@@ -208,7 +207,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
 * =====================================================================
   METHOD view_initial.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -259,7 +258,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
               tooltip = |Deactivate Trace on All Instances - { c_ro }| )
             ( icon = `sap-icon://open-command-field` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Display Trace Without First Deactivating - { c_na }| )
-            ( icon = `sap-icon://detail-more` color = zcl_zlk05_gui_frame=>c_grey
+            ( icon = `sap-icon://detail-view` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Display Detailed Trace List - { c_na }| )
             ( sep = abap_true )
             ( icon = `sap-icon://save` color = zcl_zlk05_gui_frame=>c_grey
@@ -280,17 +279,17 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://overview-chart` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Activate Stack Trace - { c_ro }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true`
-        )->open( `VBox`
+        )->ele( `VBox`
         )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " The trace type boxes mirror the kernel state. When the kernel did not
     " tell it, empty boxes would read as "no trace is running" - say so.
     IF ms_state-state_known = abap_false.
-      work->leaf( `MessageStrip`
+      work->tag( `MessageStrip`
           )->a( n = `text`     v = `The trace state of this instance could not be read. ` &&
                                    `The trace type boxes below do NOT show the state of the instance.`
           )->a( n = `type`     v = `Warning`
@@ -303,7 +302,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
                      iv_text   = `Select Trace Type`
                      iv_first  = abap_true ).
 
-    DATA(trow1) = work->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(trow1) = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     DATA(lv_tip) = COND #(
         WHEN ms_state-state_known = abap_false
         THEN `trace state unknown - this box does not show the state of the instance` ).
@@ -316,51 +315,51 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
                iv_on = ms_state-enq_on iv_tip = lv_tip ).
     add_check( io_parent = trow1 iv_text = `RFC Trace`
                iv_on = ms_state-rfc_on iv_tip = lv_tip ).
-    trow1->shut( ).
+    trow1->end( ).
 
-    DATA(trow2) = work->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(trow2) = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     add_check( io_parent = trow2 iv_text = `HTTP Trace`
                iv_on = ms_state-http_on iv_tip = lv_tip ).
     add_check( io_parent = trow2 iv_text = `AMC Trace`
                iv_on = ms_state-amc_on iv_tip = lv_tip ).
     add_check( io_parent = trow2 iv_text = `APC trace`
                iv_on = ms_state-apc_on iv_tip = lv_tip ).
-    trow2->shut( ).
+    trow2->end( ).
 
     " ----- TEXT2 - Configure Trace -----
     add_block_title( io_parent = work iv_text = `Configure Trace` ).
 
-    DATA(srow) = work->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(srow) = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = srow
                                     iv_text   = `Stack Trace`
                                     iv_width  = `16rem` ).
-    srow->leaf( `RadioButton`
+    srow->tag( `RadioButton`
         )->a( n = `text`     v = `On`
-        )->a( n = `selected` v = z2ui5_cl_ai_xml=>as_bool( ms_state-stack_on )
+        )->a( n = `selected` b = ms_state-stack_on
         )->a( n = `enabled`  v = `false`
-        )->a( n = `tooltip`  v = |Activate Stack Trace - { c_ro }|
-        )->leaf( `RadioButton`
+        )->a( n = `tooltip`  t = |Activate Stack Trace - { c_ro }|
+        )->tag( `RadioButton`
         )->a( n = `text`     v = `Off`
-        )->a( n = `selected` v = z2ui5_cl_ai_xml=>as_bool( xsdbool( ms_state-stack_on = abap_false ) )
+        )->a( n = `selected` b = xsdbool( ms_state-stack_on = abap_false )
         )->a( n = `enabled`  v = `false`
-        )->a( n = `tooltip`  v = |Deactivate Stack Trace - { c_ro }| ).
-    srow->shut( ).
+        )->a( n = `tooltip`  t = |Deactivate Stack Trace - { c_ro }| ).
+    srow->end( ).
 
-    DATA(prow) = work->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(prow) = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = prow
                                     iv_text   = `Progress Display`
                                     iv_width  = `16rem` ).
-    prow->leaf( `RadioButton`
+    prow->tag( `RadioButton`
         )->a( n = `text`     v = `On`
-        )->a( n = `selected` v = z2ui5_cl_ai_xml=>as_bool( ms_state-progress_on )
+        )->a( n = `selected` b = ms_state-progress_on
         )->a( n = `enabled`  v = `false`
-        )->a( n = `tooltip`  v = |Switch Progress Display On - { c_ro }|
-        )->leaf( `RadioButton`
+        )->a( n = `tooltip`  t = |Switch Progress Display On - { c_ro }|
+        )->tag( `RadioButton`
         )->a( n = `text`     v = `Off`
-        )->a( n = `selected` v = z2ui5_cl_ai_xml=>as_bool( xsdbool( ms_state-progress_on = abap_false ) )
+        )->a( n = `selected` b = xsdbool( ms_state-progress_on = abap_false )
         )->a( n = `enabled`  v = `false`
-        )->a( n = `tooltip`  v = |Switch Progress Display Off - { c_ro }| ).
-    prow->shut( ).
+        )->a( n = `tooltip`  t = |Switch Progress Display Off - { c_ro }| ).
+    prow->end( ).
 
     " ----- SQLTFIELDS-STATE -----
     add_block_title( io_parent = work
@@ -397,7 +396,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
 
       add_block_title( io_parent = work iv_text = `Profile Parameters for Trace` ).
 
-      DATA(grid) = work->open( n = `Table` ns = `table`
+      DATA(grid) = work->ele( n = `Table` ns = `table`
           )->a( n = `rows`                v = client->_bind( mt_param )
           )->a( n = `visibleRowCountMode` v = `Auto`
           )->a( n = `selectionMode`       v = `None`
@@ -405,7 +404,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
           )->a( n = `minAutoRowCount`     v = `5`
           )->a( n = `class`               v = `sapUiTinyMarginTop` ).
 
-      DATA(cols) = grid->open( n = `columns` ns = `table` ).
+      DATA(cols) = grid->ele( n = `columns` ns = `table` ).
 
       DATA(lt_col) = VALUE string_table(
           ( `Parameter|LABEL|32rem` )
@@ -413,22 +412,22 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
 
       LOOP AT lt_col INTO DATA(lv_col).
         SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
-        DATA(col) = cols->open( n = `Column` ns = `table`
-            )->a( n = `width` v = lv_wid ).
-        col->open( n = `label` ns = `table`
-            )->leaf( `Label` )->a( n = `text` v = lv_head )->shut( )->shut( ).
-        col->open( n = `template` ns = `table`
-            )->leaf( `Text`
+        DATA(col) = cols->ele( n = `Column` ns = `table`
+            )->a( n = `width` t = lv_wid ).
+        col->ele( n = `label` ns = `table`
+            )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+        col->ele( n = `template` ns = `table`
+            )->tag( `Text`
                 )->a( n = `text`     v = |\{{ lv_fld }\}|
                 )->a( n = `wrapping` v = `false` ).
-        col->shut( ).
+        col->end( ).
       ENDLOOP.
 
-      grid->shut( ).
+      grid->end( ).
 
     ENDIF.
 
-    work->leaf( `Text`
+    work->tag( `Text`
         )->a( n = `text`  v = `Trace state read via ST05_GET_TRACE_STATE - display only`
         )->a( n = `class` v = `sapUiMediumMarginTop` ).
 
@@ -447,7 +446,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
 * =====================================================================
   METHOD view_filter.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -487,11 +486,11 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://filter-analytics` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Activate Trace with Filter - { c_ro }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true`
-        )->open( `VBox`
+        )->ele( `VBox`
         )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " ----- filter conditions, only one of them can be set -----
@@ -500,7 +499,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
                      iv_first  = abap_true ).
 
     IF ms_state-state_known = abap_false.
-      work->leaf( `MessageStrip`
+      work->tag( `MessageStrip`
           )->a( n = `text`     v = `The trace state of this instance could not be read. ` &&
                                    `The filter conditions below are therefore unknown, not empty.`
           )->a( n = `type`     v = `Warning`
@@ -508,7 +507,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
           )->a( n = `class`    v = `sapUiTinyMarginBottom` ).
     ENDIF.
 
-    work->leaf( `Text`
+    work->tag( `Text`
         )->a( n = `text`  v = `(Only one of these filters can be set)`
         )->a( n = `class` v = `sapUiTinyMarginBottom` ).
 
@@ -534,18 +533,18 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
     add_field( io_parent = work iv_label = `Exclude`
                iv_value = ms_state-excl_tables iv_width = `40rem` ).
 
-    DATA(mrow) = work->open( `HBox`
+    DATA(mrow) = work->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     add_check( io_parent = mrow
                iv_text   = `Include Statements with Empty Table Names`
                iv_on     = ms_state-incl_missing ).
-    mrow->shut( ).
+    mrow->end( ).
 
     " ----- SCHEDULING -----
     add_block_title( io_parent = work iv_text = `Scheduling` ).
 
-    DATA(schedrow) = work->open( `HBox`
+    DATA(schedrow) = work->ele( `HBox`
         )->a( n = `alignItems` v = `Center` ).
     add_check( io_parent = schedrow
                iv_text   = `Schedule Trace Recording`
@@ -555,7 +554,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
                iv_text   = `Save Trace in DB`
                iv_on     = abap_false
                iv_tip    = |Save Trace in DB - { c_na }| ).
-    schedrow->shut( ).
+    schedrow->end( ).
 
     add_field( io_parent = work iv_label = `Start Date`
                iv_width = `12rem` iv_tip = |Start Date - { c_na }| ).
@@ -568,7 +567,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
     add_field( io_parent = work iv_label = `Description`
                iv_width = `40rem` iv_tip = |Description - { c_na }| ).
 
-    work->leaf( `Text`
+    work->tag( `Text`
         )->a( n = `text`  v = `Filter values read via ST05_GET_TRACE_STATE - display only. ` &&
                              `Scheduling data are kept by the trace scheduler and are not read here.`
         )->a( n = `class` v = `sapUiMediumMarginTop` ).
@@ -588,9 +587,9 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
 * =====================================================================
   METHOD add_check.
 
-    io_parent->leaf( `CheckBox`
+    io_parent->tag( `CheckBox`
         )->a( n = `text`     v = iv_text
-        )->a( n = `selected` v = z2ui5_cl_ai_xml=>as_bool( iv_on )
+        )->a( n = `selected` b = iv_on
         )->a( n = `enabled`  v = `false`
         )->a( n = `tooltip`  v = COND #( WHEN iv_tip IS INITIAL
                                          THEN |{ iv_text } - { c_ro }|
@@ -601,7 +600,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
 
   METHOD add_field.
 
-    DATA(row) = io_parent->open( `HBox`
+    DATA(row) = io_parent->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
 
@@ -609,21 +608,21 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
                                     iv_text   = iv_label
                                     iv_width  = `16rem` ).
 
-    row->leaf( `Input`
-        )->a( n = `value`   v = iv_value
+    row->tag( `Input`
+        )->a( n = `value`   t = iv_value
         )->a( n = `enabled` v = `false`
         )->a( n = `width`   v = iv_width
         )->a( n = `tooltip` v = COND #( WHEN iv_tip IS INITIAL THEN iv_label
                                         ELSE iv_tip ) ).
 
-    row->shut( ).
+    row->end( ).
 
   ENDMETHOD.
 
 
   METHOD add_block_title.
 
-    io_parent->leaf( `Title`
+    io_parent->tag( `Title`
         )->a( n = `text`  v = iv_text
         )->a( n = `level` v = `H4`
         )->a( n = `class` v = COND #( WHEN iv_first = abap_true THEN `sapUiTinyMarginBottom`

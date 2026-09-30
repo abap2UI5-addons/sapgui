@@ -1841,7 +1841,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
     LOOP AT lt_meta ASSIGNING FIELD-SYMBOL(<m>).
 
-      IF NOT to_upper( <m>-name ) CP lv_pattern.
+      IF to_upper( <m>-name ) NP lv_pattern.
         CONTINUE.
       ENDIF.
 
@@ -2112,19 +2112,18 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
     es_state-state_known = abap_true.
 
     " the trace type flags sit in the named sub structure TRACE_TYPES
-    es_state-sql_on  = COND #( WHEN ls_raw-trace_types-sql_on  IS NOT INITIAL THEN abap_true ).
-    es_state-buf_on  = COND #( WHEN ls_raw-trace_types-buf_on  IS NOT INITIAL THEN abap_true ).
-    es_state-enq_on  = COND #( WHEN ls_raw-trace_types-enq_on  IS NOT INITIAL THEN abap_true ).
-    es_state-rfc_on  = COND #( WHEN ls_raw-trace_types-rfc_on  IS NOT INITIAL THEN abap_true ).
-    es_state-http_on = COND #( WHEN ls_raw-trace_types-http_on IS NOT INITIAL THEN abap_true ).
-    es_state-amc_on  = COND #( WHEN ls_raw-trace_types-amc_on  IS NOT INITIAL THEN abap_true ).
-    es_state-apc_on  = COND #( WHEN ls_raw-trace_types-apc_on  IS NOT INITIAL THEN abap_true ).
-    es_state-auth_on = COND #( WHEN ls_raw-trace_types-auth_on IS NOT INITIAL THEN abap_true ).
-    es_state-stack_on     = COND #( WHEN ls_raw-stack_trace_on IS NOT INITIAL THEN abap_true ).
-    es_state-progress_on  = COND #( WHEN ls_raw-progress_indicator_on IS NOT INITIAL THEN abap_true ).
-    es_state-filter_on    = COND #( WHEN ls_raw-filter_on IS NOT INITIAL THEN abap_true ).
-    es_state-incl_missing = COND #( WHEN ls_raw-include_missing_table_name_on IS NOT INITIAL
-                                    THEN abap_true ).
+    es_state-sql_on  = xsdbool( ls_raw-trace_types-sql_on IS NOT INITIAL ).
+    es_state-buf_on  = xsdbool( ls_raw-trace_types-buf_on IS NOT INITIAL ).
+    es_state-enq_on  = xsdbool( ls_raw-trace_types-enq_on IS NOT INITIAL ).
+    es_state-rfc_on  = xsdbool( ls_raw-trace_types-rfc_on IS NOT INITIAL ).
+    es_state-http_on = xsdbool( ls_raw-trace_types-http_on IS NOT INITIAL ).
+    es_state-amc_on  = xsdbool( ls_raw-trace_types-amc_on IS NOT INITIAL ).
+    es_state-apc_on  = xsdbool( ls_raw-trace_types-apc_on IS NOT INITIAL ).
+    es_state-auth_on = xsdbool( ls_raw-trace_types-auth_on IS NOT INITIAL ).
+    es_state-stack_on     = xsdbool( ls_raw-stack_trace_on IS NOT INITIAL ).
+    es_state-progress_on  = xsdbool( ls_raw-progress_indicator_on IS NOT INITIAL ).
+    es_state-filter_on    = xsdbool( ls_raw-filter_on IS NOT INITIAL ).
+    es_state-incl_missing = xsdbool( ls_raw-include_missing_table_name_on IS NOT INITIAL ).
 
     es_state-trace_user   = ls_raw-trace_user.
     es_state-tcode        = ls_raw-transaction_code.
@@ -2152,13 +2151,27 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
     " which trace types are recording right now?
     DATA lt_active TYPE string_table.
 
-    IF es_state-sql_on  = abap_true. APPEND `SQL Trace`     TO lt_active. ENDIF.
-    IF es_state-buf_on  = abap_true. APPEND `Buffer Trace`  TO lt_active. ENDIF.
-    IF es_state-enq_on  = abap_true. APPEND `Enqueue Trace` TO lt_active. ENDIF.
-    IF es_state-rfc_on  = abap_true. APPEND `RFC Trace`     TO lt_active. ENDIF.
-    IF es_state-http_on = abap_true. APPEND `HTTP Trace`    TO lt_active. ENDIF.
-    IF es_state-amc_on  = abap_true. APPEND `AMC Trace`     TO lt_active. ENDIF.
-    IF es_state-apc_on  = abap_true. APPEND `APC trace`     TO lt_active. ENDIF.
+    IF es_state-sql_on  = abap_true.
+      APPEND `SQL Trace`     TO lt_active.
+    ENDIF.
+    IF es_state-buf_on  = abap_true.
+      APPEND `Buffer Trace`  TO lt_active.
+    ENDIF.
+    IF es_state-enq_on  = abap_true.
+      APPEND `Enqueue Trace` TO lt_active.
+    ENDIF.
+    IF es_state-rfc_on  = abap_true.
+      APPEND `RFC Trace`     TO lt_active.
+    ENDIF.
+    IF es_state-http_on = abap_true.
+      APPEND `HTTP Trace`    TO lt_active.
+    ENDIF.
+    IF es_state-amc_on  = abap_true.
+      APPEND `AMC Trace`     TO lt_active.
+    ENDIF.
+    IF es_state-apc_on  = abap_true.
+      APPEND `APC trace`     TO lt_active.
+    ENDIF.
 
     IF lt_active IS INITIAL.
       es_state-any_on     = abap_false.
@@ -2312,7 +2325,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    SELECT SINGLE @abap_true FROM tstc INTO @result WHERE tcode = @lv_tcode.
+    SELECT SINGLE @abap_true FROM tstc WHERE tcode = @lv_tcode INTO @result.
 
   ENDMETHOD.
 
@@ -2323,8 +2336,9 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    SELECT SINGLE ttext FROM tstct INTO @result
-      WHERE sprsl = 'E' AND tcode = @lv_tcode.
+    SELECT SINGLE ttext FROM tstct
+      WHERE sprsl = 'E' AND tcode = @lv_tcode
+      INTO @result ##SUBRC_OK.
 
   ENDMETHOD.
 
@@ -2472,8 +2486,10 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
     cs_detail-s_trframe = abap_true.
     LOOP AT cs_detail-params INTO DATA(ls_param).
       CASE ls_param-field.
-        WHEN `CLASS`.  cs_detail-classname = ls_param-value.
-        WHEN `METHOD`. cs_detail-method    = ls_param-value.
+        WHEN `CLASS`.
+          cs_detail-classname = ls_param-value.
+        WHEN `METHOD`.
+          cs_detail-method    = ls_param-value.
         WHEN `UPDATE_MODE`.
           cs_detail-upd_mode = COND string(
               WHEN ls_param-value = `S` THEN `S`
@@ -2535,11 +2551,13 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
     result-tcode = ls_tstc-tcode.
     result-pgmna = ls_tstc-pgmna.
 
-    SELECT SINGLE ttext FROM tstct INTO @result-ttext
-      WHERE sprsl = @sy-langu AND tcode = @lv_tcode.
+    SELECT SINGLE ttext FROM tstct
+      WHERE sprsl = @sy-langu AND tcode = @lv_tcode
+      INTO @result-ttext ##SUBRC_OK.
 
-    SELECT SINGLE param FROM tstcp INTO @DATA(lv_param)
-      WHERE tcode = @lv_tcode.
+    SELECT SINGLE param FROM tstcp
+      WHERE tcode = @lv_tcode
+      INTO @DATA(lv_param) ##SUBRC_OK.
 
     DATA(lv_par_str) = CONV string( lv_param ).
     result-tc_type = tcode_type_text( iv_cinfo = ls_tstc-cinfo
@@ -2587,7 +2605,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
     SELECT SINGLE FROM tstcc
       FIELDS s_webgui, s_win32, s_platin
       WHERE tcode = @lv_tcode
-      INTO @DATA(ls_tstcc).
+      INTO @DATA(ls_tstcc) ##SUBRC_OK.
 
     result-s_win32  = xsdbool( ls_tstcc-s_win32  IS NOT INITIAL ).
     result-s_platin = xsdbool( ls_tstcc-s_platin IS NOT INITIAL ).

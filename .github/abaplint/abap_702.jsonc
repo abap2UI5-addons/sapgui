@@ -3,7 +3,10 @@
 // sources to 7.02 syntax; the 702 branch is then checked with it as is.
 {
   "global": {
-    "files": "/../../src/**/*.*"
+    "files": "/../../src/**/*.*",
+    // a scratch class kept in the development system (an ADT console
+    // runner, not an app) - abapGit serializes it with the package
+    "exclude": ["zcl_zlk05_tmp_probe\\.clas\\."]
   },
   "dependencies": [
     {
@@ -16,11 +19,6 @@
       "branch": "702",
       "folder": "/deps/abap2ui5-702",
       "files": "/src/**/*.*"
-    },
-    {
-      "url": "https://github.com/abap2UI5/ai-demokit",
-      "folder": "/deps/ai-demokit",
-      "files": "/src/z2ui5_cl_ai_xml.clas.*"
     },
     {
       "url": "https://github.com/abapedia/steampunk-2305-api-intersect-702",

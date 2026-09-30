@@ -25,15 +25,16 @@ CLASS zcl_st22_a2u5 DEFINITION PUBLIC.
     DATA mv_date_from TYPE string.
     DATA mv_date_to   TYPE string.
     DATA mv_user      TYPE string.
-    DATA mv_mode      TYPE string.
-    DATA mv_current   TYPE string.
     DATA mv_command    TYPE string.
-    DATA mv_message    TYPE string.
-    DATA mv_msgtype   TYPE string.
     DATA mt_dumps     TYPE zcl_zlk05_sys_api=>ty_t_dump.
     DATA mt_detail    TYPE zcl_zlk05_sys_api=>ty_t_kv.
 
   PROTECTED SECTION.
+    DATA mv_mode      TYPE string.
+    DATA mv_current   TYPE string.
+    DATA mv_message    TYPE string.
+    DATA mv_msgtype   TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -79,21 +80,19 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
 
     " the command field and Back belong to the frame - they work the
     " same way on every screen of every transaction
-    DATA lv_frame TYPE string.
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client   = client
-                iv_event    = lv_event
-                iv_command  = mv_command
-      IMPORTING ev_message  = mv_message
-                ev_msg_type = mv_msgtype
-      RECEIVING result      = lv_frame ).
-    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = client
+        iv_event   = lv_event
+        iv_command = mv_command ).
+    mv_message = ls_frame-message.
+    mv_msgtype = ls_frame-msg_type.
+    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
       RETURN.
     ENDIF.
 
@@ -211,7 +210,7 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
 * ---------------------------------------------------------------------
   METHOD view_display.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -252,37 +251,37 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://save` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Save as variant - { c_na }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `false`
         )->a( n = `class`      v = `sapUiSmallMarginBegin` ).
 
-    DATA(panel) = work->open( `Panel`
+    DATA(panel) = work->ele( `Panel`
         )->a( n = `headerText` v = `Selection`
         )->a( n = `width`      v = `52rem`
         )->a( n = `class`      v = `sapUiSmallMarginTop`
-        )->open( `content`
-        )->open( `VBox` )->a( n = `class` v = `sapUiSmallMargin` ).
+        )->ele( `content`
+        )->ele( `VBox` )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " Runtime error - the API selects on the date, not on the error name
-    DATA(row) = panel->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(row) = panel->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row
                                     iv_text   = `Runtime error`
                                     iv_width  = `11rem` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `value`   v = client->_bind( mv_errorid )
         )->a( n = `width`   v = `20rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Selection by runtime error - { c_na }| ).
+        )->a( n = `tooltip` t = |Selection by runtime error - { c_na }| ).
 
-    row = panel->open( `HBox`
+    row = panel->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row
                                     iv_text   = `Date`
                                     iv_width  = `11rem` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `id`      v = `idDateFrom`
         )->a( n = `value`   v = client->_bind( mv_date_from )
         )->a( n = `width`   v = `9rem`
@@ -291,66 +290,66 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
     zcl_zlk05_gui_frame=>add_label( io_parent = row
                                     iv_text   = `to`
                                     iv_width  = `2.5rem` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `value`   v = client->_bind( mv_date_to )
         )->a( n = `width`   v = `9rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Upper date limit - { c_na }| ).
+        )->a( n = `tooltip` t = |Upper date limit - { c_na }| ).
 
-    row = panel->open( `HBox`
+    row = panel->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row
                                     iv_text   = `Time`
                                     iv_width  = `11rem` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `width`   v = `9rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Selection by time - { c_na }| ).
+        )->a( n = `tooltip` t = |Selection by time - { c_na }| ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row
                                     iv_text   = `to`
                                     iv_width  = `2.5rem` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `width`   v = `9rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Selection by time - { c_na }| ).
+        )->a( n = `tooltip` t = |Selection by time - { c_na }| ).
 
-    row = panel->open( `HBox`
+    row = panel->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row
                                     iv_text   = `User`
                                     iv_width  = `11rem` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `id`          v = `idUser`
         )->a( n = `value`       v = client->_bind( mv_user )
         )->a( n = `width`       v = `12rem`
         )->a( n = `placeholder` v = `* for all users`
         )->a( n = `submit`      v = client->_event( `EXECUTE` ) ).
 
-    row = panel->open( `HBox`
+    row = panel->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row
                                     iv_text   = `Client`
                                     iv_width  = `11rem` ).
-    row->leaf( `Input`
-        )->a( n = `value`   v = CONV string( sy-mandt )
+    row->tag( `Input`
+        )->a( n = `value`   t = CONV string( sy-mandt )
         )->a( n = `width`   v = `5rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |The app always reads the own client { sy-mandt }| ).
+        )->a( n = `tooltip` t = |The app always reads the own client { sy-mandt }| ).
 
-    row = panel->open( `HBox`
+    row = panel->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row
                                     iv_text   = `Host`
                                     iv_width  = `11rem` ).
-    row->leaf( `Input`
-        )->a( n = `value`   v = CONV string( sy-host )
+    row->tag( `Input`
+        )->a( n = `value`   t = CONV string( sy-host )
         )->a( n = `width`   v = `14rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Selection by host - { c_na }| ).
+        )->a( n = `tooltip` t = |Selection by host - { c_na }| ).
 
     client->follow_up_action(
         val   = client->cs_event-set_focus
@@ -372,7 +371,7 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
 * ---------------------------------------------------------------------
   METHOD view_list.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -425,22 +424,22 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://action-settings` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Change Layout... - { c_na }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true` ).
 
-    DATA(grid) = work->open( n = `Table` ns = `table`
+    DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_dumps )
         )->a( n = `visibleRowCountMode` v = `Auto`
         )->a( n = `selectionMode`       v = `Single`
         )->a( n = `rowHeight`           v = `26`
         )->a( n = `minAutoRowCount`     v = `10`
         )->a( n = `cellClick`           v = client->_event(
-                  val   = `DISPLAY`
-                  t_arg = VALUE #( ( `${KEY_DATE}|${KEY_TIME}|${KEY_MOD}` ) ) ) ).
+                  val = `DISPLAY`
+                  arg = `${KEY_DATE}|${KEY_TIME}|${KEY_MOD}` ) ).
 
-    DATA(cols) = grid->open( n = `columns` ns = `table` ).
+    DATA(cols) = grid->ele( n = `columns` ns = `table` ).
 
     DATA(lt_col) = VALUE string_table(
         ( `Date|DATUM|6rem` )
@@ -453,15 +452,15 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
 
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
-      DATA(col) = cols->open( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
-      col->open( n = `label` ns = `table`
-          )->leaf( `Label` )->a( n = `text` v = lv_head )->shut( )->shut( ).
-      col->open( n = `template` ns = `table`
-          )->leaf( `Text`
+      DATA(col) = cols->ele( n = `Column` ns = `table`
+          )->a( n = `width` t = lv_wid ).
+      col->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+      col->ele( n = `template` ns = `table`
+          )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
               )->a( n = `wrapping` v = `false` ).
-      col->shut( ).
+      col->end( ).
     ENDLOOP.
 
     " function keys of the SAP GUI - F3 / Shift+F3 / F12 and F8
@@ -480,7 +479,7 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
 * ---------------------------------------------------------------------
   METHOD view_detail.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -512,7 +511,7 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
             ( sep = abap_true )
             ( text = `Go to Affected Program` icon = `sap-icon://source-code`
               tooltip = |Go to Affected Program - { c_na }| )
-            ( text = `Debugger` icon = `sap-icon://debug`
+            ( text = `Debugger` icon = `sap-icon://inspect`
               tooltip = |Debugger - { c_na }| )
             ( sep = abap_true )
             ( icon = `sap-icon://newspaper` color = zcl_zlk05_gui_frame=>c_grey
@@ -531,28 +530,38 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://open-command-field` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Last Page - { c_na }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `false` ).
 
-    DATA(tab) = work->open( `Table`
+    DATA(tab) = work->ele( `Table`
         )->a( n = `items`   v = client->_bind( mt_detail )
         )->a( n = `growing` v = `true`
         )->a( n = `class`   v = `sapUiSizeCompact` ).
 
-    tab->open( `columns`
-        )->open( `Column` )->a( n = `width` v = `18rem`
-            )->leaf( `Text` )->a( n = `text` v = `Attribute` )->shut(
-        )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Value` )->shut(
-        )->shut( )->open( `items`
-            )->open( `ColumnListItem` )->open( `cells`
-                )->leaf( `Text` )->a( n = `text` v = `{LABEL}`
-                )->leaf( `Text` )->a( n = `text` v = `{VALUE}` ).
+    tab->ele( `columns`
+        )->ele( `Column`
+            )->a( n = `width` v = `18rem`
+            )->tag( `Text`
+            )->a( n = `text` v = `Attribute`
+        )->end(
+        )->ele( `Column`
+            )->tag( `Text`
+            )->a( n = `text` v = `Value`
+        )->end(
+    )->end(
+    )->ele( `items`
+        )->ele( `ColumnListItem`
+            )->ele( `cells`
+                )->tag( `Text`
+                )->a( n = `text` v = `{LABEL}`
+                )->tag( `Text`
+                )->a( n = `text` v = `{VALUE}` ).
 
     " the app reads the SNAP header, not the complete dump - say so instead
     " of letting the screen look like the full ST22 long text
-    work->leaf( `Text`
+    work->tag( `Text`
         )->a( n = `text`  v = `Decoded from the SNAP dump header`
         )->a( n = `class` v = `sapUiTinyMargin` ).
 

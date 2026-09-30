@@ -37,16 +37,17 @@ CLASS zcl_stms_a2u5 DEFINITION PUBLIC.
     TYPES ty_t_overview TYPE STANDARD TABLE OF ty_s_overview WITH EMPTY KEY.
 
     DATA mt_overview TYPE ty_t_overview.
+    DATA mv_command  TYPE string.
+    DATA mt_systems TYPE zcl_zlk05_sys_api=>ty_t_tms_system.
+
+  PROTECTED SECTION.
     DATA mv_mode    TYPE string.
     DATA mv_domain  TYPE string.
     DATA mv_system  TYPE string.
-    DATA mv_command  TYPE string.
     DATA mv_message  TYPE string.
     DATA mv_msgtype TYPE string.
-    DATA mt_systems TYPE zcl_zlk05_sys_api=>ty_t_tms_system.
     DATA mt_queue   TYPE zcl_zlk05_sys_api=>ty_t_tms_queue.
 
-  PROTECTED SECTION.
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_start.
@@ -94,19 +95,17 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
 
     " the command field and Back belong to the frame - they work the
     " same way on every screen of every transaction
-    DATA lv_frame TYPE string.
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client   = client
-                iv_event    = client->get( )-event
-                iv_command  = mv_command
-      IMPORTING ev_message  = mv_message
-                ev_msg_type = mv_msgtype
-      RECEIVING result      = lv_frame ).
-    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = client
+        iv_event   = client->get_event( )
+        iv_command = mv_command ).
+    mv_message = ls_frame-message.
+    mv_msgtype = ls_frame-msg_type.
+    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
       RETURN.
     ENDIF.
 
-    CASE client->get( )-event.
+    CASE client->get_event( ).
       WHEN 'SYSO'.
         mv_mode = `SYSTEMS`.
         do_read_systems( ).
@@ -221,7 +220,7 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
 
   METHOD view_start.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -264,33 +263,33 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://action-settings` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |TMS Configuration - { c_na }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`   v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical` v = `true` ).
 
     " the two fields of dynpro 0100
-    DATA(box) = work->open( `Panel`
+    DATA(box) = work->ele( `Panel`
         )->a( n = `headerText` v = `Transport Management System`
         )->a( n = `class`      v = `sapUiTinyMargin`
-        )->open( `content`
-        )->open( `VBox`
+        )->ele( `content`
+        )->ele( `VBox`
         )->a( n = `class` v = `sapUiTinyMargin` ).
 
-    DATA(row1) = box->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(row1) = box->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row1
                                     iv_text   = `Transp. Domain`
                                     iv_width  = `12rem` ).
-    row1->leaf( `Text` )->a( n = `text` v = mv_domain ).
-    row1->shut( ).
+    row1->tag( `Text` )->a( n = `text` t = mv_domain ).
+    row1->end( ).
 
-    DATA(row2) = box->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(row2) = box->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row2
                                     iv_text   = `System`
                                     iv_width  = `12rem` ).
-    row2->leaf( `Text` )->a( n = `text` v = mv_system ).
-    row2->shut( ).
+    row2->tag( `Text` )->a( n = `text` t = mv_system ).
+    row2->end( ).
 
-    work->leaf( `Text`
+    work->tag( `Text`
         )->a( n = `text`  v = `Display only - no import and no configuration change here`
         )->a( n = `class` v = `sapUiTinyMargin` ).
 
@@ -306,7 +305,7 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
 
   METHOD view_systems.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -344,19 +343,19 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://share` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Distribute and Activate Configuration - { c_na }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true` ).
 
-    DATA(grid) = work->open( n = `Table` ns = `table`
+    DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_systems )
         )->a( n = `visibleRowCountMode` v = `Auto`
         )->a( n = `selectionMode`       v = `Single`
         )->a( n = `rowHeight`           v = `26`
         )->a( n = `minAutoRowCount`     v = `6` ).
 
-    DATA(cols) = grid->open( n = `columns` ns = `table` ).
+    DATA(cols) = grid->ele( n = `columns` ns = `table` ).
 
     DATA(lt_col) = VALUE string_table(
         ( `System|SYSNAM|7rem` )
@@ -370,18 +369,18 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
 
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
-      DATA(col) = cols->open( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
-      col->open( n = `label` ns = `table`
-          )->leaf( `Label` )->a( n = `text` v = lv_head )->shut( )->shut( ).
-      col->open( n = `template` ns = `table`
-          )->leaf( `Text`
+      DATA(col) = cols->ele( n = `Column` ns = `table`
+          )->a( n = `width` t = lv_wid ).
+      col->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+      col->ele( n = `template` ns = `table`
+          )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
               )->a( n = `wrapping` v = `false` ).
-      col->shut( ).
+      col->end( ).
     ENDLOOP.
 
-    work->leaf( `Text`
+    work->tag( `Text`
         )->a( n = `text`  v = `Read from the local TMS configuration (TMSCSYS) - ` &&
                               `the domain controller is not called`
         )->a( n = `class` v = `sapUiTinyMargin` ).
@@ -398,7 +397,7 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
 
   METHOD view_imports.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -437,19 +436,19 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://key` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Legend - { c_na }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true` ).
 
-    DATA(grid) = work->open( n = `Table` ns = `table`
+    DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_overview )
         )->a( n = `visibleRowCountMode` v = `Auto`
         )->a( n = `selectionMode`       v = `Single`
         )->a( n = `rowHeight`           v = `26`
         )->a( n = `minAutoRowCount`     v = `6` ).
 
-    DATA(cols) = grid->open( n = `columns` ns = `table` ).
+    DATA(cols) = grid->ele( n = `columns` ns = `table` ).
 
     DATA(lt_col) = VALUE string_table(
         ( `System|SYSNAM|7rem` )
@@ -459,18 +458,18 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
 
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
-      DATA(col) = cols->open( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
-      col->open( n = `label` ns = `table`
-          )->leaf( `Label` )->a( n = `text` v = lv_head )->shut( )->shut( ).
-      col->open( n = `template` ns = `table`
-          )->leaf( `Text`
+      DATA(col) = cols->ele( n = `Column` ns = `table`
+          )->a( n = `width` t = lv_wid ).
+      col->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+      col->ele( n = `template` ns = `table`
+          )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
               )->a( n = `wrapping` v = `false` ).
-      col->shut( ).
+      col->end( ).
     ENDLOOP.
 
-    work->leaf( `Text`
+    work->tag( `Text`
         )->a( n = `text`  v = `Read from the local import buffer (TMSBUFFER) - ` &&
                               `no RFC call to the systems of the domain`
         )->a( n = `class` v = `sapUiTinyMargin` ).

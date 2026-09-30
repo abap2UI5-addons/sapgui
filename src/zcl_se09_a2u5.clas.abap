@@ -41,17 +41,17 @@ CLASS zcl_se09_a2u5 DEFINITION PUBLIC.
     DATA mv_typ_cop  TYPE abap_bool.
     DATA mv_typ_move TYPE abap_bool.
 
+    " result tables
+    DATA mt_requests TYPE zcl_zlk05_sys_api=>ty_t_transport.
+    DATA mt_objects  TYPE zcl_zlk05_sys_api=>ty_t_tr_object.
+
+  PROTECTED SECTION.
     " current view
     DATA mv_mode     TYPE string.
     DATA mv_current  TYPE string.
     DATA mv_message  TYPE string.
     DATA mv_msgtype  TYPE string.
 
-    " result tables
-    DATA mt_requests TYPE zcl_zlk05_sys_api=>ty_t_transport.
-    DATA mt_objects  TYPE zcl_zlk05_sys_api=>ty_t_tr_object.
-
-  PROTECTED SECTION.
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -106,19 +106,17 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
 
-    DATA lv_frame TYPE string.
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client   = client
-                iv_event    = lv_event
-                iv_command  = mv_command
-      IMPORTING ev_message  = mv_message
-                ev_msg_type = mv_msgtype
-      RECEIVING result      = lv_frame ).
-    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = client
+        iv_event   = lv_event
+        iv_command = mv_command ).
+    mv_message = ls_frame-message.
+    mv_msgtype = ls_frame-msg_type.
+    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
       RETURN.
     ENDIF.
 
@@ -237,7 +235,7 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
     CLEAR mt_objects.
     mv_current = iv_trkorr.
 
-    mt_objects = zcl_zlk05_sys_api=>get_transport_objects( iv_trkorr = iv_trkorr ).
+    mt_objects = zcl_zlk05_sys_api=>get_transport_objects( iv_trkorr ).
 
     IF lines( mt_objects ) = 0.
       mv_message = |Request { iv_trkorr } has no objects.|.
@@ -251,7 +249,7 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
 
   METHOD view_display.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     " band 6 - status bar
@@ -300,68 +298,68 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
 
     " band 5 - work area. Dynpro 0220 of the Transport Organizer: user,
     " request status checkboxes, request type checkboxes, and the hit list.
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true` ).
 
     " --- selection area ---
-    DATA(sel) = work->open( `VBox`
+    DATA(sel) = work->ele( `VBox`
         )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " User row
-    DATA(row_user) = sel->open( `HBox`
+    DATA(row_user) = sel->ele( `HBox`
         )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row_user
                                    iv_text   = `User` ).
-    row_user->leaf( `Input`
+    row_user->tag( `Input`
         )->a( n = `id`      v = `idUser`
         )->a( n = `value`   v = client->_bind( mv_user )
         )->a( n = `width`   v = `12rem`
         )->a( n = `submit`  v = client->_event( `EXECUTE` ) ).
-    row_user->shut( ).
+    row_user->end( ).
 
     " Request Status row
-    DATA(row_stat) = sel->open( `HBox`
+    DATA(row_stat) = sel->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row_stat
                                    iv_text   = `Request Status` ).
-    row_stat->leaf( `CheckBox`
+    row_stat->tag( `CheckBox`
         )->a( n = `text`     v = `Modifiable`
         )->a( n = `selected` v = client->_bind( mv_mod ) ).
-    row_stat->leaf( `CheckBox`
+    row_stat->tag( `CheckBox`
         )->a( n = `text`     v = `Released`
         )->a( n = `selected` v = client->_bind( mv_rel )
         )->a( n = `class`    v = `sapUiSmallMarginBegin` ).
-    row_stat->shut( ).
+    row_stat->end( ).
 
     " Request Type row
-    DATA(row_type) = sel->open( `HBox`
+    DATA(row_type) = sel->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row_type
                                    iv_text   = `Request Type` ).
-    row_type->leaf( `CheckBox`
+    row_type->tag( `CheckBox`
         )->a( n = `text`     v = `Workbench Requests`
         )->a( n = `selected` v = client->_bind( mv_typ_wb ) ).
-    row_type->leaf( `CheckBox`
+    row_type->tag( `CheckBox`
         )->a( n = `text`     v = `Customizing Requests`
         )->a( n = `selected` v = client->_bind( mv_typ_cust )
         )->a( n = `class`    v = `sapUiSmallMarginBegin` ).
-    row_type->leaf( `CheckBox`
+    row_type->tag( `CheckBox`
         )->a( n = `text`     v = `Transport of Copies`
         )->a( n = `selected` v = client->_bind( mv_typ_cop )
         )->a( n = `class`    v = `sapUiSmallMarginBegin` ).
-    row_type->leaf( `CheckBox`
+    row_type->tag( `CheckBox`
         )->a( n = `text`     v = `Relocations`
         )->a( n = `selected` v = client->_bind( mv_typ_move )
         )->a( n = `class`    v = `sapUiSmallMarginBegin` ).
-    row_type->shut( ).
+    row_type->end( ).
 
     " the Display pushbutton of the dynpro itself - D021T 0220
     " %_AUTOTEXT028 "@3M\\QDisplay selection@ Display"
-    sel->leaf( `Button`
+    sel->tag( `Button`
         )->a( n = `text`    v = `Display`
         )->a( n = `icon`    v = `sap-icon://display`
         )->a( n = `type`    v = `Transparent`
@@ -370,17 +368,17 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
         )->a( n = `tooltip` v = `Display selection`
         )->a( n = `press`   v = client->_event( `EXECUTE` ) ).
 
-    sel->shut( ).
+    sel->end( ).
 
     " --- result table ---
-    DATA(grid) = work->open( n = `Table` ns = `table`
+    DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_requests )
         )->a( n = `visibleRowCountMode` v = `Auto`
         )->a( n = `selectionMode`       v = `Single`
         )->a( n = `rowHeight`           v = `26`
         )->a( n = `minAutoRowCount`     v = `8` ).
 
-    DATA(cols) = grid->open( n = `columns` ns = `table` ).
+    DATA(cols) = grid->ele( n = `columns` ns = `table` ).
 
     DATA(lt_col) = VALUE string_table(
         ( `Request/Task|TRKORR|12rem` )
@@ -393,23 +391,23 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
 
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
-      DATA(col) = cols->open( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
-      col->open( n = `label` ns = `table`
-          )->leaf( `Label` )->a( n = `text` v = lv_head )->shut( )->shut( ).
+      DATA(col) = cols->ele( n = `Column` ns = `table`
+          )->a( n = `width` t = lv_wid ).
+      col->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
 
-      DATA(tmpl) = col->open( n = `template` ns = `table` ).
+      DATA(tmpl) = col->ele( n = `template` ns = `table` ).
       IF lv_fld = `TRKORR`.
-        tmpl->leaf( `Link`
+        tmpl->tag( `Link`
             )->a( n = `text`  v = |\{{ lv_fld }\}|
-            )->a( n = `press` v = client->_event( val   = `DISPLAY`
-                                                 t_arg = VALUE #( ( `${TRKORR}` ) ) ) ).
+            )->a( n = `press` v = client->_event( val = `DISPLAY`
+                                                  arg = `${TRKORR}` ) ).
       ELSE.
-        tmpl->leaf( `Text`
+        tmpl->tag( `Text`
             )->a( n = `text`     v = |\{{ lv_fld }\}|
             )->a( n = `wrapping` v = `false` ).
       ENDIF.
-      col->shut( ).
+      col->end( ).
     ENDLOOP.
 
     " function keys
@@ -425,7 +423,7 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
 
   METHOD view_detail.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     " band 6 - status bar
@@ -477,95 +475,95 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
               tooltip = |Information - { c_na }| ) ) ).
 
     " band 5 - work area
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true` ).
 
     " header fields of the request (SAPLSTR6 Dynpro 0100)
-    DATA(hdr) = work->open( `VBox`
+    DATA(hdr) = work->ele( `VBox`
         )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " find the request in the result list for header info
-    DATA ls_req TYPE zcl_zlk05_sys_api=>ty_s_transport.
-    READ TABLE mt_requests WITH KEY trkorr = mv_current INTO ls_req.
+    DATA(ls_req) = VALUE zcl_zlk05_sys_api=>ty_s_transport(
+        mt_requests[ trkorr = mv_current ] OPTIONAL ).
 
-    DATA(row1) = hdr->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(row1) = hdr->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row1 iv_text = `Request/task` ).
-    row1->leaf( `Text` )->a( n = `text` v = mv_current ).
-    row1->shut( ).
+    row1->tag( `Text` )->a( n = `text` t = mv_current ).
+    row1->end( ).
 
-    DATA(row2) = hdr->open( `HBox`
+    DATA(row2) = hdr->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row2 iv_text = `Request type` ).
-    row2->leaf( `Text` )->a( n = `text` v = ls_req-functxt ).
-    row2->shut( ).
+    row2->tag( `Text` )->a( n = `text` t = ls_req-functxt ).
+    row2->end( ).
 
-    DATA(row3) = hdr->open( `HBox`
+    DATA(row3) = hdr->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row3 iv_text = `Status` ).
-    row3->leaf( `Text` )->a( n = `text` v = ls_req-statustxt ).
-    row3->shut( ).
+    row3->tag( `Text` )->a( n = `text` t = ls_req-statustxt ).
+    row3->end( ).
 
-    DATA(row4) = hdr->open( `HBox`
+    DATA(row4) = hdr->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row4 iv_text = `Owner` ).
-    row4->leaf( `Text` )->a( n = `text` v = ls_req-as4user ).
-    row4->shut( ).
+    row4->tag( `Text` )->a( n = `text` t = ls_req-as4user ).
+    row4->end( ).
 
-    DATA(row5) = hdr->open( `HBox`
+    DATA(row5) = hdr->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row5 iv_text = `Last changed` ).
-    row5->leaf( `Text` )->a( n = `text` v = |{ ls_req-as4date } { ls_req-as4time }| ).
-    row5->shut( ).
+    row5->tag( `Text` )->a( n = `text` t = |{ ls_req-as4date } { ls_req-as4time }| ).
+    row5->end( ).
 
     IF ls_req-strkorr IS NOT INITIAL.
-      DATA(row6) = hdr->open( `HBox`
+      DATA(row6) = hdr->ele( `HBox`
           )->a( n = `alignItems` v = `Center`
           )->a( n = `class`      v = `sapUiTinyMarginTop` ).
       zcl_zlk05_gui_frame=>add_label( io_parent = row6 iv_text = `Parent Request` ).
-      row6->leaf( `Text` )->a( n = `text` v = ls_req-strkorr ).
-      row6->shut( ).
+      row6->tag( `Text` )->a( n = `text` t = ls_req-strkorr ).
+      row6->end( ).
     ENDIF.
 
     IF ls_req-tarsystem IS NOT INITIAL.
-      DATA(row7) = hdr->open( `HBox`
+      DATA(row7) = hdr->ele( `HBox`
           )->a( n = `alignItems` v = `Center`
           )->a( n = `class`      v = `sapUiTinyMarginTop` ).
       zcl_zlk05_gui_frame=>add_label( io_parent = row7 iv_text = `Target` ).
-      row7->leaf( `Text` )->a( n = `text` v = ls_req-tarsystem ).
-      row7->shut( ).
+      row7->tag( `Text` )->a( n = `text` t = ls_req-tarsystem ).
+      row7->end( ).
     ENDIF.
 
     IF ls_req-as4text IS NOT INITIAL.
-      DATA(row8) = hdr->open( `HBox`
+      DATA(row8) = hdr->ele( `HBox`
           )->a( n = `alignItems` v = `Center`
           )->a( n = `class`      v = `sapUiTinyMarginTop` ).
       zcl_zlk05_gui_frame=>add_label( io_parent = row8 iv_text = `Short Description` ).
-      row8->leaf( `Text` )->a( n = `text` v = ls_req-as4text ).
-      row8->shut( ).
+      row8->tag( `Text` )->a( n = `text` t = ls_req-as4text ).
+      row8->end( ).
     ENDIF.
 
-    hdr->shut( ).
+    hdr->end( ).
 
     " object list of the request
-    work->leaf( `Title`
+    work->tag( `Title`
         )->a( n = `text`  v = `Object List`
         )->a( n = `level` v = `H5`
         )->a( n = `class` v = `sapUiSmallMarginBegin sapUiSmallMarginTop` ).
 
-    DATA(grid) = work->open( n = `Table` ns = `table`
+    DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_objects )
         )->a( n = `visibleRowCountMode` v = `Auto`
         )->a( n = `selectionMode`       v = `None`
         )->a( n = `rowHeight`           v = `26`
         )->a( n = `minAutoRowCount`     v = `6` ).
 
-    DATA(cols) = grid->open( n = `columns` ns = `table` ).
+    DATA(cols) = grid->ele( n = `columns` ns = `table` ).
 
     DATA(lt_col) = VALUE string_table(
         ( `Prog. ID|PGMID|8rem` )
@@ -575,20 +573,20 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
 
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
-      DATA(col) = cols->open( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
-      col->open( n = `label` ns = `table`
-          )->leaf( `Label` )->a( n = `text` v = lv_head )->shut( )->shut( ).
-      col->open( n = `template` ns = `table`
-          )->leaf( `Text`
+      DATA(col) = cols->ele( n = `Column` ns = `table`
+          )->a( n = `width` t = lv_wid ).
+      col->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+      col->ele( n = `template` ns = `table`
+          )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
               )->a( n = `wrapping` v = `false` ).
-      col->shut( ).
+      col->end( ).
     ENDLOOP.
 
     DATA(lv_count) = lines( mt_objects ).
-    work->leaf( `Text`
-        )->a( n = `text`  v = |{ lv_count } object(s) - display only|
+    work->tag( `Text`
+        )->a( n = `text`  t = |{ lv_count } object(s) - display only|
         )->a( n = `class` v = `sapUiTinyMargin` ).
 
     " F3 goes back one screen

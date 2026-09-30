@@ -26,12 +26,13 @@ CLASS zcl_st02_a2u5 DEFINITION PUBLIC.
 
     DATA mv_command  TYPE string.
 
-    DATA mv_message  TYPE string.
-    DATA mv_msgtype TYPE string.
     DATA mt_buffer  TYPE zcl_zlk05_sys_api=>ty_t_buffer.
     DATA mt_memory  TYPE zcl_zlk05_sys_api=>ty_t_kv.
 
   PROTECTED SECTION.
+    DATA mv_message  TYPE string.
+    DATA mv_msgtype TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -72,19 +73,17 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
 
     " the command field and Back belong to the frame - they work the
     " same way on every screen of every transaction
-    DATA lv_frame TYPE string.
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client   = client
-                iv_event    = client->get( )-event
-                iv_command  = mv_command
-      IMPORTING ev_message  = mv_message
-                ev_msg_type = mv_msgtype
-      RECEIVING result      = lv_frame ).
-    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = client
+        iv_event   = client->get_event( )
+        iv_command = mv_command ).
+    mv_message = ls_frame-message.
+    mv_msgtype = ls_frame-msg_type.
+    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
       RETURN.
     ENDIF.
 
-    CASE client->get( )-event.
+    CASE client->get_event( ).
       WHEN 'REFRESH'.
         do_refresh( ).
       WHEN OTHERS.
@@ -117,7 +116,7 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
 
   METHOD view_display.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -152,7 +151,7 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
             ( text = `Current parameters` icon = `sap-icon://action-settings`
               tooltip = |Tune setups/buffers - { c_na }| )
             ( sep = abap_true )
-            ( icon = `sap-icon://memory` color = zcl_zlk05_gui_frame=>c_grey
+            ( icon = `sap-icon://database` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Shared Memory Detail - { c_na }| )
             ( icon = `sap-icon://technical-object` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Shared Memory Technical - { c_na }| )
@@ -172,19 +171,19 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://print` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Print - { c_na }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true`
-        )->open( `VBox`
+        )->ele( `VBox`
         )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " ===== Buffer statistics =====
-    work->leaf( `Title`
+    work->tag( `Title`
         )->a( n = `text`  v = `Buffer`
         )->a( n = `level` v = `H4` ).
 
-    DATA(bgrid) = work->open( n = `Table` ns = `table`
+    DATA(bgrid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_buffer )
         )->a( n = `visibleRowCountMode` v = `Fixed`
         )->a( n = `visibleRowCount`     v = `12`
@@ -192,7 +191,7 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
         )->a( n = `rowHeight`           v = `26`
         )->a( n = `class`               v = `sapUiTinyMarginTop` ).
 
-    DATA(bcols) = bgrid->open( n = `columns` ns = `table` ).
+    DATA(bcols) = bgrid->ele( n = `columns` ns = `table` ).
 
     " the column sequence of the original ST02 buffer list
     DATA(lt_bcol) = VALUE string_table(
@@ -207,26 +206,26 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
 
     LOOP AT lt_bcol INTO DATA(lv_bcol).
       SPLIT lv_bcol AT `|` INTO DATA(lv_bhead) DATA(lv_bfld) DATA(lv_bwid).
-      DATA(bcol) = bcols->open( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_bwid ).
-      bcol->open( n = `label` ns = `table`
-          )->leaf( `Label` )->a( n = `text` v = lv_bhead )->shut( )->shut( ).
-      bcol->open( n = `template` ns = `table`
-          )->leaf( `Text`
+      DATA(bcol) = bcols->ele( n = `Column` ns = `table`
+          )->a( n = `width` t = lv_bwid ).
+      bcol->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` t = lv_bhead )->end( )->end( ).
+      bcol->ele( n = `template` ns = `table`
+          )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_bfld }\}|
               )->a( n = `wrapping` v = `false` ).
-      bcol->shut( ).
+      bcol->end( ).
     ENDLOOP.
 
-    bgrid->shut( ).
+    bgrid->end( ).
 
     " ===== SAP memory =====
-    work->leaf( `Title`
+    work->tag( `Title`
         )->a( n = `text`  v = `SAP Memory`
         )->a( n = `level` v = `H4`
         )->a( n = `class` v = `sapUiMediumMarginTop` ).
 
-    DATA(mgrid) = work->open( n = `Table` ns = `table`
+    DATA(mgrid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_memory )
         )->a( n = `visibleRowCountMode` v = `Auto`
         )->a( n = `selectionMode`       v = `None`
@@ -234,7 +233,7 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
         )->a( n = `minAutoRowCount`     v = `6`
         )->a( n = `class`               v = `sapUiTinyMarginTop` ).
 
-    DATA(mcols) = mgrid->open( n = `columns` ns = `table` ).
+    DATA(mcols) = mgrid->ele( n = `columns` ns = `table` ).
 
     DATA(lt_mcol) = VALUE string_table(
         ( `Key Figure|LABEL|24rem` )
@@ -242,20 +241,20 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
 
     LOOP AT lt_mcol INTO DATA(lv_mcol).
       SPLIT lv_mcol AT `|` INTO DATA(lv_mhead) DATA(lv_mfld) DATA(lv_mwid).
-      DATA(mcol) = mcols->open( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_mwid ).
-      mcol->open( n = `label` ns = `table`
-          )->leaf( `Label` )->a( n = `text` v = lv_mhead )->shut( )->shut( ).
-      mcol->open( n = `template` ns = `table`
-          )->leaf( `Text`
+      DATA(mcol) = mcols->ele( n = `Column` ns = `table`
+          )->a( n = `width` t = lv_mwid ).
+      mcol->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` t = lv_mhead )->end( )->end( ).
+      mcol->ele( n = `template` ns = `table`
+          )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_mfld }\}|
               )->a( n = `wrapping` v = `false` ).
-      mcol->shut( ).
+      mcol->end( ).
     ENDLOOP.
 
-    mgrid->shut( ).
+    mgrid->end( ).
 
-    work->leaf( `Text`
+    work->tag( `Text`
         )->a( n = `text`  v = `Read via SAPTUNE_GET_SUMMARY_STATISTIC - display only`
         )->a( n = `class` v = `sapUiTinyMarginTop` ).
 

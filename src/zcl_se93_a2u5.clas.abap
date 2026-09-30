@@ -46,16 +46,16 @@ CLASS zcl_se93_a2u5 DEFINITION PUBLIC.
     " entry screen
     DATA mv_tcode TYPE string.
 
-    " current view
-    DATA mv_mode    TYPE string.
-    DATA mv_message TYPE string.
-    DATA mv_msgtype TYPE string.
-
     " results
     DATA mt_tcodes TYPE zcl_zlk05_sys_api=>ty_t_tcode.
     DATA ms_detail TYPE zcl_zlk05_sys_api=>ty_s_tcode_detail.
 
   PROTECTED SECTION.
+    " current view
+    DATA mv_mode    TYPE string.
+    DATA mv_message TYPE string.
+    DATA mv_msgtype TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -80,26 +80,26 @@ CLASS zcl_se93_a2u5 DEFINITION PUBLIC.
 
     "! Label and value of one row of a classic dynpro
     METHODS add_row
-      IMPORTING io_parent TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_parent TYPE REF TO z2ui5_cl_ui5_view_builder
                 iv_label  TYPE string
                 iv_value  TYPE string.
 
     "! Checkbox of a classic dynpro in display mode - the text is the
     "! label of the checkbox, not a separate one
     METHODS add_flag
-      IMPORTING io_parent TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_parent TYPE REF TO z2ui5_cl_ui5_view_builder
                 iv_text   TYPE string
                 iv_flag   TYPE abap_bool.
 
     "! Group box of a classic dynpro
     METHODS add_group
-      IMPORTING io_parent     TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_parent     TYPE REF TO z2ui5_cl_ui5_view_builder
                 iv_title      TYPE string
-      RETURNING VALUE(result) TYPE REF TO z2ui5_cl_ai_xml.
+      RETURNING VALUE(result) TYPE REF TO z2ui5_cl_ui5_view_builder.
 
     "! Work area of the display screen, one block per transaction type
     METHODS build_type_block
-      IMPORTING io_parent TYPE REF TO z2ui5_cl_ai_xml.
+      IMPORTING io_parent TYPE REF TO z2ui5_cl_ui5_view_builder.
 
     "! Update mode of an object transaction. The codes are the ones of
     "! LSEUKTOP (S synchronous, U asynchronous), the texts those of
@@ -131,19 +131,17 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
 
-    DATA lv_frame TYPE string.
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client   = client
-                iv_event    = lv_event
-                iv_command  = mv_command
-      IMPORTING ev_message  = mv_message
-                ev_msg_type = mv_msgtype
-      RECEIVING result      = lv_frame ).
-    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = client
+        iv_event   = lv_event
+        iv_command = mv_command ).
+    mv_message = ls_frame-message.
+    mv_msgtype = ls_frame-msg_type.
+    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
       RETURN.
     ENDIF.
 
@@ -273,14 +271,14 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
 
   METHOD add_row.
 
-    DATA(row) = io_parent->open( `HBox`
+    DATA(row) = io_parent->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row
                                    iv_text   = iv_label
                                    iv_width  = `16rem` ).
-    row->leaf( `Text` )->a( n = `text` v = iv_value ).
-    row->shut( ).
+    row->tag( `Text` )->a( n = `text` t = iv_value ).
+    row->end( ).
 
   ENDMETHOD.
 
@@ -289,7 +287,7 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
 
     " display mode: the checkbox keeps its tick but takes no input, the
     " way the original greys its fields out
-    io_parent->leaf( `CheckBox`
+    io_parent->tag( `CheckBox`
         )->a( n = `text`     v = iv_text
         )->a( n = `selected` v = COND string( WHEN iv_flag = abap_true
                                               THEN `true` ELSE `false` )
@@ -301,10 +299,10 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
   METHOD add_group.
 
     " group box of a classic dynpro - a framed block with a heading
-    DATA(box) = io_parent->open( `Panel`
+    DATA(box) = io_parent->ele( `Panel`
         )->a( n = `headerText` v = iv_title
         )->a( n = `class`      v = `sapUiSmallMarginTop` ).
-    result = box->open( `VBox` )->a( n = `class` v = `sapUiSmallMargin` ).
+    result = box->ele( `VBox` )->a( n = `class` v = `sapUiSmallMargin` ).
 
   ENDMETHOD.
 
@@ -313,10 +311,14 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
 
     " texts of dynpro 0360
     CASE ms_detail-upd_mode.
-      WHEN `S`.     result = `Synchronous update`.
-      WHEN `U`.     result = `Asynchronous update`.
-      WHEN `L`.     result = `Local Update`.
-      WHEN OTHERS.  CLEAR result.
+      WHEN `S`.
+        result = `Synchronous update`.
+      WHEN `U`.
+        result = `Asynchronous update`.
+      WHEN `L`.
+        result = `Local Update`.
+      WHEN OTHERS.
+        CLEAR result.
     ENDCASE.
 
   ENDMETHOD.
@@ -324,7 +326,7 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
 
   METHOD view_display.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     " band 6 - status bar
@@ -352,63 +354,63 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
     " its functions sit as pushbuttons in the work area
 
     " band 5 - work area, dynpro 0390
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true` ).
 
-    DATA(sel) = work->open( `VBox`
+    DATA(sel) = work->ele( `VBox`
         )->a( n = `class` v = `sapUiSmallMargin` ).
 
-    DATA(row_tc) = sel->open( `HBox`
+    DATA(row_tc) = sel->ele( `HBox`
         )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row_tc
                                    iv_text   = `Transaction Code` ).
-    row_tc->leaf( `Input`
+    row_tc->tag( `Input`
         )->a( n = `id`     v = `idTcode`
         )->a( n = `value`  v = client->_bind( mv_tcode )
         )->a( n = `width`  v = `20rem`
         )->a( n = `submit` v = client->_event( `EXECUTE` ) ).
-    row_tc->shut( ).
+    row_tc->end( ).
 
     " the three pushbuttons of dynpro 0390. Change and Create would write,
     " so they are shown the way the SAP GUI shows a function that does not
     " apply: present and greyed out.
-    DATA(btns) = sel->open( `HBox`
+    DATA(btns) = sel->ele( `HBox`
         )->a( n = `class` v = `sapUiSmallMarginTop` ).
-    btns->leaf( `Button`
+    btns->tag( `Button`
         )->a( n = `text`  v = `Display`
         )->a( n = `icon`  v = `sap-icon://display`
         )->a( n = `type`  v = `Transparent`
         )->a( n = `width` v = `9rem`
         )->a( n = `press` v = client->_event( `EXECUTE` ) ).
-    btns->leaf( `Button`
+    btns->tag( `Button`
         )->a( n = `text`    v = `Change`
         )->a( n = `icon`    v = `sap-icon://edit`
         )->a( n = `type`    v = `Transparent`
         )->a( n = `width`   v = `9rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Change - { c_na }| ).
-    btns->leaf( `Button`
+        )->a( n = `tooltip` t = |Change - { c_na }| ).
+    btns->tag( `Button`
         )->a( n = `text`    v = `Create`
         )->a( n = `icon`    v = `sap-icon://create`
         )->a( n = `type`    v = `Transparent`
         )->a( n = `width`   v = `9rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Create - { c_na }| ).
-    btns->shut( ).
+        )->a( n = `tooltip` t = |Create - { c_na }| ).
+    btns->end( ).
 
-    sel->shut( ).
+    sel->end( ).
 
     " hit list
-    DATA(grid) = work->open( n = `Table` ns = `table`
+    DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_tcodes )
         )->a( n = `visibleRowCountMode` v = `Auto`
         )->a( n = `selectionMode`       v = `Single`
         )->a( n = `rowHeight`           v = `26`
         )->a( n = `minAutoRowCount`     v = `8` ).
 
-    DATA(cols) = grid->open( n = `columns` ns = `table` ).
+    DATA(cols) = grid->ele( n = `columns` ns = `table` ).
 
     DATA(lt_col) = VALUE string_table(
         ( `Transaction Code|TCODE|14rem` )
@@ -419,23 +421,23 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
 
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
-      DATA(col) = cols->open( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
-      col->open( n = `label` ns = `table`
-          )->leaf( `Label` )->a( n = `text` v = lv_head )->shut( )->shut( ).
+      DATA(col) = cols->ele( n = `Column` ns = `table`
+          )->a( n = `width` t = lv_wid ).
+      col->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
 
-      DATA(tmpl) = col->open( n = `template` ns = `table` ).
+      DATA(tmpl) = col->ele( n = `template` ns = `table` ).
       IF lv_fld = `TCODE`.
-        tmpl->leaf( `Link`
+        tmpl->tag( `Link`
             )->a( n = `text`  v = |\{{ lv_fld }\}|
-            )->a( n = `press` v = client->_event( val   = `DISPLAY`
-                                                 t_arg = VALUE #( ( `${TCODE}` ) ) ) ).
+            )->a( n = `press` v = client->_event( val = `DISPLAY`
+                                                  arg = `${TCODE}` ) ).
       ELSE.
-        tmpl->leaf( `Text`
+        tmpl->tag( `Text`
             )->a( n = `text`     v = |\{{ lv_fld }\}|
             )->a( n = `wrapping` v = `false` ).
       ENDIF.
-      col->shut( ).
+      col->end( ).
     ENDLOOP.
 
     zcl_zlk05_gui_frame=>register_keys(
@@ -450,7 +452,7 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
 
   METHOD view_detail.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     " band 6 - status bar
@@ -480,12 +482,12 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
                                        it_buttons = detail_buttons( ) ).
 
     " band 5 - work area
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true` ).
 
-    DATA(hdr) = work->open( `VBox`
+    DATA(hdr) = work->ele( `VBox`
         )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " every display dynpro starts with these two
@@ -503,12 +505,12 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
     " flag on its own and frames its default values instead. And only
     " dynpro 0310 offers the standard transaction variant.
     IF ms_detail-tc_type = zcl_zlk05_sys_api=>seuk_text( `003` ).
-      DATA(lock) = hdr->open( `VBox`
+      DATA(lock) = hdr->ele( `VBox`
           )->a( n = `class` v = `sapUiSmallMarginTop` ).
       add_flag( io_parent = lock
                 iv_text   = `Transaction is locked (in transaction SM01 DEF)`
                 iv_flag   = ms_detail-locked_sm01 ).
-      lock->shut( ).
+      lock->end( ).
     ELSE.
       DATA(opt) = add_group( io_parent = hdr
                              iv_title  = `Start Options` ).
@@ -521,7 +523,7 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
                   iv_text   = `Editing of standard transaction variant allowed`
                   iv_flag   = ms_detail-trans_var ).
       ENDIF.
-      opt->shut( )->shut( ).
+      opt->end( )->end( ).
     ENDIF.
 
     " authorization object with its check values - dynpro 0310 field
@@ -533,39 +535,39 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
                iv_label  = `Authorization Object`
                iv_value  = ms_detail-auth_objct ).
 
-      DATA(agrid) = auth->open( n = `Table` ns = `table`
+      DATA(agrid) = auth->ele( n = `Table` ns = `table`
           )->a( n = `rows`                v = client->_bind( ms_detail-auth )
           )->a( n = `visibleRowCountMode` v = `Auto`
           )->a( n = `selectionMode`       v = `None`
           )->a( n = `rowHeight`           v = `26`
           )->a( n = `minAutoRowCount`     v = `3`
           )->a( n = `class`               v = `sapUiTinyMarginTop` ).
-      DATA(acols) = agrid->open( n = `columns` ns = `table` ).
+      DATA(acols) = agrid->ele( n = `columns` ns = `table` ).
       LOOP AT VALUE string_table( ( `Field name|FIELD|16rem` )
                                   ( `Value|VALUE|16rem` ) ) INTO DATA(lv_ac).
         SPLIT lv_ac AT `|` INTO DATA(lv_ah) DATA(lv_af) DATA(lv_aw).
-        DATA(acol) = acols->open( n = `Column` ns = `table`
-            )->a( n = `width` v = lv_aw ).
-        acol->open( n = `label` ns = `table`
-            )->leaf( `Label` )->a( n = `text` v = lv_ah )->shut( )->shut( ).
-        acol->open( n = `template` ns = `table`
-            )->leaf( `Text` )->a( n = `text` v = |\{{ lv_af }\}| ).
-        acol->shut( ).
+        DATA(acol) = acols->ele( n = `Column` ns = `table`
+            )->a( n = `width` t = lv_aw ).
+        acol->ele( n = `label` ns = `table`
+            )->tag( `Label` )->a( n = `text` t = lv_ah )->end( )->end( ).
+        acol->ele( n = `template` ns = `table`
+            )->tag( `Text` )->a( n = `text` v = |\{{ lv_af }\}| ).
+        acol->end( ).
       ENDLOOP.
-      auth->shut( )->shut( ).
+      auth->end( )->end( ).
     ENDIF.
 
     " Classification - dynpro 0370
     DATA(cls) = add_group( io_parent = hdr
                            iv_title  = `Classification` ).
-    cls->leaf( `Label` )->a( n = `text` v = `Transaction classification` ).
+    cls->tag( `Label` )->a( n = `text` v = `Transaction classification` ).
     add_flag( io_parent = cls
               iv_text   = `Professional User Transaction`
               iv_flag   = ms_detail-profi_tran ).
     add_flag( io_parent = cls
               iv_text   = `Easy Web Transaction`
               iv_flag   = ms_detail-iac_ewt ).
-    cls->leaf( `Label`
+    cls->tag( `Label`
         )->a( n = `text`  v = `GUI support`
         )->a( n = `class` v = `sapUiTinyMarginTop` ).
     add_flag( io_parent = cls
@@ -577,9 +579,9 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
     add_flag( io_parent = cls
               iv_text   = `SAP GUI for HTML`
               iv_flag   = ms_detail-s_webgui ).
-    cls->shut( )->shut( ).
+    cls->end( )->end( ).
 
-    hdr->shut( ).
+    hdr->end( ).
 
     " F3 goes back one screen
     zcl_zlk05_gui_frame=>register_keys( io_client    = client
@@ -595,7 +597,6 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
     " The original has one dynpro per transaction type and switches to it
     " in FORM transaction_ct_next_screen. The type names come from the
     " text pool of SAPLSEUK, so they are compared against it.
-    DATA(lv_dialog)    = zcl_zlk05_sys_api=>seuk_text( `001` ).
     DATA(lv_report)    = zcl_zlk05_sys_api=>seuk_text( `002` ).
     DATA(lv_parameter) = zcl_zlk05_sys_api=>seuk_text( `003` ).
     DATA(lv_variant)   = zcl_zlk05_sys_api=>seuk_text( `019` ).
@@ -628,12 +629,12 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
                    iv_label  = `Program`
                    iv_value  = ms_detail-pgmna ).
         ENDIF.
-        DATA(loc) = io_parent->open( `VBox`
+        DATA(loc) = io_parent->ele( `VBox`
             )->a( n = `class` v = `sapUiTinyMarginTop` ).
         add_flag( io_parent = loc
                   iv_text   = `Local in program`
                   iv_flag   = ms_detail-s_local ).
-        loc->shut( ).
+        loc->end( ).
         IF upd_mode_text( ) IS NOT INITIAL.
           add_row( io_parent = io_parent
                    iv_label  = `Update Mode`
@@ -648,12 +649,12 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
         add_row( io_parent = io_parent
                  iv_label  = `Transaction variant`
                  iv_value  = ms_detail-variant ).
-        DATA(cro) = io_parent->open( `VBox`
+        DATA(cro) = io_parent->ele( `VBox`
             )->a( n = `class` v = `sapUiTinyMarginTop` ).
         add_flag( io_parent = cro
                   iv_text   = `Cross-client`
                   iv_flag   = ms_detail-s_ind_vari ).
-        cro->shut( ).
+        cro->end( ).
 
       WHEN lv_parameter.
         " dynpro 0330
@@ -669,34 +670,34 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
                    iv_label  = `Screen`
                    iv_value  = ms_detail-dypno ).
         ENDIF.
-        DATA(skp) = io_parent->open( `VBox`
+        DATA(skp) = io_parent->ele( `VBox`
             )->a( n = `class` v = `sapUiTinyMarginTop` ).
         add_flag( io_parent = skp
                   iv_text   = `Skip initial screen`
                   iv_flag   = ms_detail-skip_first ).
-        skp->shut( ).
+        skp->end( ).
 
         DATA(par) = add_group( io_parent = io_parent
                                iv_title  = `Default Values` ).
-        DATA(pgrid) = par->open( n = `Table` ns = `table`
+        DATA(pgrid) = par->ele( n = `Table` ns = `table`
             )->a( n = `rows`                v = client->_bind( ms_detail-params )
             )->a( n = `visibleRowCountMode` v = `Auto`
             )->a( n = `selectionMode`       v = `None`
             )->a( n = `rowHeight`           v = `26`
             )->a( n = `minAutoRowCount`     v = `3` ).
-        DATA(pcols) = pgrid->open( n = `columns` ns = `table` ).
+        DATA(pcols) = pgrid->ele( n = `columns` ns = `table` ).
         LOOP AT VALUE string_table( ( `Name of screen field|FIELD|20rem` )
                                     ( `Value|VALUE|28rem` ) ) INTO DATA(lv_pc).
           SPLIT lv_pc AT `|` INTO DATA(lv_ph) DATA(lv_pf) DATA(lv_pw).
-          DATA(pcol) = pcols->open( n = `Column` ns = `table`
-              )->a( n = `width` v = lv_pw ).
-          pcol->open( n = `label` ns = `table`
-              )->leaf( `Label` )->a( n = `text` v = lv_ph )->shut( )->shut( ).
-          pcol->open( n = `template` ns = `table`
-              )->leaf( `Text` )->a( n = `text` v = |\{{ lv_pf }\}| ).
-          pcol->shut( ).
+          DATA(pcol) = pcols->ele( n = `Column` ns = `table`
+              )->a( n = `width` t = lv_pw ).
+          pcol->ele( n = `label` ns = `table`
+              )->tag( `Label` )->a( n = `text` t = lv_ph )->end( )->end( ).
+          pcol->ele( n = `template` ns = `table`
+              )->tag( `Text` )->a( n = `text` v = |\{{ lv_pf }\}| ).
+          pcol->end( ).
         ENDLOOP.
-        par->shut( )->shut( ).
+        par->end( )->end( ).
 
       WHEN OTHERS.
         " dynpro 0310 - the dialog transaction, and the area menu, for
