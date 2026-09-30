@@ -1,4 +1,4 @@
-# sapgui-in-abap2UI5
+# sapgui
 
 **The SAP GUI in your browser.** Twenty classic transactions - SE80, SE16N,
 SM37, ST22, SU01 and more - rebuilt as [abap2UI5](https://github.com/abap2UI5/abap2UI5)
@@ -35,7 +35,7 @@ Good for:
   there. Buttons that are not implemented yet are shown, but disabled.
 - **Not for ABAP Cloud.** It reads system tables and uses classic Workbench
   APIs, so it needs a standard ABAP system (see [Requirements](#requirements)).
-- **Not [abap-cloud-gui](https://github.com/oblomov-dev/abap-cloud-gui).**
+- **Not [abap-cloud-gui](https://github.com/abap2UI5-addons/abap-cloud-gui).**
   That one is a framework for writing *your own* apps like classic reports
   (selection screen, `WRITE`, ALV). This one is a finished set of *SAP's*
   transactions.
@@ -62,7 +62,7 @@ do. Adding the checks is the first item of [CONCEPT.md](CONCEPT.md).
 2. Install this repository with abapGit:
 
    ```
-   https://github.com/oblomov-dev/sapgui-in-abap2UI5
+   https://github.com/abap2UI5-addons/sapgui
    ```
 
 3. Open the entry screen in the browser, with the ICF path you gave the
