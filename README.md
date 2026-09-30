@@ -1,4 +1,4 @@
-# cloudy-sapgui
+# sapgui-in-abap2UI5
 
 Classic SAP GUI transactions rebuilt as [abap2UI5](https://github.com/abap2UI5/abap2UI5) apps.
 
@@ -79,7 +79,7 @@ Install abap2UI5 first, then this repository, both with
 
 ```
 https://github.com/abap2UI5/abap2UI5
-https://github.com/oblomov-dev/cloudy-sapgui
+https://github.com/oblomov-dev/sapgui-in-abap2UI5
 ```
 
 Follow the [abap2UI5 quickstart](https://abap2ui5.github.io/docs/get_started/quickstart.html)

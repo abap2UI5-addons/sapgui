@@ -1,5 +1,5 @@
 {
-  "name": "cloudy-sapgui",
+  "name": "sapgui-in-abap2ui5",
   "private": true,
   "version": "0.1.0",
   "description": "Classic SAP GUI transactions rebuilt as abap2UI5 apps.",
@@ -16,16 +16,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/oblomov-dev/cloudy-sapgui.git"
+    "url": "git+https://github.com/oblomov-dev/sapgui-in-abap2UI5.git"
   },
   "license": "MIT",
   "engines": {
     "node": ">=22"
   },
   "bugs": {
-    "url": "https://github.com/oblomov-dev/cloudy-sapgui/issues"
+    "url": "https://github.com/oblomov-dev/sapgui-in-abap2UI5/issues"
   },
-  "homepage": "https://github.com/oblomov-dev/cloudy-sapgui",
+  "homepage": "https://github.com/oblomov-dev/sapgui-in-abap2UI5",
   "devDependencies": {
     "@abap2ui5/linter": "^0.8.5",
     "@abaplint/cli": "^2.120.10"
