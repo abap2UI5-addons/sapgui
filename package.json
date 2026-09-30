@@ -2,7 +2,7 @@
   "name": "sapgui-in-abap2ui5",
   "private": true,
   "version": "0.1.0",
-  "description": "Classic SAP GUI transactions rebuilt as abap2UI5 apps.",
+  "description": "The SAP GUI in your browser: classic transactions (SE80, SE16N, SM37, ST22, ...) rebuilt as abap2UI5 apps.",
   "scripts": {
     "lint": "abaplint",
     "lint_standard": "abaplint .github/abaplint/abap_standard.jsonc",

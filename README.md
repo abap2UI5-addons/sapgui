@@ -1,98 +1,149 @@
 # sapgui-in-abap2UI5
 
-Classic SAP GUI transactions rebuilt as [abap2UI5](https://github.com/abap2UI5/abap2UI5) apps.
+**The SAP GUI in your browser.** Twenty classic transactions - SE80, SE16N,
+SM37, ST22, SU01 and more - rebuilt as [abap2UI5](https://github.com/abap2UI5/abap2UI5)
+apps. Pure ABAP, installed with abapGit. No SAP GUI installation, no Fiori
+launchpad, no OData service.
 
-Every screen keeps the layout of the SAP GUI window it replaces - menu bar,
-system function bar with the command field, title bar, application function
-bar, work area, status bar - but it is rendered as UI5 in the browser. No SAP
-GUI installation, no Fiori launchpad, no OData service: the whole thing is
-ABAP classes installed with abapGit.
+## What is this?
 
-The entry screen is `ZCL_SAPGUI_A2UI5`, a SAP Easy Access clone. It reads the
-real area menu (structure `S000`, the same hierarchy the SAP GUI reads), shows
-a Favorites folder, and accepts the usual command field syntax (`/nSE80`,
-`/oSE80`, `SE80`).
+You open one URL in the browser and land on **SAP Easy Access**, the same
+start screen the SAP GUI shows. Type `/nSM37` into the command field, or click
+through the SAP menu, and the job overview opens - in a window that looks like
+the SAP GUI: menu bar, command field, title bar, toolbar, work area, status
+bar.
+
+Behind every screen is one ABAP class. abap2UI5 turns it into a UI5 page in the
+browser, so nothing has to be installed on the client and nothing has to be
+set up in the frontend server.
+
+Good for:
+
+- **Looking into a system without the SAP GUI** - from a Mac, a tablet, a
+  locked-down laptop or any machine with a browser: read tables, check jobs,
+  dumps, locks, work processes, transports, users.
+- **Browser-based development** - SE80 is a real Workbench: edit, save, check
+  and activate source code.
+- **Learning abap2UI5** - twenty full apps with selection screens, lists,
+  trees, detail screens and a shared window frame, plus 431 unit tests.
+
+## What it is not
+
+- **Not the SAP GUI for HTML (WebGUI).** The WebGUI runs the original screens.
+  This project rebuilds a selection of them from scratch, so only the
+  transactions listed below exist, and not every function of the original is
+  there. Buttons that are not implemented yet are shown, but disabled.
+- **Not for ABAP Cloud.** It reads system tables and uses classic Workbench
+  APIs, so it needs a standard ABAP system (see [Requirements](#requirements)).
+- **Not [abap-cloud-gui](https://github.com/oblomov-dev/abap-cloud-gui).**
+  That one is a framework for writing *your own* apps like classic reports
+  (selection screen, `WRITE`, ALV). This one is a finished set of *SAP's*
+  transactions.
+
+## Before you install: read this
+
+> [!WARNING]
+> **There are no authorization checks yet.** Every user who can reach the
+> abap2UI5 HTTP service can read any table (`USR02` included) and change
+> source code through SE80 - regardless of their SAP authorizations.
+> Install it only on systems where every user of that service may use the
+> Workbench and read every table anyway, for example a private sandbox or a
+> developer trial.
+
+Details: the SAP GUI transactions check S_TCODE, S_TABU_DIS, S_DEVELOP and
+friends; these apps do not. Function modules that check on their own still
+do. Adding the checks is the first item of [CONCEPT.md](CONCEPT.md).
+
+## Quick start
+
+1. Install [abap2UI5](https://github.com/abap2UI5/abap2UI5) with
+   [abapGit](https://abapgit.org) and set up its HTTP handler as described in
+   the [abap2UI5 quickstart](https://abap2ui5.github.io/docs/get_started/quickstart.html).
+2. Install this repository with abapGit:
+
+   ```
+   https://github.com/oblomov-dev/sapgui-in-abap2UI5
+   ```
+
+3. Open the entry screen in the browser, with the ICF path you gave the
+   handler, for example:
+
+   ```
+   /sap/bc/http/sap/z2ui5?app_start=ZCL_SAPGUI_A2UI5
+   ```
+
+From there, the command field and the menu tree reach every transaction below.
+The command field understands the usual syntax: `SE80`, `/nSE80` (same
+window), `/oSE80` (new window).
 
 ## Transactions
 
-| Transaction     | Screen                        | Class              |
-| --------------- | ----------------------------- | ------------------ |
-| SAP Easy Access | Entry screen and area menu    | `ZCL_SAPGUI_A2UI5` |
-| SE80            | Object Navigator              | `ZCL_SE80_UI`      |
-| SE38            | ABAP Editor                   | `ZCL_SE38_A2U5`    |
-| SE11            | ABAP Dictionary               | `ZCL_SE11_A2U5`    |
-| SE24            | Class Builder                 | `ZCL_SE24_A2U5`    |
-| SE37            | Function Builder              | `ZCL_SE37_A2U5`    |
-| SE93            | Maintain Transaction          | `ZCL_SE93_A2U5`    |
-| SE09, SE10      | Transport Organizer           | `ZCL_SE09_A2U5`    |
-| SE16N, SE16     | General Table Display         | `ZCL_SE16N_A2U5`   |
-| SM12            | Display and Delete Locks      | `ZCL_SM12_A2U5`    |
-| SM21            | Online System Log Analysis    | `ZCL_SM21_A2U5`    |
-| SM37            | Overview of Job Selection     | `ZCL_SM37_A2U5`    |
-| SM50, SM66      | Work Process Overview         | `ZCL_SM50_A2U5`    |
-| ST02            | Setups/Tune Buffers           | `ZCL_ST02_A2U5`    |
-| ST05            | Performance Trace             | `ZCL_ST05_A2U5`    |
-| ST22            | ABAP Dump Analysis            | `ZCL_ST22_A2U5`    |
-| SU01            | User Maintenance              | `ZCL_SU01_A2U5`    |
-| SCC4            | Client Administration         | `ZCL_SCC4_A2U5`    |
-| RZ10, RZ11      | Profile Parameter Maintenance | `ZCL_RZ11_A2U5`    |
-| STMS            | Transport Management System   | `ZCL_STMS_A2U5`    |
+| Transaction | Screen | What you can do |
+| --- | --- | --- |
+| SAP Easy Access | Start screen | Browse the SAP menu (the real area menu `S000`) and the Favorites folder, start transactions from the command field |
+| SE80 | Object Navigator | Browse packages and objects; display, **edit, save, check and activate** source; create and delete programs, classes and interfaces; where-used list, version compare, pretty printer, search and replace |
+| SE38 | ABAP Editor | Find a program and display its source |
+| SE11 | ABAP Dictionary | Find database tables, views and data elements and display their fields or definition |
+| SE24 | Class Builder | Find a class or interface and display its components |
+| SE37 | Function Builder | Find a function module and display its parameters |
+| SE93 | Maintain Transaction | Find a transaction code and display what it starts |
+| SE09, SE10 | Transport Organizer | Select transport requests by user, type and status; display their objects |
+| SE16N, SE16 | General Table Display | Display the content of any table with selection criteria, count entries, save and load display variants |
+| SM12 | Display and Delete Locks | List lock entries (display only - nothing is deleted) |
+| SM21 | System Log | Read the system log by time range, user, transaction and problem class |
+| SM37 | Job Overview | Select background jobs by name, user and status; display their steps |
+| SM50, SM66 | Work Process Overview | List the work processes and what they are doing |
+| ST02 | Tune Buffers | Display the buffer statistics |
+| ST05 | Performance Trace | Display the trace state and the trace filters (starting a trace is not implemented) |
+| ST22 | ABAP Dump Analysis | List runtime errors and display a dump in detail |
+| SU01 | User Maintenance | Find users and display their details and roles |
+| SCC4 | Client Administration | List the clients of the system |
+| RZ10, RZ11 | Profile Parameters | Find a profile parameter and display its value, attributes and documentation |
+| STMS | Transport Management System | Display the transport domain, its systems and their import queues |
 
-The SAP menu tree lists the whole area menu, so it also shows transactions that
-are not implemented here. Starting one of those gives a message instead of a
+The SAP menu tree shows the whole area menu, so it also lists transactions
+that are not rebuilt here. Starting one of those shows a message instead of a
 screen, and a transaction that does not exist at all is reported as such.
 
-### What writes and what does not
+### What changes the system
 
-Almost everything is display only. `ZCL_ZLK05_SYS_API`, which every screen uses
-to read the system, has no method that changes system state.
+Almost nothing. `ZCL_ZLK05_SYS_API`, which every screen uses to read the
+system, has no method that changes anything. Two exceptions:
 
-Two exceptions:
-
-- **SE80** (`ZCL_SE80_API`) is a real Workbench. It saves source with `INSERT
-  REPORT`, activates objects, creates and deletes classes, interfaces and
-  programs, and registers objects in transports.
-- **SE16N** stores its display variants in `ZSE16N_A2U5_VAR`. It never changes
-  the data of the table being displayed - the browser itself is read only.
-
-**There are no authorization checks yet.** The SAP GUI transactions check
-S_TCODE, S_TABU_DIS, S_DEVELOP and friends; these apps do not. Function modules
-that check on their own still do, but the table browsers select from any table
-and SE80 writes source with `INSERT REPORT` for every user who reaches the
-abap2UI5 HTTP service. Until the checks are in (the first item of
-[CONCEPT.md](CONCEPT.md)), install it only where every user of that service may
-use the Workbench and read every table anyway.
+- **SE80** (`ZCL_SE80_API`) saves source with `INSERT REPORT`, activates
+  objects, creates and deletes classes, interfaces and programs, and records
+  objects in transport requests.
+- **SE16N** stores its display variants in its own table `ZSE16N_A2U5_VAR`. It
+  never changes the data of the table it displays.
 
 ## Requirements
 
-- SAP_BASIS 7.50 or higher, standard ABAP. Not ABAP Cloud - the screens read
-  system tables (`TADIR`, `TRDIR`, `SNAP`, `DD03L`, ...) and use classic
-  Workbench APIs that are not released for the ABAP Cloud language version.
-- [abap2UI5](https://github.com/abap2UI5/abap2UI5), the UI5 runtime. The views
-  are built with its view builder `Z2UI5_CL_UI5_VIEW_BUILDER`, so there is no
-  second dependency.
+- SAP_BASIS 7.50 or higher, standard ABAP (on-premise, private cloud or a
+  developer trial). Not ABAP Cloud - the screens read system tables (`TADIR`,
+  `TRDIR`, `SNAP`, `DD03L`, ...) and use classic Workbench APIs that are not
+  released for the ABAP Cloud language version.
+- [abap2UI5](https://github.com/abap2UI5/abap2UI5) - the only dependency.
 
-## Installation
+## For contributors
 
-Install abap2UI5 first, then this repository, both with
-[abapGit](https://abapgit.org):
+Which class implements which transaction:
 
-```
-https://github.com/abap2UI5/abap2UI5
-https://github.com/oblomov-dev/sapgui-in-abap2UI5
-```
+| Transaction | Class | Transaction | Class |
+| --- | --- | --- | --- |
+| SAP Easy Access | `ZCL_SAPGUI_A2UI5` | SM12 | `ZCL_SM12_A2U5` |
+| SE80 | `ZCL_SE80_UI` | SM21 | `ZCL_SM21_A2U5` |
+| SE38 | `ZCL_SE38_A2U5` | SM37 | `ZCL_SM37_A2U5` |
+| SE11 | `ZCL_SE11_A2U5` | SM50, SM66 | `ZCL_SM50_A2U5` |
+| SE24 | `ZCL_SE24_A2U5` | ST02 | `ZCL_ST02_A2U5` |
+| SE37 | `ZCL_SE37_A2U5` | ST05 | `ZCL_ST05_A2U5` |
+| SE93 | `ZCL_SE93_A2U5` | ST22 | `ZCL_ST22_A2U5` |
+| SE09, SE10 | `ZCL_SE09_A2U5` | SU01 | `ZCL_SU01_A2U5` |
+| SE16N, SE16 | `ZCL_SE16N_A2U5` | SCC4 | `ZCL_SCC4_A2U5` |
+| RZ10, RZ11 | `ZCL_RZ11_A2U5` | STMS | `ZCL_STMS_A2U5` |
 
-Follow the [abap2UI5 quickstart](https://abap2ui5.github.io/docs/get_started/quickstart.html)
-to set up the HTTP handler, then open it with the entry screen as the start
-app - with the ICF path you gave the handler, for example:
+What is planned next, and what is still missing, is in [CONCEPT.md](CONCEPT.md).
 
-```
-/sap/bc/http/sap/z2ui5?app_start=ZCL_SAPGUI_A2UI5
-```
-
-From there the command field and the menu tree reach every screen listed above.
-
-## Repository layout
+### Repository layout
 
 ```
 src/
@@ -120,7 +171,7 @@ There are 431 ABAP Unit tests. They run against `ZCL_ZLK05_CLIENT_DBL` instead
 of a live client, so the view and the event wiring can be asserted without a
 browser.
 
-## Development
+### Development
 
 The checks run on Node, no ABAP system needed:
 
@@ -173,7 +224,7 @@ in `abaplint.jsonc`. This repository is a rebuild of the ABAP Workbench, so
 table browser that selects from a table name known only at runtime cannot have
 a static column list or `ORDER BY`.
 
-## Downport
+### Downport
 
 `npm run auto_downport` rewrites the sources to 7.02 syntax with abaplint, and
 the `auto_downport` workflow pushes the result to a `702` branch that
