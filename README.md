@@ -55,9 +55,13 @@ Two exceptions:
 - **SE16N** stores its display variants in `ZSE16N_A2U5_VAR`. It never changes
   the data of the table being displayed - the browser itself is read only.
 
-Nothing here adds an authorization layer of its own. Users see and do exactly
-what their own authorizations allow, the same as in the SAP GUI. Given what
-SE80 can do, treat an installation like installing the Workbench itself.
+**There are no authorization checks yet.** The SAP GUI transactions check
+S_TCODE, S_TABU_DIS, S_DEVELOP and friends; these apps do not. Function modules
+that check on their own still do, but the table browsers select from any table
+and SE80 writes source with `INSERT REPORT` for every user who reaches the
+abap2UI5 HTTP service. Until the checks are in (the first item of
+[CONCEPT.md](CONCEPT.md)), install it only where every user of that service may
+use the Workbench and read every table anyway.
 
 ## Requirements
 
