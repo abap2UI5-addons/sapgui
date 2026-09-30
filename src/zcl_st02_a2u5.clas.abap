@@ -26,12 +26,13 @@ CLASS zcl_st02_a2u5 DEFINITION PUBLIC.
 
     DATA mv_command  TYPE string.
 
-    DATA mv_message  TYPE string.
-    DATA mv_msgtype TYPE string.
     DATA mt_buffer  TYPE zcl_zlk05_sys_api=>ty_t_buffer.
     DATA mt_memory  TYPE zcl_zlk05_sys_api=>ty_t_kv.
 
   PROTECTED SECTION.
+    DATA mv_message  TYPE string.
+    DATA mv_msgtype TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -74,7 +75,7 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
     " same way on every screen of every transaction
     DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
         io_client  = client
-        iv_event   = client->get( )-event
+        iv_event   = client->get_event( )
         iv_command = mv_command ).
     mv_message = ls_frame-message.
     mv_msgtype = ls_frame-msg_type.
@@ -82,7 +83,7 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    CASE client->get( )-event.
+    CASE client->get_event( ).
       WHEN 'REFRESH'.
         do_refresh( ).
       WHEN OTHERS.
@@ -150,7 +151,7 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
             ( text = `Current parameters` icon = `sap-icon://action-settings`
               tooltip = |Tune setups/buffers - { c_na }| )
             ( sep = abap_true )
-            ( icon = `sap-icon://memory` color = zcl_zlk05_gui_frame=>c_grey
+            ( icon = `sap-icon://database` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Shared Memory Detail - { c_na }| )
             ( icon = `sap-icon://technical-object` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Shared Memory Technical - { c_na }| )
@@ -206,9 +207,9 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
     LOOP AT lt_bcol INTO DATA(lv_bcol).
       SPLIT lv_bcol AT `|` INTO DATA(lv_bhead) DATA(lv_bfld) DATA(lv_bwid).
       DATA(bcol) = bcols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_bwid ).
+          )->a( n = `width` t = lv_bwid ).
       bcol->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_bhead )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_bhead )->end( )->end( ).
       bcol->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_bfld }\}|
@@ -241,9 +242,9 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
     LOOP AT lt_mcol INTO DATA(lv_mcol).
       SPLIT lv_mcol AT `|` INTO DATA(lv_mhead) DATA(lv_mfld) DATA(lv_mwid).
       DATA(mcol) = mcols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_mwid ).
+          )->a( n = `width` t = lv_mwid ).
       mcol->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_mhead )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_mhead )->end( )->end( ).
       mcol->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_mfld }\}|

@@ -28,11 +28,12 @@ CLASS zcl_sm21_a2u5 DEFINITION PUBLIC.
     DATA mv_user      TYPE string.
     DATA mv_tcode     TYPE string.
     DATA mv_command    TYPE string.
-    DATA mv_message    TYPE string.
-    DATA mv_msgtype   TYPE string.
     DATA mt_syslog    TYPE zcl_zlk05_sys_api=>ty_t_syslog.
 
   PROTECTED SECTION.
+    DATA mv_message    TYPE string.
+    DATA mv_msgtype   TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -77,7 +78,7 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
     " same way on every screen of every transaction
     DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
         io_client  = client
-        iv_event   = client->get( )-event
+        iv_event   = client->get_event( )
         iv_command = mv_command ).
     mv_message = ls_frame-message.
     mv_msgtype = ls_frame-msg_type.
@@ -85,7 +86,7 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    CASE client->get( )-event.
+    CASE client->get_event( ).
       WHEN 'EXECUTE'.
         do_search( ).
       WHEN OTHERS.
@@ -192,7 +193,7 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://excel-attachment` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Local File... - { c_na }| )
             ( sep = abap_true )
-            ( icon = `sap-icon://detail-more` color = zcl_zlk05_gui_frame=>c_grey
+            ( icon = `sap-icon://inspection` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Display Developer Trace - { c_na }| )
             ( icon = `sap-icon://request` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Use New System Log Transaction - { c_na }| ) ) ).
@@ -246,13 +247,13 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
         )->a( n = `value`   v = `All messages`
         )->a( n = `enabled` v = `false`
         )->a( n = `width`   v = `10rem`
-        )->a( n = `tooltip` v = |Problem class restriction - { c_na }| ).
+        )->a( n = `tooltip` t = |Problem class restriction - { c_na }| ).
     row3->tag( `Button`
         )->a( n = `text`    v = `System Log: Further Restrictions`
         )->a( n = `icon`    v = `sap-icon://filter`
         )->a( n = `enabled` v = `false`
         )->a( n = `class`   v = `sapUiMediumMarginBegin`
-        )->a( n = `tooltip` v = |System Log: Further Restrictions - { c_na }| ).
+        )->a( n = `tooltip` t = |System Log: Further Restrictions - { c_na }| ).
     row3->end( ).
 
     client->follow_up_action(
@@ -284,9 +285,9 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -295,7 +296,7 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
     ENDLOOP.
 
     work->tag( `Text`
-        )->a( n = `text`  v = |Local system log of instance { sy-host }|
+        )->a( n = `text`  t = |Local system log of instance { sy-host }|
         )->a( n = `class` v = `sapUiTinyMarginTop` ).
 
     " function keys of the SAP GUI - F3 / Shift+F3 / F12 and F8

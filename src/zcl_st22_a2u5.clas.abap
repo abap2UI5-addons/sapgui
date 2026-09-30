@@ -25,15 +25,16 @@ CLASS zcl_st22_a2u5 DEFINITION PUBLIC.
     DATA mv_date_from TYPE string.
     DATA mv_date_to   TYPE string.
     DATA mv_user      TYPE string.
-    DATA mv_mode      TYPE string.
-    DATA mv_current   TYPE string.
     DATA mv_command    TYPE string.
-    DATA mv_message    TYPE string.
-    DATA mv_msgtype   TYPE string.
     DATA mt_dumps     TYPE zcl_zlk05_sys_api=>ty_t_dump.
     DATA mt_detail    TYPE zcl_zlk05_sys_api=>ty_t_kv.
 
   PROTECTED SECTION.
+    DATA mv_mode      TYPE string.
+    DATA mv_current   TYPE string.
+    DATA mv_message    TYPE string.
+    DATA mv_msgtype   TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -79,7 +80,7 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
 
@@ -272,7 +273,7 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
         )->a( n = `value`   v = client->_bind( mv_errorid )
         )->a( n = `width`   v = `20rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Selection by runtime error - { c_na }| ).
+        )->a( n = `tooltip` t = |Selection by runtime error - { c_na }| ).
 
     row = panel->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
@@ -293,7 +294,7 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
         )->a( n = `value`   v = client->_bind( mv_date_to )
         )->a( n = `width`   v = `9rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Upper date limit - { c_na }| ).
+        )->a( n = `tooltip` t = |Upper date limit - { c_na }| ).
 
     row = panel->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
@@ -304,14 +305,14 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
     row->tag( `Input`
         )->a( n = `width`   v = `9rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Selection by time - { c_na }| ).
+        )->a( n = `tooltip` t = |Selection by time - { c_na }| ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row
                                     iv_text   = `to`
                                     iv_width  = `2.5rem` ).
     row->tag( `Input`
         )->a( n = `width`   v = `9rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Selection by time - { c_na }| ).
+        )->a( n = `tooltip` t = |Selection by time - { c_na }| ).
 
     row = panel->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
@@ -333,10 +334,10 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
                                     iv_text   = `Client`
                                     iv_width  = `11rem` ).
     row->tag( `Input`
-        )->a( n = `value`   v = CONV string( sy-mandt )
+        )->a( n = `value`   t = CONV string( sy-mandt )
         )->a( n = `width`   v = `5rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |The app always reads the own client { sy-mandt }| ).
+        )->a( n = `tooltip` t = |The app always reads the own client { sy-mandt }| ).
 
     row = panel->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
@@ -345,10 +346,10 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
                                     iv_text   = `Host`
                                     iv_width  = `11rem` ).
     row->tag( `Input`
-        )->a( n = `value`   v = CONV string( sy-host )
+        )->a( n = `value`   t = CONV string( sy-host )
         )->a( n = `width`   v = `14rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Selection by host - { c_na }| ).
+        )->a( n = `tooltip` t = |Selection by host - { c_na }| ).
 
     client->follow_up_action(
         val   = client->cs_event-set_focus
@@ -435,8 +436,8 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
         )->a( n = `rowHeight`           v = `26`
         )->a( n = `minAutoRowCount`     v = `10`
         )->a( n = `cellClick`           v = client->_event(
-                  val   = `DISPLAY`
-                  t_arg = VALUE #( ( `${KEY_DATE}|${KEY_TIME}|${KEY_MOD}` ) ) ) ).
+                  val = `DISPLAY`
+                  arg = `${KEY_DATE}|${KEY_TIME}|${KEY_MOD}` ) ).
 
     DATA(cols) = grid->ele( n = `columns` ns = `table` ).
 
@@ -452,9 +453,9 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -510,7 +511,7 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
             ( sep = abap_true )
             ( text = `Go to Affected Program` icon = `sap-icon://source-code`
               tooltip = |Go to Affected Program - { c_na }| )
-            ( text = `Debugger` icon = `sap-icon://debug`
+            ( text = `Debugger` icon = `sap-icon://inspect`
               tooltip = |Debugger - { c_na }| )
             ( sep = abap_true )
             ( icon = `sap-icon://newspaper` color = zcl_zlk05_gui_frame=>c_grey
@@ -540,13 +541,23 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
         )->a( n = `class`   v = `sapUiSizeCompact` ).
 
     tab->ele( `columns`
-        )->ele( `Column` )->a( n = `width` v = `18rem`
-            )->tag( `Text` )->a( n = `text` v = `Attribute` )->end(
-        )->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Value` )->end(
-        )->end( )->ele( `items`
-            )->ele( `ColumnListItem` )->ele( `cells`
-                )->tag( `Text` )->a( n = `text` v = `{LABEL}`
-                )->tag( `Text` )->a( n = `text` v = `{VALUE}` ).
+        )->ele( `Column`
+            )->a( n = `width` v = `18rem`
+            )->tag( `Text`
+            )->a( n = `text` v = `Attribute`
+        )->end(
+        )->ele( `Column`
+            )->tag( `Text`
+            )->a( n = `text` v = `Value`
+        )->end(
+    )->end(
+    )->ele( `items`
+        )->ele( `ColumnListItem`
+            )->ele( `cells`
+                )->tag( `Text`
+                )->a( n = `text` v = `{LABEL}`
+                )->tag( `Text`
+                )->a( n = `text` v = `{VALUE}` ).
 
     " the app reads the SNAP header, not the complete dump - say so instead
     " of letting the screen look like the full ST22 long text

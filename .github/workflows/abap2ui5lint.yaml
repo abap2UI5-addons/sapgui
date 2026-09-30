@@ -1,0 +1,32 @@
+name: abap2ui5lint
+
+# The abap2UI5 linter, next to abaplint: abaplint checks the ABAP, this
+# checks the app classes against abap2UI5 - bindings, events, frontend
+# actions, icons, the lifecycle of main( ). Configured in abap2ui5lint.jsonc;
+# the version comes from package-lock.json, so CI and `npm run
+# lint_abap2ui5` run the same one.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: abap2ui5lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  abap2ui5lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint_abap2ui5

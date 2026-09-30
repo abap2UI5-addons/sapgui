@@ -27,16 +27,17 @@ CLASS zcl_rz11_a2u5 DEFINITION PUBLIC.
     CONSTANTS c_na TYPE string VALUE `not available in this environment`.
 
     DATA mv_pattern TYPE string.
-    DATA mv_mode    TYPE string.
-    DATA mv_current TYPE string.
-    DATA mv_dynonly TYPE abap_bool.
     DATA mv_command  TYPE string.
-    DATA mv_message  TYPE string.
-    DATA mv_msgtype TYPE string.
     DATA mt_params  TYPE zcl_zlk05_sys_api=>ty_t_param.
     DATA mt_detail  TYPE zcl_zlk05_sys_api=>ty_t_kv.
 
   PROTECTED SECTION.
+    DATA mv_mode    TYPE string.
+    DATA mv_current TYPE string.
+    DATA mv_dynonly TYPE abap_bool.
+    DATA mv_message  TYPE string.
+    DATA mv_msgtype TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -83,7 +84,7 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
 
@@ -204,7 +205,7 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
             ( sep = abap_true )
             ( icon = `sap-icon://request` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |All Recommended Values - { c_na }| )
-            ( icon = `sap-icon://formula` color = zcl_zlk05_gui_frame=>c_grey
+            ( icon = `sap-icon://fx` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |All Formula Parameters - { c_na }| )
             ( icon = `sap-icon://check-availability` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Activate / Deactivate Vector Parameter - { c_na }| )
@@ -265,14 +266,14 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Link`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
-              )->a( n = `press`    v = client->_event( val   = `DISPLAY`
-                                                      t_arg = VALUE #( ( `${PARANAME}` ) ) )
+              )->a( n = `press`    v = client->_event( val = `DISPLAY`
+                                                       arg = `${PARANAME}` )
               )->a( n = `wrapping` v = `false` ).
       col->end( ).
     ENDLOOP.
@@ -348,13 +349,23 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
             )->a( n = `class`   v = `sapUiSizeCompact` ).
 
     tab->ele( `columns`
-        )->ele( `Column` )->a( n = `width` v = `18rem`
-            )->tag( `Text` )->a( n = `text` v = `Attribute` )->end(
-        )->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Value` )->end(
-        )->end( )->ele( `items`
-            )->ele( `ColumnListItem` )->ele( `cells`
-                )->tag( `Text` )->a( n = `text` v = `{LABEL}`
-                )->tag( `Text` )->a( n = `text` v = `{VALUE}` ).
+        )->ele( `Column`
+            )->a( n = `width` v = `18rem`
+            )->tag( `Text`
+            )->a( n = `text` v = `Attribute`
+        )->end(
+        )->ele( `Column`
+            )->tag( `Text`
+            )->a( n = `text` v = `Value`
+        )->end(
+    )->end(
+    )->ele( `items`
+        )->ele( `ColumnListItem`
+            )->ele( `cells`
+                )->tag( `Text`
+                )->a( n = `text` v = `{LABEL}`
+                )->tag( `Text`
+                )->a( n = `text` v = `{VALUE}` ).
 
     " function keys of the SAP GUI - F3 / Shift+F3 / F12 and F8
     zcl_zlk05_gui_frame=>register_keys(

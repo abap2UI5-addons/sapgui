@@ -31,15 +31,16 @@ CLASS zcl_sm37_a2u5 DEFINITION PUBLIC.
     DATA mv_jobname  TYPE string.
     DATA mv_user     TYPE string.
     DATA mv_status   TYPE string.
-    DATA mv_mode     TYPE string.
-    DATA mv_current  TYPE string.
     DATA mv_command   TYPE string.
-    DATA mv_message   TYPE string.
-    DATA mv_msgtype  TYPE string.
     DATA mt_jobs     TYPE zcl_zlk05_sys_api=>ty_t_job.
     DATA mt_steps    TYPE zcl_zlk05_sys_api=>ty_t_jobstep.
 
   PROTECTED SECTION.
+    DATA mv_mode     TYPE string.
+    DATA mv_current  TYPE string.
+    DATA mv_message   TYPE string.
+    DATA mv_msgtype  TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -87,7 +88,7 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
 
@@ -293,7 +294,7 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
         )->a( n = `value`   v = `All`
         )->a( n = `enabled` v = `false`
         )->a( n = `width`   v = `10rem`
-        )->a( n = `tooltip` v = |Extended Job Selection - { c_na }| ).
+        )->a( n = `tooltip` t = |Extended Job Selection - { c_na }| ).
     row2->end( ).
 
     client->follow_up_action(
@@ -308,8 +309,8 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
         )->a( n = `rowHeight`           v = `26`
         )->a( n = `minAutoRowCount`     v = `10`
         )->a( n = `cellClick`           v = client->_event(
-                  val   = `DISPLAY`
-                  t_arg = VALUE #( ( `${JOBNAME}|${JOBCOUNT}` ) ) ) ).
+                  val = `DISPLAY`
+                  arg = `${JOBNAME}|${JOBCOUNT}` ) ).
 
     DATA(cols) = grid->ele( n = `columns` ns = `table` ).
 
@@ -326,9 +327,9 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table` ).
       IF lv_fld = `STATUSTXT`.
         col->tag( `ObjectStatus`
@@ -402,7 +403,7 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://delete` color = zcl_zlk05_gui_frame=>c_red
               tooltip = |Delete Step - { c_na }| )
             ( sep = abap_true )
-            ( icon = `sap-icon://debug` color = zcl_zlk05_gui_frame=>c_grey
+            ( icon = `sap-icon://inspect` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Debug Job (Simulation) - { c_na }| ) ) ).
 
     DATA(work) = page->ele( `ScrollContainer`
@@ -432,9 +433,9 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -443,7 +444,7 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
     ENDLOOP.
 
     work->tag( `Text`
-        )->a( n = `text`  v = |{ lines( mt_steps ) } step(s) of job { mv_current }|
+        )->a( n = `text`  t = |{ lines( mt_steps ) } step(s) of job { mv_current }|
         )->a( n = `class` v = `sapUiTinyMarginTop` ).
 
     " function keys of the SAP GUI - F3 / Shift+F3 / F12 and F8

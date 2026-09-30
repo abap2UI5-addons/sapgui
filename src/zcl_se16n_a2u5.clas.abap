@@ -7,9 +7,6 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
     CONSTANTS c_default_max TYPE i VALUE 200.
     CONSTANTS c_max_cap     TYPE i VALUE 10000.
 
-    " Step state: 1=table name, 2=selection screen, 3=result list
-    DATA mv_step       TYPE i VALUE 1.
-
     " --- Step 1 ---
     DATA mv_table_name TYPE string.
     DATA mv_max_hits   TYPE string VALUE `200`.
@@ -41,7 +38,6 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
              high  TYPE string,
            END OF ty_s_crit,
            ty_t_crit TYPE STANDARD TABLE OF ty_s_crit WITH EMPTY KEY.
-    DATA mt_crit TYPE ty_t_crit.
 
     " --- Step 3: Result (fixed-width 50 string columns) ---
     TYPES: BEGIN OF ty_s_row,
@@ -58,12 +54,9 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
            END OF ty_s_row,
            ty_t_row TYPE STANDARD TABLE OF ty_s_row WITH EMPTY KEY.
     DATA mt_rows       TYPE ty_t_row.
-    DATA mv_total_rows TYPE i.
 
     " --- Status message ---
     DATA mv_command      TYPE string.
-    DATA mv_message      TYPE string.
-    DATA mv_message_type TYPE string VALUE `Information`.
 
     " --- Value help suggestions ---
     TYPES: BEGIN OF ty_s_suggest,
@@ -75,7 +68,6 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
 
     " --- Find in result list ---
     DATA mv_search     TYPE string.
-    DATA mv_show_shell TYPE abap_bool VALUE abap_true.
 
     " --- Variants (persisted in ZSE16N_A2U5_VAR) ---
     TYPES: BEGIN OF ty_s_variant_list,
@@ -93,9 +85,17 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
     DATA mv_variant_name TYPE string.
     "! selectedKey of the "Get Variant" dropdown
     DATA mv_variant_sel  TYPE string.
-    DATA mt_variant_list TYPE ty_t_variant_list.
 
   PROTECTED SECTION.
+    " Step state: 1=table name, 2=selection screen, 3=result list
+    DATA mv_step       TYPE i VALUE 1.
+    DATA mt_crit TYPE ty_t_crit.
+    DATA mv_total_rows TYPE i.
+    DATA mv_message      TYPE string.
+    DATA mv_message_type TYPE string VALUE `Information`.
+    DATA mv_show_shell TYPE abap_bool VALUE abap_true.
+    DATA mt_variant_list TYPE ty_t_variant_list.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_step_1.
@@ -165,7 +165,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
     " way on every screen of every transaction
     DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
         io_client  = client
-        iv_event   = client->get( )-event
+        iv_event   = client->get_event( )
         iv_command = mv_command ).
     mv_message = ls_frame-message.
     mv_message_type = ls_frame-msg_type.
@@ -179,7 +179,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    CASE client->get( )-event.
+    CASE client->get_event( ).
 
       WHEN `LOAD_METADATA`.
         load_metadata( ).
@@ -200,12 +200,10 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
             key  = lv_uuid
             sign = `I`
             opt  = `EQ` ) TO mt_crit.
-        client->view_model_update( ).
 
       WHEN `DEL_CRIT`.
         DATA(lv_key) = client->get_event_arg( ).
         DELETE mt_crit WHERE key = lv_key.
-        client->view_model_update( ).
 
       WHEN `EXECUTE`.
         execute_query( ).
@@ -224,7 +222,6 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
       WHEN `SUGGEST`.
         DATA(lv_term) = client->get_event_arg( ).
         search_tables( lv_term ).
-        client->view_model_update( ).
 
       WHEN `SEARCH_RESULT`.
         DATA(lv_search) = to_upper( mv_search ).
@@ -297,11 +294,11 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
     CASE mv_step.
       WHEN 3.
-view_step_3( ).
+        view_step_3( ).
       WHEN 2.
-view_step_2( ).
+        view_step_2( ).
       WHEN OTHERS.
-view_step_1( ).
+        view_step_1( ).
     ENDCASE.
 
   ENDMETHOD.
@@ -417,8 +414,8 @@ view_step_1( ).
         )->a( n = `showSuggestion`  v = `true`
         )->a( n = `suggestionItems` v = client->_bind( mt_suggestions )
         )->a( n = `suggest`         v = client->_event(
-                  val   = `SUGGEST`
-                  t_arg = VALUE #( ( `${$parameters>/suggestValue}` ) ) )
+                  val = `SUGGEST`
+                  arg = `${$parameters>/suggestValue}` )
         )->a( n = `submit`          v = client->_event( `LOAD_METADATA` ) ).
     tab_input->ele( `suggestionItems`
         )->tag( n = `Item` ns = `core`
@@ -475,8 +472,8 @@ view_step_1( ).
         )->a( n = `text` v = `Get Variant...` ).
     LOOP AT mt_variant_list ASSIGNING FIELD-SYMBOL(<vl>).
       var_items->tag( n = `Item` ns = `core`
-          )->a( n = `key`  v = <vl>-id
-          )->a( n = `text` v = <vl>-name ).
+          )->a( n = `key`  t = <vl>-id
+          )->a( n = `text` t = <vl>-name ).
     ENDLOOP.
     row->tag( `Button`
         )->a( n = `icon`    v = `sap-icon://delete`
@@ -490,7 +487,7 @@ view_step_1( ).
     row->tag( `Input`
         )->a( n = `value`   v = client->_bind( mv_max_hits )
         )->a( n = `width`   v = `6rem`
-        )->a( n = `tooltip` v = |Default { c_default_max }, maximum { c_max_cap }| ).
+        )->a( n = `tooltip` t = |Default { c_default_max }, maximum { c_max_cap }| ).
     row->tag( `CheckBox`
         )->a( n = `text`    v = `Maintain Entries`
         )->a( n = `enabled` v = `false`
@@ -652,7 +649,7 @@ view_step_1( ).
 
     row = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Number of Hits` ).
-    row->tag( `Text` )->a( n = `text` v = |{ mv_total_rows }| ).
+    row->tag( `Text` )->a( n = `text` t = |{ mv_total_rows }| ).
 
     row = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Runtime` ).
@@ -716,7 +713,7 @@ view_step_1( ).
 
     alv_bar->tag( `ToolbarSpacer` ).
 
-    alv_bar->tag( `Text` )->a( n = `text` v = |{ mv_total_rows } Entries| ).
+    alv_bar->tag( `Text` )->a( n = `text` t = |{ mv_total_rows } Entries| ).
     alv_bar->tag( `ToolbarSeparator` ).
     zcl_zlk05_gui_frame=>add_button( io_bar = alv_bar
         is_button = VALUE #(
@@ -753,10 +750,10 @@ view_step_1( ).
       ENDIF.
       DATA(grid_col) = grid_cols->ele( n = `Column` ns = `table`
           )->a( n = `width`          v = `8rem`
-          )->a( n = `sortProperty`   v = <col>-col_id
-          )->a( n = `filterProperty` v = <col>-col_id ).
+          )->a( n = `sortProperty`   t = <col>-col_id
+          )->a( n = `filterProperty` t = <col>-col_id ).
       grid_col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = <col>-fname ).
+          )->tag( `Label` )->a( n = `text` t = <col>-fname ).
       grid_col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ <col>-col_id }\}|
@@ -1029,21 +1026,21 @@ view_step_1( ).
         lv_max = c_default_max.
     ENDTRY.
     IF lv_max <= 0.
-lv_max = c_default_max.
-ENDIF.
+      lv_max = c_default_max.
+    ENDIF.
     IF lv_max > c_max_cap.
-lv_max = c_max_cap.
-ENDIF.
+      lv_max = c_max_cap.
+    ENDIF.
 
     " Sort order
-    DATA lt_order TYPE STANDARD TABLE OF string.
+    DATA lt_order TYPE string_table.
     LOOP AT mt_fields ASSIGNING FIELD-SYMBOL(<sf>) WHERE sort = 'A' OR sort = 'D'.
       APPEND |{ <sf>-fname } { COND #( WHEN <sf>-sort = 'A' THEN `ASCENDING` ELSE `DESCENDING` ) }| TO lt_order.
     ENDLOOP.
     DATA(lv_order) = concat_lines_of( table = lt_order sep = `, ` ).
 
     TRY.
-        CREATE DATA lr_data TYPE TABLE OF (mv_table_name).
+        CREATE DATA lr_data TYPE STANDARD TABLE OF (mv_table_name) WITH EMPTY KEY.
         ASSIGN lr_data->* TO FIELD-SYMBOL(<lt_data>).
 
         IF lv_order IS INITIAL.
@@ -1142,6 +1139,7 @@ ENDIF.
 
     DATA lv_json TYPE string.
     TRY.
+        " abap2ui5lint-disable-next-line non-released-api -- the stored variants are in this format, see README
         lv_json = z2ui5_cl_util=>json_stringify( ls_payload ).
       CATCH cx_root INTO DATA(lx_json).
         mv_message      = |Variant could not be serialized: { lx_json->get_text( ) }|.

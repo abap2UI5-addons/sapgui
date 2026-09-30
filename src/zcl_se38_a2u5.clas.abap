@@ -4,15 +4,16 @@ CLASS zcl_se38_a2u5 DEFINITION PUBLIC.
     INTERFACES z2ui5_if_app.
 
     DATA mv_progname TYPE string.
-    DATA mv_mode     TYPE string.
-    DATA mv_current  TYPE string.
     DATA mv_source   TYPE string.
     DATA mv_command   TYPE string.
-    DATA mv_message   TYPE string.
-    DATA mv_msgtype  TYPE string.
     DATA mt_programs TYPE zcl_zlk05_sys_api=>ty_t_program.
 
   PROTECTED SECTION.
+    DATA mv_mode     TYPE string.
+    DATA mv_current  TYPE string.
+    DATA mv_message   TYPE string.
+    DATA mv_msgtype  TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -57,7 +58,7 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
 
@@ -289,8 +290,8 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
       DATA(cells) = tab->ele( `items`
           )->ele( `ColumnListItem`
               )->a( n = `type`  v = `Navigation`
-              )->a( n = `press` v = client->_event( val   = `DISPLAY`
-                                                   t_arg = VALUE #( ( `${NAME}` ) ) )
+              )->a( n = `press` v = client->_event( val = `DISPLAY`
+                                                    arg = `${NAME}` )
               )->ele( `cells` ).
       cells->tag( `Text` )->a( n = `text` v = `{NAME}` ).
       cells->tag( `Text` )->a( n = `text` v = `{KIND}` ).
@@ -420,8 +421,8 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
       DATA(brow_cells) = brow_tab->ele( `items`
           )->ele( `ColumnListItem`
               )->a( n = `type`  v = `Active`
-              )->a( n = `press` v = client->_event( val   = `DISPLAY`
-                                                   t_arg = VALUE #( ( `${NAME}` ) ) )
+              )->a( n = `press` v = client->_event( val = `DISPLAY`
+                                                    arg = `${NAME}` )
               )->ele( `cells` ).
       brow_cells->tag( `Text` )->a( n = `text` v = `{NAME}` ).
       brow_cells->tag( `Text` )->a( n = `text` v = `{KIND}` ).
@@ -435,7 +436,7 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
     DATA(head) = editor->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = head iv_text = `Report` ).
     head->tag( `Input`
-        )->a( n = `value`   v = mv_current
+        )->a( n = `value`   t = mv_current
         )->a( n = `width`   v = `17rem`
         )->a( n = `enabled` v = `false` ).
     head->tag( `Text`
@@ -459,7 +460,7 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
         )->a( n = `text`    v = `Display mode - source is read-only`
         )->a( n = `tooltip` v = `This app has no write path into the repository` ).
     foot->tag( `ToolbarSeparator` ).
-    foot->tag( `Text` )->a( n = `text` v = |{ count( val = mv_source sub = cl_abap_char_utilities=>newline ) + 1 } lines| ).
+    foot->tag( `Text` )->a( n = `text` t = |{ count( val = mv_source sub = cl_abap_char_utilities=>newline ) + 1 } lines| ).
     foot->tag( `ToolbarSeparator` ).
     foot->tag( `Text` )->a( n = `text` v = `ABAP` ).
 

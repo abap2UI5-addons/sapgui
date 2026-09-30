@@ -24,28 +24,19 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
 
     DATA mt_tree         TYPE zcl_se80_api=>ty_t_tree.
     DATA mv_cur_package  TYPE devclass VALUE '$ZLK'.
-    DATA mv_cur_obj_name TYPE sobj_name.
-    DATA mv_cur_obj_type TYPE trobjtype.
     DATA mv_source       TYPE string.
     DATA mv_source_local TYPE string.
     DATA mv_source_test  TYPE string.
     DATA mv_search       TYPE string.
     DATA mv_search_type  TYPE string VALUE 'ALL'.
-    DATA mv_object_title TYPE string.
     DATA mv_active_tab   TYPE string VALUE 'SRC'.
     DATA mt_methods      TYPE zcl_se80_api=>ty_t_method.
     DATA mt_fields       TYPE zcl_se80_api=>ty_t_field.
     DATA mt_usages       TYPE zcl_se80_api=>ty_t_usage.
     DATA mt_props        TYPE zcl_se80_api=>ty_t_prop.
     DATA mv_edit_mode    TYPE abap_bool.
-    DATA mv_message      TYPE string.
-    DATA mv_msg_type     TYPE string.
-    DATA mv_show_whereu  TYPE abap_bool.
-    DATA mv_popup_title  TYPE string.
-    DATA mv_syntax_mode  TYPE string VALUE 'abap'.
     DATA mv_text_elem    TYPE string.
     DATA mv_docu         TYPE string.
-    DATA mv_status       TYPE string.
 
     " Navigation history
     TYPES:
@@ -53,16 +44,10 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
         obj_name TYPE sobj_name,
         obj_type TYPE trobjtype,
       END OF ty_s_history.
-    DATA mt_history TYPE STANDARD TABLE OF ty_s_history WITH EMPTY KEY.
-    DATA mv_hist_pos TYPE i VALUE 0.
     DATA mv_find TYPE string.
     DATA mv_replace TYPE string.
     DATA mv_goto_line TYPE string.
-    DATA mv_fullscreen TYPE abap_bool.
-    DATA mv_dark_theme TYPE abap_bool.
     DATA mv_quick_nav  TYPE string.
-    DATA mv_breadcrumb TYPE string.
-    DATA mv_lock_info  TYPE string.
 
     " Recent objects
     TYPES:
@@ -71,7 +56,6 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
         key   TYPE string,
         otype TYPE string,
       END OF ty_s_recent.
-    DATA mt_recent TYPE STANDARD TABLE OF ty_s_recent WITH EMPTY KEY.
     "! selectedKey of the "recent objects" dropdown - read on RECENT_CLICK
     DATA mv_recent_key TYPE string.
 
@@ -87,6 +71,23 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
     DATA mt_log TYPE ty_t_log.
 
   PROTECTED SECTION.
+    DATA mv_cur_obj_name TYPE sobj_name.
+    DATA mv_cur_obj_type TYPE trobjtype.
+    DATA mv_object_title TYPE string.
+    DATA mv_message      TYPE string.
+    DATA mv_msg_type     TYPE string.
+    DATA mv_show_whereu  TYPE abap_bool.
+    DATA mv_popup_title  TYPE string.
+    DATA mv_syntax_mode  TYPE string VALUE 'abap'.
+    DATA mv_status       TYPE string.
+    DATA mt_history TYPE STANDARD TABLE OF ty_s_history WITH EMPTY KEY.
+    DATA mv_hist_pos TYPE i VALUE 0.
+    DATA mv_fullscreen TYPE abap_bool.
+    DATA mv_dark_theme TYPE abap_bool.
+    DATA mv_breadcrumb TYPE string.
+    DATA mv_lock_info  TYPE string.
+    DATA mt_recent TYPE STANDARD TABLE OF ty_s_recent WITH EMPTY KEY.
+
     DATA client TYPE REF TO z2ui5_if_client.
     DATA mo_api TYPE REF TO zcl_se80_api.
     METHODS view_display.
@@ -139,7 +140,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
 
 
   METHOD on_event.
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg) = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msg_type, mt_log.
 
@@ -241,11 +242,11 @@ CLASS zcl_se80_ui IMPLEMENTATION.
       WHEN 'SAVE'.
         IF mv_source IS INITIAL.
           mv_message = `Source code is empty.`.
-mv_msg_type = `Error`.
+          mv_msg_type = `Error`.
         ELSE.
           DATA(ls_s) = mo_api->save_source( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
           mv_message = ls_s-message.
-mv_msg_type = COND #( WHEN ls_s-success = abap_true THEN `Success` ELSE `Error` ).
+          mv_msg_type = COND #( WHEN ls_s-success = abap_true THEN `Success` ELSE `Error` ).
           APPEND VALUE ty_s_log(
             icon = COND #( WHEN ls_s-success = abap_true THEN `sap-icon://sys-enter-2` ELSE `sap-icon://error` )
             type = COND #( WHEN ls_s-success = abap_true THEN `Success` ELSE `Error` )
@@ -254,14 +255,14 @@ mv_msg_type = COND #( WHEN ls_s-success = abap_true THEN `Success` ELSE `Error` 
       WHEN 'ACTIVATE'.
         DATA(ls_a) = mo_api->activate_object( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
         mv_message = ls_a-message.
-mv_msg_type = COND #( WHEN ls_a-success = abap_true THEN `Success` ELSE `Error` ).
+        mv_msg_type = COND #( WHEN ls_a-success = abap_true THEN `Success` ELSE `Error` ).
         APPEND VALUE ty_s_log(
           icon = COND #( WHEN ls_a-success = abap_true THEN `sap-icon://sys-enter-2` ELSE `sap-icon://error` )
           type = COND #( WHEN ls_a-success = abap_true THEN `Success` ELSE `Error` )
           message = ls_a-message ) TO mt_log.
         IF ls_a-success = abap_true.
-load_object( ).
-ENDIF.
+          load_object( ).
+        ENDIF.
       WHEN 'CHECK'.
         DATA(lt_c) = mo_api->check_syntax( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
         IF lt_c IS NOT INITIAL.
@@ -285,7 +286,7 @@ ENDIF.
       WHEN 'PRETTY_PRINT'.
         mv_source = mo_api->pretty_print( mv_source ).
         mv_message = `Pretty Printer executed.`.
-mv_msg_type = `Success`.
+        mv_msg_type = `Success`.
       WHEN 'WHERE_USED'.
         mt_usages = mo_api->get_where_used( mv_cur_obj_name ).
         mv_popup_title = |Where-Used List: { mv_cur_obj_name }|.
@@ -296,7 +297,7 @@ mv_msg_type = `Success`.
       WHEN 'USAGE_CLICK'.
         IF lines( lt_arg ) >= 2.
           mv_cur_obj_name = lt_arg[ 1 ].
-mv_cur_obj_type = lt_arg[ 2 ].
+          mv_cur_obj_type = lt_arg[ 2 ].
           mv_show_whereu = abap_false.
           client->popup_destroy( ).
           load_object( ).
@@ -404,8 +405,8 @@ mv_cur_obj_type = lt_arg[ 2 ].
           DO.
             FIND lv_fl IN SECTION OFFSET lv_o OF lv_sl MATCH OFFSET DATA(lv_mo).
             IF sy-subrc <> 0.
-EXIT.
-ENDIF.
+              EXIT.
+            ENDIF.
             lv_cnt2 = lv_cnt2 + 1.
             IF lv_fline = 0.
               DATA lv_nl TYPE i.
@@ -470,12 +471,12 @@ ENDIF.
     ENDIF.
     DATA(ls) = mo_api->load_source( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
     mv_source = ls-source.
-mv_source_local = ls-source_local.
-mv_source_test = ls-source_test.
-mv_syntax_mode = ls-syntax_mode.
+    mv_source_local = ls-source_local.
+    mv_source_test = ls-source_test.
+    mv_syntax_mode = ls-syntax_mode.
     IF ls-success = abap_false AND ls-message IS NOT INITIAL.
       mv_message = ls-message.
-mv_msg_type = `Warning`.
+      mv_msg_type = `Warning`.
     ENDIF.
     mo_api->get_metadata( EXPORTING iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type
                           IMPORTING et_methods = mt_methods et_fields = mt_fields ).
@@ -606,7 +607,7 @@ mv_msg_type = `Warning`.
         ( icon     = `sap-icon://nav-back` tooltip = `Back`
           press    = client->_event( `NAV_BACK` )
           disabled = xsdbool( mv_hist_pos <= 1 ) )
-        ( icon     = `sap-icon://nav-forward` tooltip = `Forward`
+        ( icon     = `sap-icon://forward` tooltip = `Forward`
           press    = client->_event( `NAV_FORWARD` )
           disabled = xsdbool( mv_hist_pos >= lines( mt_history ) ) )
         ( sep      = abap_true )
@@ -628,7 +629,7 @@ mv_msg_type = `Warning`.
         ( sep      = abap_true )
         ( icon     = `sap-icon://copy`
           tooltip  = `Copy Source Code to Clipboard`
-          press    = client->_event_client(
+          press    = client->follow_up_action(
                          val   = client->cs_event-clipboard_copy
                          t_arg = VALUE #( ( client->_bind( val = mv_source path = `X` ) ) ) ) )
         ( icon     = COND string( WHEN mv_fullscreen = abap_true
@@ -757,7 +758,7 @@ mv_msg_type = `Warning`.
       DATA(rec_items) = rec_sel->ele( `items` ).
       LOOP AT mt_recent ASSIGNING FIELD-SYMBOL(<rc>).
         rec_items->tag( n = `Item` ns = `core`
-            )->a( n = `key`  v = <rc>-key
+            )->a( n = `key`  t = <rc>-key
             )->a( n = `text` v = <rc>-text ).
       ENDLOOP.
     ENDIF.
@@ -766,21 +767,19 @@ mv_msg_type = `Warning`.
             )->a( n = `icon`    v = `sap-icon://expand-group`
             )->a( n = `tooltip` v = `Expand`
             )->a( n = `type`    v = `Transparent`
-            )->a( n = `press`   v = client->_event_client(
+            )->a( n = `press`   v = client->follow_up_action(
                 val   = client->cs_event-control_by_id
                 t_arg = VALUE #( ( `se80Tree` ) ( `expandToLevel` ) ( `3` ) ) )
         )->tag( `Button`
             )->a( n = `icon`    v = `sap-icon://collapse-group`
             )->a( n = `tooltip` v = `Collapse`
             )->a( n = `type`    v = `Transparent`
-            )->a( n = `press`   v = client->_event_client(
+            )->a( n = `press`   v = client->follow_up_action(
                 val   = client->cs_event-control_by_id
                 t_arg = VALUE #( ( `se80Tree` ) ( `collapseAll` ) ) ) ).
 
     " --- Object tree ---
-    DATA(lv_path) = client->_bind( val = mt_tree path = `X` ).
-    DATA lv_bind TYPE string.
-    CONCATENATE `{path:'` lv_path `', parameters:{arrayNames:['NODES']}}` INTO lv_bind.
+    DATA(lv_bind) = |\{path:'{ client->_bind( val = mt_tree path = abap_true ) }', parameters:\{arrayNames:['NODES']\}\}|.
 
     DATA(scroll) = col->ele( `ScrollContainer`
         )->a( n = `height`   v = `calc(100vh - 140px)`
@@ -816,17 +815,17 @@ mv_msg_type = `Warning`.
         )->a( n = `placeholder` v = `Other object`
         )->a( n = `submit`      v = client->_event( `QUICK_NAV` ) ).
     IF mv_breadcrumb IS NOT INITIAL.
-      bar2->tag( `Text` )->a( n = `text` v = mv_breadcrumb ).
+      bar2->tag( `Text` )->a( n = `text` t = mv_breadcrumb ).
     ENDIF.
     IF mv_lock_info IS NOT INITIAL.
       bar2->tag( `ObjectStatus`
-          )->a( n = `text`  v = mv_lock_info
+          )->a( n = `text`  t = mv_lock_info
           )->a( n = `state` v = `Warning` ).
     ENDIF.
     bar2->tag( `ToolbarSpacer`
         )->tag( `Button`
             )->a( n = `icon`    v = COND #( WHEN mv_dark_theme = abap_true
-                                            THEN `sap-icon://lightbulb` ELSE `sap-icon://darkmode` )
+                                            THEN `sap-icon://lightbulb` ELSE `sap-icon://background` )
             )->a( n = `tooltip` v = `Switch Editor Colors`
             )->a( n = `press`   v = client->_event( `TOGGLE_THEME` )
             )->a( n = `type`    v = `Transparent` ).
@@ -870,7 +869,7 @@ mv_msg_type = `Warning`.
     " ===== Status message =====
     IF mv_message IS NOT INITIAL.
       col->tag( `MessageStrip`
-          )->a( n = `text`            v = mv_message
+          )->a( n = `text`            t = mv_message
           )->a( n = `type`            v = mv_msg_type
           )->a( n = `showCloseButton` v = `true` ).
     ENDIF.
@@ -897,7 +896,7 @@ mv_msg_type = `Warning`.
     ELSE.
       c1->tag( n = `CodeEditor` ns = `editor`
           )->a( n = `value`      v = client->_bind( mv_source )
-          )->a( n = `type`       v = mv_syntax_mode
+          )->a( n = `type`       t = mv_syntax_mode
           )->a( n = `height`     v = `calc(100vh - 190px)`
           )->a( n = `width`      v = `100%`
           )->a( n = `editable`   v = `false`
@@ -993,7 +992,7 @@ mv_msg_type = `Warning`.
 
     IF mt_methods IS NOT INITIAL.
       DATA(meth_tab) = info->ele( `Table`
-          )->a( n = `headerText` v = |Methods ({ lines( mt_methods ) })|
+          )->a( n = `headerText` t = |Methods ({ lines( mt_methods ) })|
           )->a( n = `items`      v = client->_bind( mt_methods ) ).
       DATA(meth_cols) = meth_tab->ele( `columns` ).
       meth_cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Method` ).
@@ -1009,7 +1008,7 @@ mv_msg_type = `Warning`.
 
     IF mt_fields IS NOT INITIAL.
       DATA(fld_tab) = info->ele( `Table`
-          )->a( n = `headerText` v = |Attributes ({ lines( mt_fields ) })|
+          )->a( n = `headerText` t = |Attributes ({ lines( mt_fields ) })|
           )->a( n = `items`      v = client->_bind( mt_fields ) ).
       DATA(fld_cols) = fld_tab->ele( `columns` ).
       fld_cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Name` ).
@@ -1028,7 +1027,7 @@ mv_msg_type = `Warning`.
     " ===== Message list =====
     IF mt_log IS NOT INITIAL.
       DATA(log_panel) = col->ele( `Panel`
-          )->a( n = `headerText` v = |Messages ({ lines( mt_log ) })|
+          )->a( n = `headerText` t = |Messages ({ lines( mt_log ) })|
           )->a( n = `expandable` v = `true`
           )->a( n = `expanded`   v = `true`
           )->a( n = `height`     v = `150px` ).
@@ -1055,7 +1054,7 @@ mv_msg_type = `Warning`.
         )->a( n = `xmlns`      v = `sap.m`
         )->a( n = `xmlns:core` v = `sap.ui.core`
         )->ele( `Dialog`
-            )->a( n = `title`         v = mv_popup_title
+            )->a( n = `title`         t = mv_popup_title
             )->a( n = `contentWidth`  v = `600px`
             )->a( n = `contentHeight` v = `400px` ).
 

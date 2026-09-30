@@ -2152,26 +2152,26 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
     DATA lt_active TYPE string_table.
 
     IF es_state-sql_on  = abap_true.
-APPEND `SQL Trace`     TO lt_active.
-ENDIF.
+      APPEND `SQL Trace`     TO lt_active.
+    ENDIF.
     IF es_state-buf_on  = abap_true.
-APPEND `Buffer Trace`  TO lt_active.
-ENDIF.
+      APPEND `Buffer Trace`  TO lt_active.
+    ENDIF.
     IF es_state-enq_on  = abap_true.
-APPEND `Enqueue Trace` TO lt_active.
-ENDIF.
+      APPEND `Enqueue Trace` TO lt_active.
+    ENDIF.
     IF es_state-rfc_on  = abap_true.
-APPEND `RFC Trace`     TO lt_active.
-ENDIF.
+      APPEND `RFC Trace`     TO lt_active.
+    ENDIF.
     IF es_state-http_on = abap_true.
-APPEND `HTTP Trace`    TO lt_active.
-ENDIF.
+      APPEND `HTTP Trace`    TO lt_active.
+    ENDIF.
     IF es_state-amc_on  = abap_true.
-APPEND `AMC Trace`     TO lt_active.
-ENDIF.
+      APPEND `AMC Trace`     TO lt_active.
+    ENDIF.
     IF es_state-apc_on  = abap_true.
-APPEND `APC trace`     TO lt_active.
-ENDIF.
+      APPEND `APC trace`     TO lt_active.
+    ENDIF.
 
     IF lt_active IS INITIAL.
       es_state-any_on     = abap_false.
@@ -2487,9 +2487,9 @@ ENDIF.
     LOOP AT cs_detail-params INTO DATA(ls_param).
       CASE ls_param-field.
         WHEN `CLASS`.
-cs_detail-classname = ls_param-value.
+          cs_detail-classname = ls_param-value.
         WHEN `METHOD`.
-cs_detail-method    = ls_param-value.
+          cs_detail-method    = ls_param-value.
         WHEN `UPDATE_MODE`.
           cs_detail-upd_mode = COND string(
               WHEN ls_param-value = `S` THEN `S`

@@ -34,6 +34,10 @@ CLASS zcl_se24_a2u5 DEFINITION PUBLIC.
     DATA mv_command TYPE string.
 
     DATA mv_clsname    TYPE string.
+    DATA mt_classes    TYPE zcl_zlk05_sys_api=>ty_t_class.
+    DATA mt_components TYPE zcl_zlk05_sys_api=>ty_t_component.
+
+  PROTECTED SECTION.
     DATA mv_mode       TYPE string.
     DATA mv_current    TYPE string.
     "! Class or Interface - decides which of the two original display
@@ -41,10 +45,7 @@ CLASS zcl_se24_a2u5 DEFINITION PUBLIC.
     DATA mv_curtype    TYPE string.
     DATA mv_message    TYPE string.
     DATA mv_msgtype    TYPE string.
-    DATA mt_classes    TYPE zcl_zlk05_sys_api=>ty_t_class.
-    DATA mt_components TYPE zcl_zlk05_sys_api=>ty_t_component.
 
-  PROTECTED SECTION.
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -92,7 +93,7 @@ CLASS zcl_se24_a2u5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
 
@@ -293,9 +294,9 @@ CLASS zcl_se24_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
 
       DATA(tmpl) = col->ele( n = `template` ns = `table` ).
       IF lv_fld = `CLSNAME`.
@@ -304,8 +305,8 @@ CLASS zcl_se24_a2u5 IMPLEMENTATION.
         " to the row.
         tmpl->tag( `Link`
             )->a( n = `text`  v = |\{{ lv_fld }\}|
-            )->a( n = `press` v = client->_event( val   = `DISPLAY`
-                                                 t_arg = VALUE #( ( `${CLSNAME}` ) ) ) ).
+            )->a( n = `press` v = client->_event( val = `DISPLAY`
+                                                  arg = `${CLSNAME}` ) ).
       ELSE.
         tmpl->tag( `Text`
             )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -399,7 +400,7 @@ CLASS zcl_se24_a2u5 IMPLEMENTATION.
                                    iv_text   = `Class/Interface` ).
 
     hdr->tag( `Text`
-        )->a( n = `text` v = mv_current ).
+        )->a( n = `text` t = mv_current ).
 
     DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_components )
@@ -420,9 +421,9 @@ CLASS zcl_se24_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -431,7 +432,7 @@ CLASS zcl_se24_a2u5 IMPLEMENTATION.
     ENDLOOP.
 
     work->tag( `Text`
-        )->a( n = `text`  v = |{ lines( mt_components ) } component(s) - display only|
+        )->a( n = `text`  t = |{ lines( mt_components ) } component(s) - display only|
         )->a( n = `class` v = `sapUiTinyMargin` ).
 
     " F3 goes back one screen here, not out of the transaction

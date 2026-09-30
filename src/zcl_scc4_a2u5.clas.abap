@@ -28,11 +28,12 @@ CLASS zcl_scc4_a2u5 DEFINITION PUBLIC.
     "! Content of the command field of the system function bar
     DATA mv_command TYPE string.
 
-    DATA mv_message TYPE string.
-    DATA mv_msgtype TYPE string.
     DATA mt_clients TYPE zcl_zlk05_sys_api=>ty_t_client.
 
   PROTECTED SECTION.
+    DATA mv_message TYPE string.
+    DATA mv_msgtype TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -75,7 +76,7 @@ CLASS zcl_scc4_a2u5 IMPLEMENTATION.
     " same way on every screen of every transaction
     DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
         io_client  = client
-        iv_event   = client->get( )-event
+        iv_event   = client->get_event( )
         iv_command = mv_command ).
     mv_message = ls_frame-message.
     mv_msgtype = ls_frame-msg_type.
@@ -83,7 +84,7 @@ CLASS zcl_scc4_a2u5 IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    CASE client->get( )-event.
+    CASE client->get_event( ).
       WHEN 'REFRESH'.
         do_refresh( ).
       WHEN OTHERS.
@@ -163,7 +164,7 @@ CLASS zcl_scc4_a2u5 IMPLEMENTATION.
               tooltip = |Print - { c_na }| )
             ( icon = `sap-icon://multi-select` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Select All - { c_na }| )
-            ( icon = `sap-icon://clear-all` color = zcl_zlk05_gui_frame=>c_grey
+            ( icon = `sap-icon://multiselect-none` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Deselect All - { c_na }| )
             ( icon = `sap-icon://search` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Position Cursor... - { c_na }| )
@@ -200,9 +201,9 @@ CLASS zcl_scc4_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|

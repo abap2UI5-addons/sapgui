@@ -26,6 +26,8 @@ CLASS zcl_sapgui_a2ui5 DEFINITION PUBLIC.
     TYPES ty_t_tcode TYPE STANDARD TABLE OF ty_s_tcode WITH EMPTY KEY.
 
     DATA mv_command    TYPE string.
+
+  PROTECTED SECTION.
     DATA mt_favorites  TYPE ty_t_tcode.
     DATA mt_all_tcodes TYPE ty_t_tcode.
     DATA mv_message    TYPE string.
@@ -37,7 +39,6 @@ CLASS zcl_sapgui_a2ui5 DEFINITION PUBLIC.
     "! Keys of the expanded tree folders
     DATA mt_expanded   TYPE string_table.
 
-  PROTECTED SECTION.
     DATA client TYPE REF TO z2ui5_if_client.
 
     CONSTANTS c_key_fav   TYPE string VALUE `#FAVORITES`.
@@ -173,7 +174,7 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msg_type.
 
@@ -368,8 +369,8 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
                                      THEN `sap-icon://open-folder` ELSE `sap-icon://folder-blank` )
         iv_icon_color = c_col_gold
         iv_text       = `Favorites`
-        iv_press      = client->_event( val   = `TREE_TOGGLE`
-                                        t_arg = VALUE #( ( c_key_fav ) ) ) ).
+        iv_press      = client->_event( val = `TREE_TOGGLE`
+                                        arg = c_key_fav ) ).
 
     IF lv_fav_open = abap_true.
       LOOP AT mt_favorites ASSIGNING FIELD-SYMBOL(<fav>).
@@ -381,8 +382,8 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
             iv_icon_color = c_col_gold
             iv_text       = |{ <fav>-tcode } - { <fav>-text }|
             iv_as_link    = abap_true
-            iv_press      = client->_event( val   = `TCODE_CLICK`
-                                            t_arg = VALUE #( ( <fav>-tcode ) ) ) ).
+            iv_press      = client->_event( val = `TCODE_CLICK`
+                                            arg = <fav>-tcode ) ).
       ENDLOOP.
     ENDIF.
 
@@ -397,8 +398,8 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
                                      THEN `sap-icon://open-folder` ELSE `sap-icon://folder-blank` )
         iv_icon_color = c_col_blue
         iv_text       = `SAP Menu`
-        iv_press      = client->_event( val   = `TREE_TOGGLE`
-                                        t_arg = VALUE #( ( c_key_menu ) ) ) ).
+        iv_press      = client->_event( val = `TREE_TOGGLE`
+                                        arg = c_key_menu ) ).
 
     IF lv_menu_open = abap_true.
       build_menu_level(
@@ -439,8 +440,8 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
             iv_text       = <nd>-text
             iv_as_link    = abap_true
             iv_suffix     = <nd>-tcode
-            iv_press      = client->_event( val   = `TCODE_CLICK`
-                                            t_arg = VALUE #( ( <nd>-tcode ) ) ) ).
+            iv_press      = client->_event( val = `TCODE_CLICK`
+                                            arg = <nd>-tcode ) ).
         CONTINUE.
       ENDIF.
 
@@ -454,8 +455,8 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
                                        THEN `sap-icon://open-folder` ELSE `sap-icon://folder-blank` )
           iv_icon_color = c_col_blue
           iv_text       = <nd>-text
-          iv_press      = client->_event( val   = `TREE_TOGGLE`
-                                          t_arg = VALUE #( ( <nd>-node_key ) ) ) ).
+          iv_press      = client->_event( val = `TREE_TOGGLE`
+                                          arg = <nd>-node_key ) ).
 
       IF lv_open = abap_false.
         CONTINUE.
@@ -551,10 +552,10 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
 
     IF iv_suffix IS NOT INITIAL.
       row->tag( `Text`
-          )->a( n = `text`     v = |({ iv_suffix })|
+          )->a( n = `text`     t = |({ iv_suffix })|
           )->a( n = `wrapping` v = `false`
           )->a( n = `class`    v = `sapUiTinyMarginBegin`
-          )->a( n = `tooltip`  v = |Transaction { iv_suffix }| ).
+          )->a( n = `tooltip`  t = |Transaction { iv_suffix }| ).
     ENDIF.
 
   ENDMETHOD.

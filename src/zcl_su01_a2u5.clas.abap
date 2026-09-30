@@ -30,14 +30,15 @@ CLASS zcl_su01_a2u5 DEFINITION PUBLIC.
     DATA mv_command TYPE string.
 
     DATA mv_pattern TYPE string.
-    DATA mv_mode    TYPE string.
-    DATA mv_current TYPE string.
-    DATA mv_message TYPE string.
-    DATA mv_msgtype TYPE string.
     DATA mt_users   TYPE zcl_zlk05_sys_api=>ty_t_user.
     DATA mt_roles   TYPE zcl_zlk05_sys_api=>ty_t_role.
 
   PROTECTED SECTION.
+    DATA mv_mode    TYPE string.
+    DATA mv_current TYPE string.
+    DATA mv_message TYPE string.
+    DATA mv_msgtype TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -85,7 +86,7 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
 
@@ -267,9 +268,9 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
 
       DATA(tmpl) = col->ele( n = `template` ns = `table` ).
       IF lv_fld = `BNAME`.
@@ -278,8 +279,8 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
         " row template - only there does ${BNAME} resolve to the row.
         tmpl->tag( `Link`
             )->a( n = `text`  v = |\{{ lv_fld }\}|
-            )->a( n = `press` v = client->_event( val   = `DISPLAY`
-                                                 t_arg = VALUE #( ( `${BNAME}` ) ) ) ).
+            )->a( n = `press` v = client->_event( val = `DISPLAY`
+                                                  arg = `${BNAME}` ) ).
       ELSE.
         tmpl->tag( `Text`
             )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -376,9 +377,9 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -387,7 +388,7 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
     ENDLOOP.
 
     work->tag( `Text`
-        )->a( n = `text`  v = |{ lines( mt_roles ) } role(s) assigned - display only|
+        )->a( n = `text`  t = |{ lines( mt_roles ) } role(s) assigned - display only|
         )->a( n = `class` v = `sapUiTinyMargin` ).
 
     " F3 goes back one screen here, not out of the transaction

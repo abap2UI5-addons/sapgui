@@ -46,16 +46,16 @@ CLASS zcl_se93_a2u5 DEFINITION PUBLIC.
     " entry screen
     DATA mv_tcode TYPE string.
 
-    " current view
-    DATA mv_mode    TYPE string.
-    DATA mv_message TYPE string.
-    DATA mv_msgtype TYPE string.
-
     " results
     DATA mt_tcodes TYPE zcl_zlk05_sys_api=>ty_t_tcode.
     DATA ms_detail TYPE zcl_zlk05_sys_api=>ty_s_tcode_detail.
 
   PROTECTED SECTION.
+    " current view
+    DATA mv_mode    TYPE string.
+    DATA mv_message TYPE string.
+    DATA mv_msgtype TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -131,7 +131,7 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
 
@@ -277,7 +277,7 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
     zcl_zlk05_gui_frame=>add_label( io_parent = row
                                    iv_text   = iv_label
                                    iv_width  = `16rem` ).
-    row->tag( `Text` )->a( n = `text` v = iv_value ).
+    row->tag( `Text` )->a( n = `text` t = iv_value ).
     row->end( ).
 
   ENDMETHOD.
@@ -312,13 +312,13 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
     " texts of dynpro 0360
     CASE ms_detail-upd_mode.
       WHEN `S`.
-result = `Synchronous update`.
+        result = `Synchronous update`.
       WHEN `U`.
-result = `Asynchronous update`.
+        result = `Asynchronous update`.
       WHEN `L`.
-result = `Local Update`.
+        result = `Local Update`.
       WHEN OTHERS.
-CLEAR result.
+        CLEAR result.
     ENDCASE.
 
   ENDMETHOD.
@@ -390,14 +390,14 @@ CLEAR result.
         )->a( n = `type`    v = `Transparent`
         )->a( n = `width`   v = `9rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Change - { c_na }| ).
+        )->a( n = `tooltip` t = |Change - { c_na }| ).
     btns->tag( `Button`
         )->a( n = `text`    v = `Create`
         )->a( n = `icon`    v = `sap-icon://create`
         )->a( n = `type`    v = `Transparent`
         )->a( n = `width`   v = `9rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Create - { c_na }| ).
+        )->a( n = `tooltip` t = |Create - { c_na }| ).
     btns->end( ).
 
     sel->end( ).
@@ -422,16 +422,16 @@ CLEAR result.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
 
       DATA(tmpl) = col->ele( n = `template` ns = `table` ).
       IF lv_fld = `TCODE`.
         tmpl->tag( `Link`
             )->a( n = `text`  v = |\{{ lv_fld }\}|
-            )->a( n = `press` v = client->_event( val   = `DISPLAY`
-                                                 t_arg = VALUE #( ( `${TCODE}` ) ) ) ).
+            )->a( n = `press` v = client->_event( val = `DISPLAY`
+                                                  arg = `${TCODE}` ) ).
       ELSE.
         tmpl->tag( `Text`
             )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -547,9 +547,9 @@ CLEAR result.
                                   ( `Value|VALUE|16rem` ) ) INTO DATA(lv_ac).
         SPLIT lv_ac AT `|` INTO DATA(lv_ah) DATA(lv_af) DATA(lv_aw).
         DATA(acol) = acols->ele( n = `Column` ns = `table`
-            )->a( n = `width` v = lv_aw ).
+            )->a( n = `width` t = lv_aw ).
         acol->ele( n = `label` ns = `table`
-            )->tag( `Label` )->a( n = `text` v = lv_ah )->end( )->end( ).
+            )->tag( `Label` )->a( n = `text` t = lv_ah )->end( )->end( ).
         acol->ele( n = `template` ns = `table`
             )->tag( `Text` )->a( n = `text` v = |\{{ lv_af }\}| ).
         acol->end( ).
@@ -690,9 +690,9 @@ CLEAR result.
                                     ( `Value|VALUE|28rem` ) ) INTO DATA(lv_pc).
           SPLIT lv_pc AT `|` INTO DATA(lv_ph) DATA(lv_pf) DATA(lv_pw).
           DATA(pcol) = pcols->ele( n = `Column` ns = `table`
-              )->a( n = `width` v = lv_pw ).
+              )->a( n = `width` t = lv_pw ).
           pcol->ele( n = `label` ns = `table`
-              )->tag( `Label` )->a( n = `text` v = lv_ph )->end( )->end( ).
+              )->tag( `Label` )->a( n = `text` t = lv_ph )->end( )->end( ).
           pcol->ele( n = `template` ns = `table`
               )->tag( `Text` )->a( n = `text` v = |\{{ lv_pf }\}| ).
           pcol->end( ).

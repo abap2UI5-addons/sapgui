@@ -44,15 +44,16 @@ CLASS zcl_st05_a2u5 DEFINITION PUBLIC.
     CONSTANTS c_ro TYPE string VALUE
       `status display - this app never switches a trace on or off`.
 
-    DATA mv_screen     TYPE string.
     DATA mv_command     TYPE string.
-    DATA mv_message     TYPE string.
-    DATA mv_msgtype    TYPE string.
-    DATA mv_show_param TYPE abap_bool.
     DATA ms_state      TYPE zcl_zlk05_sys_api=>ty_s_trace_state.
     DATA mt_param      TYPE zcl_zlk05_sys_api=>ty_t_kv.
 
   PROTECTED SECTION.
+    DATA mv_screen     TYPE string.
+    DATA mv_message     TYPE string.
+    DATA mv_msgtype    TYPE string.
+    DATA mv_show_param TYPE abap_bool.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -116,7 +117,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
     " same way on every screen of every transaction
     DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
         io_client  = client
-        iv_event   = client->get( )-event
+        iv_event   = client->get_event( )
         iv_command = mv_command ).
     mv_message = ls_frame-message.
     mv_msgtype = ls_frame-msg_type.
@@ -124,7 +125,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    CASE client->get( )-event.
+    CASE client->get_event( ).
 
       WHEN 'REFRESH'.
         do_refresh( ).
@@ -257,7 +258,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
               tooltip = |Deactivate Trace on All Instances - { c_ro }| )
             ( icon = `sap-icon://open-command-field` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Display Trace Without First Deactivating - { c_na }| )
-            ( icon = `sap-icon://detail-more` color = zcl_zlk05_gui_frame=>c_grey
+            ( icon = `sap-icon://detail-view` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Display Detailed Trace List - { c_na }| )
             ( sep = abap_true )
             ( icon = `sap-icon://save` color = zcl_zlk05_gui_frame=>c_grey
@@ -336,12 +337,12 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
         )->a( n = `text`     v = `On`
         )->a( n = `selected` b = ms_state-stack_on
         )->a( n = `enabled`  v = `false`
-        )->a( n = `tooltip`  v = |Activate Stack Trace - { c_ro }|
+        )->a( n = `tooltip`  t = |Activate Stack Trace - { c_ro }|
         )->tag( `RadioButton`
         )->a( n = `text`     v = `Off`
         )->a( n = `selected` b = xsdbool( ms_state-stack_on = abap_false )
         )->a( n = `enabled`  v = `false`
-        )->a( n = `tooltip`  v = |Deactivate Stack Trace - { c_ro }| ).
+        )->a( n = `tooltip`  t = |Deactivate Stack Trace - { c_ro }| ).
     srow->end( ).
 
     DATA(prow) = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
@@ -352,12 +353,12 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
         )->a( n = `text`     v = `On`
         )->a( n = `selected` b = ms_state-progress_on
         )->a( n = `enabled`  v = `false`
-        )->a( n = `tooltip`  v = |Switch Progress Display On - { c_ro }|
+        )->a( n = `tooltip`  t = |Switch Progress Display On - { c_ro }|
         )->tag( `RadioButton`
         )->a( n = `text`     v = `Off`
         )->a( n = `selected` b = xsdbool( ms_state-progress_on = abap_false )
         )->a( n = `enabled`  v = `false`
-        )->a( n = `tooltip`  v = |Switch Progress Display Off - { c_ro }| ).
+        )->a( n = `tooltip`  t = |Switch Progress Display Off - { c_ro }| ).
     prow->end( ).
 
     " ----- SQLTFIELDS-STATE -----
@@ -412,9 +413,9 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
       LOOP AT lt_col INTO DATA(lv_col).
         SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
         DATA(col) = cols->ele( n = `Column` ns = `table`
-            )->a( n = `width` v = lv_wid ).
+            )->a( n = `width` t = lv_wid ).
         col->ele( n = `label` ns = `table`
-            )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+            )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
         col->ele( n = `template` ns = `table`
             )->tag( `Text`
                 )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -608,7 +609,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
                                     iv_width  = `16rem` ).
 
     row->tag( `Input`
-        )->a( n = `value`   v = iv_value
+        )->a( n = `value`   t = iv_value
         )->a( n = `enabled` v = `false`
         )->a( n = `width`   v = iv_width
         )->a( n = `tooltip` v = COND #( WHEN iv_tip IS INITIAL THEN iv_label

@@ -37,16 +37,17 @@ CLASS zcl_stms_a2u5 DEFINITION PUBLIC.
     TYPES ty_t_overview TYPE STANDARD TABLE OF ty_s_overview WITH EMPTY KEY.
 
     DATA mt_overview TYPE ty_t_overview.
+    DATA mv_command  TYPE string.
+    DATA mt_systems TYPE zcl_zlk05_sys_api=>ty_t_tms_system.
+
+  PROTECTED SECTION.
     DATA mv_mode    TYPE string.
     DATA mv_domain  TYPE string.
     DATA mv_system  TYPE string.
-    DATA mv_command  TYPE string.
     DATA mv_message  TYPE string.
     DATA mv_msgtype TYPE string.
-    DATA mt_systems TYPE zcl_zlk05_sys_api=>ty_t_tms_system.
     DATA mt_queue   TYPE zcl_zlk05_sys_api=>ty_t_tms_queue.
 
-  PROTECTED SECTION.
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_start.
@@ -96,7 +97,7 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
     " same way on every screen of every transaction
     DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
         io_client  = client
-        iv_event   = client->get( )-event
+        iv_event   = client->get_event( )
         iv_command = mv_command ).
     mv_message = ls_frame-message.
     mv_msgtype = ls_frame-msg_type.
@@ -104,7 +105,7 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    CASE client->get( )-event.
+    CASE client->get_event( ).
       WHEN 'SYSO'.
         mv_mode = `SYSTEMS`.
         do_read_systems( ).
@@ -278,14 +279,14 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
     zcl_zlk05_gui_frame=>add_label( io_parent = row1
                                     iv_text   = `Transp. Domain`
                                     iv_width  = `12rem` ).
-    row1->tag( `Text` )->a( n = `text` v = mv_domain ).
+    row1->tag( `Text` )->a( n = `text` t = mv_domain ).
     row1->end( ).
 
     DATA(row2) = box->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row2
                                     iv_text   = `System`
                                     iv_width  = `12rem` ).
-    row2->tag( `Text` )->a( n = `text` v = mv_system ).
+    row2->tag( `Text` )->a( n = `text` t = mv_system ).
     row2->end( ).
 
     work->tag( `Text`
@@ -369,9 +370,9 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -458,9 +459,9 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|

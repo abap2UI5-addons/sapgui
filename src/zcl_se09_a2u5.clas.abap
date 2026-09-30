@@ -41,17 +41,17 @@ CLASS zcl_se09_a2u5 DEFINITION PUBLIC.
     DATA mv_typ_cop  TYPE abap_bool.
     DATA mv_typ_move TYPE abap_bool.
 
+    " result tables
+    DATA mt_requests TYPE zcl_zlk05_sys_api=>ty_t_transport.
+    DATA mt_objects  TYPE zcl_zlk05_sys_api=>ty_t_tr_object.
+
+  PROTECTED SECTION.
     " current view
     DATA mv_mode     TYPE string.
     DATA mv_current  TYPE string.
     DATA mv_message  TYPE string.
     DATA mv_msgtype  TYPE string.
 
-    " result tables
-    DATA mt_requests TYPE zcl_zlk05_sys_api=>ty_t_transport.
-    DATA mt_objects  TYPE zcl_zlk05_sys_api=>ty_t_tr_object.
-
-  PROTECTED SECTION.
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -106,7 +106,7 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
 
   METHOD on_event.
 
-    DATA(lv_event) = client->get( )-event.
+    DATA(lv_event) = client->get_event( ).
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msgtype.
 
@@ -392,16 +392,16 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
 
       DATA(tmpl) = col->ele( n = `template` ns = `table` ).
       IF lv_fld = `TRKORR`.
         tmpl->tag( `Link`
             )->a( n = `text`  v = |\{{ lv_fld }\}|
-            )->a( n = `press` v = client->_event( val   = `DISPLAY`
-                                                 t_arg = VALUE #( ( `${TRKORR}` ) ) ) ).
+            )->a( n = `press` v = client->_event( val = `DISPLAY`
+                                                  arg = `${TRKORR}` ) ).
       ELSE.
         tmpl->tag( `Text`
             )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -490,35 +490,35 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
 
     DATA(row1) = hdr->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row1 iv_text = `Request/task` ).
-    row1->tag( `Text` )->a( n = `text` v = mv_current ).
+    row1->tag( `Text` )->a( n = `text` t = mv_current ).
     row1->end( ).
 
     DATA(row2) = hdr->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row2 iv_text = `Request type` ).
-    row2->tag( `Text` )->a( n = `text` v = ls_req-functxt ).
+    row2->tag( `Text` )->a( n = `text` t = ls_req-functxt ).
     row2->end( ).
 
     DATA(row3) = hdr->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row3 iv_text = `Status` ).
-    row3->tag( `Text` )->a( n = `text` v = ls_req-statustxt ).
+    row3->tag( `Text` )->a( n = `text` t = ls_req-statustxt ).
     row3->end( ).
 
     DATA(row4) = hdr->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row4 iv_text = `Owner` ).
-    row4->tag( `Text` )->a( n = `text` v = ls_req-as4user ).
+    row4->tag( `Text` )->a( n = `text` t = ls_req-as4user ).
     row4->end( ).
 
     DATA(row5) = hdr->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row5 iv_text = `Last changed` ).
-    row5->tag( `Text` )->a( n = `text` v = |{ ls_req-as4date } { ls_req-as4time }| ).
+    row5->tag( `Text` )->a( n = `text` t = |{ ls_req-as4date } { ls_req-as4time }| ).
     row5->end( ).
 
     IF ls_req-strkorr IS NOT INITIAL.
@@ -526,7 +526,7 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
           )->a( n = `alignItems` v = `Center`
           )->a( n = `class`      v = `sapUiTinyMarginTop` ).
       zcl_zlk05_gui_frame=>add_label( io_parent = row6 iv_text = `Parent Request` ).
-      row6->tag( `Text` )->a( n = `text` v = ls_req-strkorr ).
+      row6->tag( `Text` )->a( n = `text` t = ls_req-strkorr ).
       row6->end( ).
     ENDIF.
 
@@ -535,7 +535,7 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
           )->a( n = `alignItems` v = `Center`
           )->a( n = `class`      v = `sapUiTinyMarginTop` ).
       zcl_zlk05_gui_frame=>add_label( io_parent = row7 iv_text = `Target` ).
-      row7->tag( `Text` )->a( n = `text` v = ls_req-tarsystem ).
+      row7->tag( `Text` )->a( n = `text` t = ls_req-tarsystem ).
       row7->end( ).
     ENDIF.
 
@@ -544,7 +544,7 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
           )->a( n = `alignItems` v = `Center`
           )->a( n = `class`      v = `sapUiTinyMarginTop` ).
       zcl_zlk05_gui_frame=>add_label( io_parent = row8 iv_text = `Short Description` ).
-      row8->tag( `Text` )->a( n = `text` v = ls_req-as4text ).
+      row8->tag( `Text` )->a( n = `text` t = ls_req-as4text ).
       row8->end( ).
     ENDIF.
 
@@ -574,9 +574,9 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -586,7 +586,7 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
 
     DATA(lv_count) = lines( mt_objects ).
     work->tag( `Text`
-        )->a( n = `text`  v = |{ lv_count } object(s) - display only|
+        )->a( n = `text`  t = |{ lv_count } object(s) - display only|
         )->a( n = `class` v = `sapUiTinyMargin` ).
 
     " F3 goes back one screen

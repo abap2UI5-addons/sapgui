@@ -1,0 +1,30 @@
+{
+  // abap2UI5-linter - checks the app classes against abap2UI5 itself: the
+  // views they build, the bindings, events and frontend actions they wire
+  // and the lifecycle of main( ). abaplint checks the ABAP, this checks
+  // what abaplint cannot know about abap2UI5. https://github.com/abap2UI5/linter
+  "$schema": "./node_modules/@abap2ui5/linter/data/abap2ui5lint.schema.json",
+
+  "paths": ["src"],
+
+  // the scratch class of the development package, see abaplint.jsonc
+  "ignore": ["zcl_zlk05_tmp_probe\\."],
+
+  // The helper classes (ZCL_ZLK05_*, ZCL_SE80_API) build no view, but the
+  // activation and hygiene rules apply to them as much as to the apps.
+  "allClasses": true,
+
+  // abap2UI5's own compatibility floor. Only controls, members and icons
+  // that exist in every UI5 release abap2UI5 supports.
+  "ui5": "1.71",
+  "distribution": "openui5",
+
+  // Off for now, and not by accident: every screen hands its view to
+  // ZCL_ZLK05_GUI_FRAME, which opens the mvc:View and the six bands of the
+  // window in another class, so the linter reconstructs no control of any
+  // app here ("judged 0 controls" in the run summary). A render gate would
+  // have nothing to render. README "Development" says what changes that.
+  "render": false,
+
+  "failOn": "warning"
+}

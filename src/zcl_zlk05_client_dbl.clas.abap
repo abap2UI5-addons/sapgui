@@ -235,6 +235,12 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~follow_up_action.
+    " like the framework: a consumed result is a wire in the view, not an
+    " action queued for this roundtrip
+    IF result IS SUPPLIED.
+      result = `MOCK_EVENT_CLIENT`.
+      RETURN.
+    ENDIF.
     APPEND val TO mt_follow_up.
     APPEND |{ val }:{ concat_lines_of( table = t_arg sep = `,` ) }| TO mt_follow_up_arg.
   ENDMETHOD.
@@ -289,8 +295,14 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~_event.
+    " arg is appended to t_arg, the same way the framework folds it in
+    DATA(lt_arg) = t_arg.
+    IF arg IS SUPPLIED.
+      APPEND CONV string( arg ) TO lt_arg.
+    ENDIF.
+
     DATA(lv_entry) = CONV string( val ).
-    LOOP AT t_arg INTO DATA(lv_arg).
+    LOOP AT lt_arg INTO DATA(lv_arg).
       lv_entry = lv_entry && `|` && lv_arg.
     ENDLOOP.
     APPEND lv_entry TO mt_events.

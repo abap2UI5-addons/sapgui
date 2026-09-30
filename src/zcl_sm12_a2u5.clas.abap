@@ -20,13 +20,14 @@ CLASS zcl_sm12_a2u5 DEFINITION PUBLIC.
     DATA mv_table   TYPE string.
     DATA mv_user    TYPE string.
     DATA mv_arg     TYPE string.
-    DATA mv_mode    TYPE string.
     DATA mv_command  TYPE string.
-    DATA mv_message  TYPE string.
-    DATA mv_msgtype TYPE string.
     DATA mt_locks   TYPE zcl_zlk05_sys_api=>ty_t_lock.
 
   PROTECTED SECTION.
+    DATA mv_mode    TYPE string.
+    DATA mv_message  TYPE string.
+    DATA mv_msgtype TYPE string.
+
     DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
@@ -75,7 +76,7 @@ CLASS zcl_sm12_a2u5 IMPLEMENTATION.
     " same way on every screen of every transaction
     DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
         io_client  = client
-        iv_event   = client->get( )-event
+        iv_event   = client->get_event( )
         iv_command = mv_command ).
     mv_message = ls_frame-message.
     mv_msgtype = ls_frame-msg_type.
@@ -83,7 +84,7 @@ CLASS zcl_sm12_a2u5 IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    CASE client->get( )-event.
+    CASE client->get_event( ).
       WHEN 'EXECUTE'.
         do_search( ).
       WHEN 'BACK_TO_SEL'.
@@ -206,7 +207,7 @@ CLASS zcl_sm12_a2u5 IMPLEMENTATION.
         )->a( n = `value`   v = client->_bind( mv_arg )
         )->a( n = `width`   v = `16rem`
         )->a( n = `enabled` v = `false`
-        )->a( n = `tooltip` v = |Selection by lock argument - { c_na }| ).
+        )->a( n = `tooltip` t = |Selection by lock argument - { c_na }| ).
 
     row = panel->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
@@ -215,7 +216,7 @@ CLASS zcl_sm12_a2u5 IMPLEMENTATION.
                                     iv_text   = `Client`
                                     iv_width  = `11rem` ).
     row->tag( `Input`
-        )->a( n = `value`   v = CONV string( sy-mandt )
+        )->a( n = `value`   t = CONV string( sy-mandt )
         )->a( n = `width`   v = `5rem`
         )->a( n = `enabled` v = `false`
         )->a( n = `tooltip` v = `The lock table is read for all clients` ).
@@ -325,9 +326,9 @@ CLASS zcl_sm12_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` v = lv_wid ).
+          )->a( n = `width` t = lv_wid ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
