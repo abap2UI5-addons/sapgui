@@ -62,18 +62,17 @@ SE80 can do, treat an installation like installing the Workbench itself.
 - SAP_BASIS 7.50 or higher, standard ABAP. Not ABAP Cloud - the screens read
   system tables (`TADIR`, `TRDIR`, `SNAP`, `DD03L`, ...) and use classic
   Workbench APIs that are not released for the ABAP Cloud language version.
-- [abap2UI5](https://github.com/abap2UI5/abap2UI5), the UI5 runtime.
-- [abap2UI5/ai-demokit](https://github.com/abap2UI5/ai-demokit), the views are
-  built with `Z2UI5_CL_AI_XML` from that repository.
+- [abap2UI5](https://github.com/abap2UI5/abap2UI5), the UI5 runtime. The views
+  are built with its view builder `Z2UI5_CL_UI5_VIEW_BUILDER`, so there is no
+  second dependency.
 
 ## Installation
 
-Install the two dependencies first, then this repository, all with
+Install abap2UI5 first, then this repository, both with
 [abapGit](https://abapgit.org):
 
 ```
 https://github.com/abap2UI5/abap2UI5
-https://github.com/abap2UI5/ai-demokit
 https://github.com/oblomov-dev/cloudy-sapgui
 ```
 
@@ -131,8 +130,8 @@ npm test        # abaplint.jsonc + abap_standard.jsonc
 | `npm run auto_fix`      | apply the quick fixes abaplint can apply on its own  |
 | `npm run auto_downport` | rewrite `src/` to 7.02 syntax                        |
 
-abaplint resolves the dependencies by cloning abap2UI5, the AI demo kit and the
-Steampunk API intersect, so the first run needs network access.
+abaplint resolves the dependencies by cloning abap2UI5 and the Steampunk API
+intersect, so the first run needs network access.
 
 CI, in `.github/workflows`:
 

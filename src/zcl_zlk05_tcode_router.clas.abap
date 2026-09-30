@@ -24,7 +24,15 @@ CLASS zcl_zlk05_tcode_router DEFINITION
       END OF ty_s_app.
     TYPES ty_t_app TYPE STANDARD TABLE OF ty_s_app WITH EMPTY KEY.
 
-    "! Result of run( ) - nothing done, app started, or message returned
+    "! Result of run( ): the outcome and the message for the status bar
+    TYPES:
+      BEGIN OF ty_s_result,
+        outcome  TYPE string,
+        message  TYPE string,
+        msg_type TYPE string,
+      END OF ty_s_result.
+
+    "! Outcome of run( ) - nothing done, app started, or message returned
     CONSTANTS c_none TYPE string VALUE ``.
     CONSTANTS c_nav  TYPE string VALUE `NAV`.
     CONSTANTS c_msg  TYPE string VALUE `MSG`.
@@ -45,14 +53,12 @@ CLASS zcl_zlk05_tcode_router DEFINITION
       RETURNING VALUE(result) TYPE string.
 
     "! Starts the transaction typed into the command field.
-    "! Returns c_nav when an app was started - the caller must return
-    "! immediately then - or c_msg when only a message was produced.
+    "! The outcome is c_nav when an app was started - the caller must
+    "! return immediately then - or c_msg when only a message was produced.
     CLASS-METHODS run
       IMPORTING iv_command    TYPE string
                 io_client     TYPE REF TO z2ui5_if_client
-      EXPORTING ev_message    TYPE string
-                ev_msg_type   TYPE string
-      RETURNING VALUE(result) TYPE string.
+      RETURNING VALUE(result) TYPE ty_s_result.
 
   PRIVATE SECTION.
 
@@ -154,8 +160,7 @@ CLASS zcl_zlk05_tcode_router IMPLEMENTATION.
 
   METHOD run.
 
-    CLEAR: ev_message, ev_msg_type.
-    result = c_none.
+    result-outcome = c_none.
 
     IF io_client IS INITIAL.
       RETURN.
@@ -164,17 +169,17 @@ CLASS zcl_zlk05_tcode_router IMPLEMENTATION.
     " session commands first - /o and friends carry no transaction code
     DATA(lv_session) = session_command_text( iv_command ).
     IF lv_session IS NOT INITIAL.
-      ev_message  = lv_session.
-      ev_msg_type = `Warning`.
-      result      = c_msg.
+      result-message  = lv_session.
+      result-msg_type = `Warning`.
+      result-outcome  = c_msg.
       RETURN.
     ENDIF.
 
     DATA(lv_tcode) = normalize_command( iv_command ).
     IF lv_tcode IS INITIAL.
-      ev_message  = `Enter a transaction code.`.
-      ev_msg_type = `Warning`.
-      result      = c_msg.
+      result-message  = `Enter a transaction code.`.
+      result-msg_type = `Warning`.
+      result-outcome  = c_msg.
       RETURN.
     ENDIF.
 
@@ -183,20 +188,20 @@ CLASS zcl_zlk05_tcode_router IMPLEMENTATION.
     IF sy-subrc <> 0.
       " tell "unknown transaction" apart from "exists but not built here"
       IF zcl_zlk05_sys_api=>transaction_exists( lv_tcode ) = abap_true.
-        ev_message  = |Transaction { lv_tcode } is not available in this environment.|.
-        ev_msg_type = `Warning`.
+        result-message  = |Transaction { lv_tcode } is not available in this environment.|.
+        result-msg_type = `Warning`.
       ELSE.
-        ev_message  = |Transaction { lv_tcode } does not exist.|.
-        ev_msg_type = `Error`.
+        result-message  = |Transaction { lv_tcode } does not exist.|.
+        result-msg_type = `Error`.
       ENDIF.
-      result = c_msg.
+      result-outcome = c_msg.
       RETURN.
     ENDIF.
 
     IF ls_app-class IS INITIAL.
-      ev_message  = |Transaction { lv_tcode } is not available in this environment.|.
-      ev_msg_type = `Warning`.
-      result      = c_msg.
+      result-message  = |Transaction { lv_tcode } is not available in this environment.|.
+      result-msg_type = `Warning`.
+      result-outcome  = c_msg.
       RETURN.
     ENDIF.
 
@@ -204,11 +209,11 @@ CLASS zcl_zlk05_tcode_router IMPLEMENTATION.
         DATA lo_app TYPE REF TO z2ui5_if_app.
         CREATE OBJECT lo_app TYPE (ls_app-class).
         io_client->nav_app_call( lo_app ).
-        result = c_nav.
+        result-outcome = c_nav.
       CATCH cx_root INTO DATA(lx).
-        ev_message  = |Error starting transaction { lv_tcode }: { lx->get_text( ) }|.
-        ev_msg_type = `Error`.
-        result      = c_msg.
+        result-message  = |Error starting transaction { lv_tcode }: { lx->get_text( ) }|.
+        result-msg_type = `Error`.
+        result-outcome  = c_msg.
     ENDTRY.
 
   ENDMETHOD.

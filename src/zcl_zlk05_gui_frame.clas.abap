@@ -44,6 +44,14 @@ CLASS zcl_zlk05_gui_frame DEFINITION PUBLIC FINAL CREATE PUBLIC.
     CONSTANTS c_navigated   TYPE string VALUE `NAV`.
     CONSTANTS c_message     TYPE string VALUE `MSG`.
 
+    "! Result of handle_frame_event( ): the outcome and the status bar text
+    TYPES:
+      BEGIN OF ty_s_frame_result,
+        outcome  TYPE string,
+        message  TYPE string,
+        msg_type TYPE string,
+      END OF ty_s_frame_result.
+
     " One entry of a toolbar. Entries with TEXT are rendered as a button,
     " entries with SEP as a separator, everything else as a coloured icon.
     " DISABLED greys an entry out that HAS a handler - the SAP GUI greys a
@@ -64,40 +72,40 @@ CLASS zcl_zlk05_gui_frame DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
     "! Opens View / Shell / Page and returns the page, ready for the bands.
     CLASS-METHODS open_window
-      IMPORTING io_view       TYPE REF TO z2ui5_cl_ai_xml
-      RETURNING VALUE(result) TYPE REF TO z2ui5_cl_ai_xml.
+      IMPORTING io_view       TYPE REF TO z2ui5_cl_ui5_view_builder
+      RETURNING VALUE(result) TYPE REF TO z2ui5_cl_ui5_view_builder.
 
     "! Band 1 - menu bar. The entries carry no menus, they are shown so the
     "! screen is recognisable.
     CLASS-METHODS build_menu_bar
-      IMPORTING io_parent  TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_parent  TYPE REF TO z2ui5_cl_ui5_view_builder
                 it_entries TYPE string_table.
 
     "! Band 2 - system function bar with the command field.
     "! iv_cmd_value / iv_cmd_event wire up the command field,
     "! iv_back_event makes the yellow Back arrow (F3) active.
     CLASS-METHODS build_system_bar
-      IMPORTING io_parent     TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_parent     TYPE REF TO z2ui5_cl_ui5_view_builder
                 iv_cmd_value  TYPE string OPTIONAL
                 iv_cmd_event  TYPE string OPTIONAL
                 iv_back_event TYPE string OPTIONAL.
 
     "! Band 3 - title bar with the SAP logo and the screen title.
     CLASS-METHODS build_title_bar
-      IMPORTING io_parent TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_parent TYPE REF TO z2ui5_cl_ui5_view_builder
                 iv_title  TYPE string
                 iv_hint   TYPE string OPTIONAL.
 
     "! Band 4 - application function bar.
     CLASS-METHODS build_app_bar
-      IMPORTING io_parent  TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_parent  TYPE REF TO z2ui5_cl_ui5_view_builder
                 it_buttons TYPE ty_t_button.
 
     "! Band 6 - status bar. Message on the left, system data on the right.
     "! The system data are passed in by the app so that this class stays free
     "! of system access. When they are omitted the SY fields are used.
     CLASS-METHODS build_status_bar
-      IMPORTING io_parent   TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_parent   TYPE REF TO z2ui5_cl_ui5_view_builder
                 iv_message  TYPE string OPTIONAL
                 iv_msg_type TYPE string OPTIONAL
                 iv_sysid    TYPE string OPTIONAL
@@ -121,25 +129,23 @@ CLASS zcl_zlk05_gui_frame DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 iv_save_name TYPE string OPTIONAL.
 
     "! Handles the two events of the frame: the command field starts the
-    "! transaction that was typed in, Back leaves the screen. Returns
-    "! c_navigated (the caller must return at once), c_message (a message
-    "! was placed in cv_message) or c_not_handled.
+    "! transaction that was typed in, Back leaves the screen. The outcome
+    "! is c_navigated (the caller must return at once), c_message (the
+    "! message fields carry the text for the status bar) or c_not_handled.
     CLASS-METHODS handle_frame_event
       IMPORTING io_client     TYPE REF TO z2ui5_if_client
                 iv_event      TYPE string
                 iv_command    TYPE string OPTIONAL
-      EXPORTING ev_message    TYPE string
-                ev_msg_type   TYPE string
-      RETURNING VALUE(result) TYPE string.
+      RETURNING VALUE(result) TYPE ty_s_frame_result.
 
     "! A single coloured icon or button inside a toolbar.
     CLASS-METHODS add_button
-      IMPORTING io_bar    TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_bar    TYPE REF TO z2ui5_cl_ui5_view_builder
                 is_button TYPE ty_s_button.
 
     "! Label / field row of a classic dynpro selection screen
     CLASS-METHODS add_label
-      IMPORTING io_parent TYPE REF TO z2ui5_cl_ai_xml
+      IMPORTING io_parent TYPE REF TO z2ui5_cl_ui5_view_builder
                 iv_text   TYPE string
                 iv_width  TYPE string DEFAULT `11rem`.
 
@@ -151,16 +157,16 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
 
   METHOD open_window.
 
-    result = io_view->open( n = `View` ns = `mvc`
+    result = io_view->ele( n = `View` ns = `mvc`
         )->a( n = `xmlns`      v = `sap.m`
         )->a( n = `xmlns:mvc`  v = `sap.ui.core.mvc`
         )->a( n = `xmlns:core` v = `sap.ui.core`
         )->a( n = `xmlns:table`  v = `sap.ui.table`
         )->a( n = `xmlns:editor` v = `sap.ui.codeeditor`
         )->a( n = `height`     v = `100%`
-        )->open( `Shell`
+        )->ele( `Shell`
         )->a( n = `appWidthLimited` v = `false`
-        )->open( `Page`
+        )->ele( `Page`
             )->a( n = `showHeader`      v = `false`
             )->a( n = `enableScrolling` v = `false` ).
 
@@ -169,12 +175,12 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
 
   METHOD build_menu_bar.
 
-    DATA(bar) = io_parent->open( `Toolbar`
+    DATA(bar) = io_parent->ele( `Toolbar`
         )->a( n = `design` v = `Solid`
         )->a( n = `height` v = `1.85rem` ).
 
     LOOP AT it_entries INTO DATA(lv_entry).
-      bar->leaf( `Text`
+      bar->tag( `Text`
           )->a( n = `text`    v = lv_entry
           )->a( n = `class`   v = `sapUiSmallMarginEnd`
           )->a( n = `tooltip` v = |{ lv_entry } - the menu bar is shown for orientation only| ).
@@ -185,7 +191,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
 
   METHOD build_system_bar.
 
-    DATA(bar) = io_parent->open( `Toolbar`
+    DATA(bar) = io_parent->ele( `Toolbar`
         )->a( n = `design` v = `Transparent`
         )->a( n = `height` v = `2.35rem` ).
 
@@ -198,14 +204,14 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
 
     " command field - active on every screen, exactly like in the SAP GUI
     IF iv_cmd_event IS NOT INITIAL.
-      bar->leaf( `Input`
+      bar->tag( `Input`
           )->a( n = `id`      v = `idCommandField`
           )->a( n = `value`   v = iv_cmd_value
           )->a( n = `width`   v = `13rem`
           )->a( n = `tooltip` v = `Command field - enter a transaction code, /nSE80 works as well`
           )->a( n = `submit`  v = iv_cmd_event ).
     ELSE.
-      bar->leaf( `Input`
+      bar->tag( `Input`
           )->a( n = `width`   v = `13rem`
           )->a( n = `enabled` v = `false`
           )->a( n = `tooltip` v = `Command field` ).
@@ -307,24 +313,24 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
 
   METHOD build_title_bar.
 
-    DATA(bar) = io_parent->open( `Toolbar`
+    DATA(bar) = io_parent->ele( `Toolbar`
         )->a( n = `design` v = `Transparent`
         )->a( n = `height` v = `2.5rem` ).
 
-    bar->leaf( n = `Icon` ns = `core`
+    bar->tag( n = `Icon` ns = `core`
         )->a( n = `src`     v = `sap-icon://SAP-logo-shape`
         )->a( n = `size`    v = `1.35rem`
         )->a( n = `color`   v = c_blue
         )->a( n = `tooltip` v = `SAP` ).
 
-    bar->leaf( `Title`
+    bar->tag( `Title`
         )->a( n = `text`  v = iv_title
         )->a( n = `level` v = `H2`
         )->a( n = `class` v = `sapUiSmallMarginBegin` ).
 
     IF iv_hint IS NOT INITIAL.
-      bar->leaf( `ToolbarSpacer` ).
-      bar->leaf( `Text` )->a( n = `text` v = iv_hint ).
+      bar->tag( `ToolbarSpacer` ).
+      bar->tag( `Text` )->a( n = `text` v = iv_hint ).
     ENDIF.
 
   ENDMETHOD.
@@ -332,7 +338,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
 
   METHOD build_app_bar.
 
-    DATA(bar) = io_parent->open( `Toolbar`
+    DATA(bar) = io_parent->ele( `Toolbar`
         )->a( n = `design` v = `Transparent`
         )->a( n = `height` v = `2.1rem` ).
 
@@ -345,12 +351,12 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
 
   METHOD build_status_bar.
 
-    DATA(bar) = io_parent->open( `footer`
-        )->open( `OverflowToolbar`
+    DATA(bar) = io_parent->ele( `footer`
+        )->ele( `OverflowToolbar`
         )->a( n = `height` v = `1.95rem` ).
 
     IF iv_message IS NOT INITIAL.
-      bar->leaf( n = `Icon` ns = `core`
+      bar->tag( n = `Icon` ns = `core`
           )->a( n = `src`   v = COND string(
                   WHEN iv_msg_type = `Error`   THEN `sap-icon://error`
                   WHEN iv_msg_type = `Warning` THEN `sap-icon://alert`
@@ -361,12 +367,12 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
                   WHEN iv_msg_type = `Warning` THEN c_yellow
                   ELSE                              c_blue ) ).
 
-      bar->leaf( `Text`
+      bar->tag( `Text`
           )->a( n = `text`  v = iv_message
           )->a( n = `class` v = `sapUiTinyMarginBegin` ).
     ENDIF.
 
-    bar->leaf( `ToolbarSpacer` ).
+    bar->tag( `ToolbarSpacer` ).
 
     DATA(lv_sysid)  = COND string( WHEN iv_sysid  IS NOT INITIAL THEN iv_sysid
                                    ELSE CONV string( sy-sysid ) ).
@@ -377,28 +383,28 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
     DATA(lv_host)   = COND string( WHEN iv_host   IS NOT INITIAL THEN iv_host
                                    ELSE CONV string( sy-host ) ).
 
-    bar->leaf( n = `Icon` ns = `core`
+    bar->tag( n = `Icon` ns = `core`
         )->a( n = `src`   v = `sap-icon://open-command-field`
         )->a( n = `size`  v = `0.75rem`
         )->a( n = `color` v = c_grey ).
 
-    bar->leaf( `ToolbarSeparator` ).
+    bar->tag( `ToolbarSeparator` ).
 
     " the tooltip carries system, client and user, like the expanded
     " status field of the SAP GUI
-    bar->leaf( `Text`
+    bar->tag( `Text`
         )->a( n = `text`    v = lv_sysid
         )->a( n = `tooltip` v = |System { lv_sysid } - Client { lv_client } - User { lv_user }| ).
 
-    bar->leaf( `ToolbarSeparator` ).
+    bar->tag( `ToolbarSeparator` ).
 
-    bar->leaf( `Text`
+    bar->tag( `Text`
         )->a( n = `text`    v = lv_host
         )->a( n = `tooltip` v = |Application server { lv_host }| ).
 
-    bar->leaf( `ToolbarSeparator` ).
+    bar->tag( `ToolbarSeparator` ).
 
-    bar->leaf( `Text`
+    bar->tag( `Text`
         )->a( n = `text`    v = `INS`
         )->a( n = `tooltip` v = `Insert mode` ).
 
@@ -439,8 +445,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
   METHOD handle_frame_event.
 
     " ===== Frame events =====
-    CLEAR: ev_message, ev_msg_type.
-    result = c_not_handled.
+    result-outcome = c_not_handled.
     IF io_client IS INITIAL.
       RETURN.
     ENDIF.
@@ -450,28 +455,25 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
       WHEN c_ev_back.
         " F3 / Shift+F3 / F12 and the arrows of the system function bar
         io_client->nav_app_leave( ).
-        result = c_navigated.
+        result-outcome = c_navigated.
 
       WHEN c_ev_command.
-        DATA lv_result TYPE string.
-        zcl_zlk05_tcode_router=>run(
-          EXPORTING iv_command  = iv_command
-                    io_client   = io_client
-          IMPORTING ev_message  = ev_message
-                    ev_msg_type = ev_msg_type
-          RECEIVING result      = lv_result ).
+        DATA(ls_run) = zcl_zlk05_tcode_router=>run( iv_command = iv_command
+                                                    io_client  = io_client ).
+        result-message  = ls_run-message.
+        result-msg_type = ls_run-msg_type.
 
-        CASE lv_result.
+        CASE ls_run-outcome.
           WHEN zcl_zlk05_tcode_router=>c_nav.
-            result = c_navigated.
+            result-outcome = c_navigated.
           WHEN zcl_zlk05_tcode_router=>c_msg.
-            result = c_message.
+            result-outcome = c_message.
           WHEN OTHERS.
-            result = c_not_handled.
+            result-outcome = c_not_handled.
         ENDCASE.
 
       WHEN OTHERS.
-        result = c_not_handled.
+        result-outcome = c_not_handled.
 
     ENDCASE.
 
@@ -481,21 +483,21 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
   METHOD add_button.
 
     IF is_button-sep = abap_true.
-      io_bar->leaf( `ToolbarSeparator` ).
+      io_bar->tag( `ToolbarSeparator` ).
       RETURN.
     ENDIF.
 
     " entries with a text are buttons, like Background or All Entries
     IF is_button-text IS NOT INITIAL.
       IF is_button-press IS INITIAL OR is_button-disabled = abap_true.
-        io_bar->leaf( `Button`
+        io_bar->tag( `Button`
             )->a( n = `text`    v = is_button-text
             )->a( n = `icon`    v = is_button-icon
             )->a( n = `type`    v = `Transparent`
             )->a( n = `enabled` v = `false`
             )->a( n = `tooltip` v = is_button-tooltip ).
       ELSE.
-        io_bar->leaf( `Button`
+        io_bar->tag( `Button`
             )->a( n = `text`    v = is_button-text
             )->a( n = `icon`    v = is_button-icon
             )->a( n = `type`    v = `Transparent`
@@ -509,7 +511,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
     " is what gives the toolbars their SAP GUI look. sap.ui.core.Icon has no
     " ENABLED, so a disabled icon is rendered grey and without its handler.
     IF is_button-press IS INITIAL OR is_button-disabled = abap_true.
-      io_bar->leaf( n = `Icon` ns = `core`
+      io_bar->tag( n = `Icon` ns = `core`
           )->a( n = `src`     v = is_button-icon
           )->a( n = `size`    v = `1.05rem`
           )->a( n = `color`   v = COND string( WHEN is_button-disabled = abap_true
@@ -517,7 +519,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
           )->a( n = `tooltip` v = is_button-tooltip
           )->a( n = `class`   v = `sapUiTinyMarginEnd` ).
     ELSE.
-      io_bar->leaf( n = `Icon` ns = `core`
+      io_bar->tag( n = `Icon` ns = `core`
           )->a( n = `src`     v = is_button-icon
           )->a( n = `size`    v = `1.05rem`
           )->a( n = `color`   v = is_button-color
@@ -531,7 +533,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
 
   METHOD add_label.
 
-    io_parent->leaf( `Label`
+    io_parent->tag( `Label`
         )->a( n = `text`  v = iv_text
         )->a( n = `width` v = iv_width ).
 

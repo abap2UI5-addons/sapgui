@@ -2,18 +2,16 @@
 // Only syntax/consistency rules - style is checked by the root abaplint.jsonc.
 {
   "global": {
-    "files": "/../../src/**/*.*"
+    "files": "/../../src/**/*.*",
+    // a scratch class kept in the development system (an ADT console
+    // runner, not an app) - abapGit serializes it with the package
+    "exclude": ["zcl_zlk05_tmp_probe\\.clas\\."]
   },
   "dependencies": [
     {
       "url": "https://github.com/abap2UI5/abap2UI5",
       "folder": "/deps/abap2ui5",
       "files": "/src/**/*.*"
-    },
-    {
-      "url": "https://github.com/abap2UI5/ai-demokit",
-      "folder": "/deps/ai-demokit",
-      "files": "/src/z2ui5_cl_ai_xml.clas.*"
     },
     {
       "url": "https://github.com/abapedia/steampunk-2305-api-intersect-702",

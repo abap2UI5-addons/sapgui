@@ -94,14 +94,13 @@ CLASS ltcl_router IMPLEMENTATION.
          WHERE class IS NOT INITIAL.
 
       mo_dbl->reset( ).
-      DATA lv_result TYPE string.
-      zcl_zlk05_tcode_router=>run( EXPORTING iv_command = ls_app-tcode
-                                             io_client  = mo_dbl
-                                   RECEIVING result     = lv_result ).
+      DATA(ls_run) = zcl_zlk05_tcode_router=>run(
+          iv_command = ls_app-tcode
+          io_client  = mo_dbl ).
 
       cl_abap_unit_assert=>assert_equals(
           exp = zcl_zlk05_tcode_router=>c_nav
-          act = lv_result
+          act = ls_run-outcome
           msg = |transaction { ls_app-tcode } does not start { ls_app-class }| ).
 
       cl_abap_unit_assert=>assert_equals(
@@ -114,59 +113,43 @@ CLASS ltcl_router IMPLEMENTATION.
 
   METHOD run_starts_app.
 
-    DATA lv_result TYPE string.
-    DATA lv_message TYPE string.
-
-    zcl_zlk05_tcode_router=>run( EXPORTING iv_command = `/nse38`
-                                           io_client  = mo_dbl
-                                 IMPORTING ev_message = lv_message
-                                 RECEIVING result     = lv_result ).
+    DATA(ls_run) = zcl_zlk05_tcode_router=>run(
+        iv_command = `/nse38`
+        io_client  = mo_dbl ).
 
     cl_abap_unit_assert=>assert_equals( exp = zcl_zlk05_tcode_router=>c_nav
-                                        act = lv_result ).
+                                        act = ls_run-outcome ).
     cl_abap_unit_assert=>assert_equals( exp = `ZCL_SE38_A2U5`
                                         act = mo_dbl->mv_nav_call ).
-    cl_abap_unit_assert=>assert_initial( act = lv_message ).
+    cl_abap_unit_assert=>assert_initial( ls_run-message ).
 
   ENDMETHOD.
 
   METHOD run_empty_command.
 
-    DATA lv_result TYPE string.
-    DATA lv_message TYPE string.
-    DATA lv_type TYPE string.
-
-    zcl_zlk05_tcode_router=>run( EXPORTING iv_command  = ``
-                                           io_client   = mo_dbl
-                                 IMPORTING ev_message  = lv_message
-                                           ev_msg_type = lv_type
-                                 RECEIVING result      = lv_result ).
+    DATA(ls_run) = zcl_zlk05_tcode_router=>run(
+        iv_command = ``
+        io_client  = mo_dbl ).
 
     cl_abap_unit_assert=>assert_equals( exp = zcl_zlk05_tcode_router=>c_msg
-                                        act = lv_result ).
-    cl_abap_unit_assert=>assert_equals( exp = `Warning` act = lv_type ).
-    cl_abap_unit_assert=>assert_not_initial( act = lv_message ).
-    cl_abap_unit_assert=>assert_initial( act = mo_dbl->mv_nav_call ).
+                                        act = ls_run-outcome ).
+    cl_abap_unit_assert=>assert_equals( exp = `Warning` act = ls_run-msg_type ).
+    cl_abap_unit_assert=>assert_not_initial( ls_run-message ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->mv_nav_call ).
 
   ENDMETHOD.
 
   METHOD run_unknown_tcode.
 
-    DATA lv_result TYPE string.
-    DATA lv_message TYPE string.
-    DATA lv_type TYPE string.
-
-    zcl_zlk05_tcode_router=>run( EXPORTING iv_command  = `ZZ_NO_SUCH_TCODE`
-                                           io_client   = mo_dbl
-                                 IMPORTING ev_message  = lv_message
-                                           ev_msg_type = lv_type
-                                 RECEIVING result      = lv_result ).
+    DATA(ls_run) = zcl_zlk05_tcode_router=>run(
+        iv_command = `ZZ_NO_SUCH_TCODE`
+        io_client  = mo_dbl ).
 
     cl_abap_unit_assert=>assert_equals( exp = zcl_zlk05_tcode_router=>c_msg
-                                        act = lv_result ).
-    cl_abap_unit_assert=>assert_equals( exp = `Error` act = lv_type ).
-    cl_abap_unit_assert=>assert_char_cp( act = lv_message exp = `*does not exist*` ).
-    cl_abap_unit_assert=>assert_initial( act = mo_dbl->mv_nav_call ).
+                                        act = ls_run-outcome ).
+    cl_abap_unit_assert=>assert_equals( exp = `Error` act = ls_run-msg_type ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls_run-message exp = `*does not exist*` ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->mv_nav_call ).
 
   ENDMETHOD.
 
@@ -176,32 +159,25 @@ CLASS ltcl_router IMPLEMENTATION.
     " silently ignored. The examples come from the list itself: a fixed
     " transaction code stops testing the day it gets its app, and nobody
     " notices because the test still turns green.
-    DATA lv_result TYPE string.
-    DATA lv_message TYPE string.
-    DATA lv_type TYPE string.
-
     DATA(lt_apps) = zcl_zlk05_tcode_router=>get_apps( ).
 
     LOOP AT lt_apps INTO DATA(ls_app) WHERE class IS INITIAL.
       mo_dbl->reset( ).
-      CLEAR: lv_result, lv_message, lv_type.
 
-      zcl_zlk05_tcode_router=>run( EXPORTING iv_command  = ls_app-tcode
-                                             io_client   = mo_dbl
-                                   IMPORTING ev_message  = lv_message
-                                             ev_msg_type = lv_type
-                                   RECEIVING result      = lv_result ).
+      DATA(ls_run) = zcl_zlk05_tcode_router=>run(
+          iv_command = ls_app-tcode
+          io_client  = mo_dbl ).
 
       cl_abap_unit_assert=>assert_equals(
           exp = zcl_zlk05_tcode_router=>c_msg
-          act = lv_result
+          act = ls_run-outcome
           msg = |{ ls_app-tcode } is listed without an app and must answer| ).
       cl_abap_unit_assert=>assert_equals(
           exp = `Warning`
-          act = lv_type
+          act = ls_run-msg_type
           msg = |{ ls_app-tcode } must be answered with a warning| ).
       cl_abap_unit_assert=>assert_char_cp(
-          act = lv_message
+          act = ls_run-message
           exp = `*not available*`
           msg = |{ ls_app-tcode } must say that it is not available here| ).
       cl_abap_unit_assert=>assert_initial(
@@ -213,34 +189,26 @@ CLASS ltcl_router IMPLEMENTATION.
 
   METHOD run_session_command.
 
-    DATA lv_result TYPE string.
-    DATA lv_message TYPE string.
-    DATA lv_type TYPE string.
-
-    zcl_zlk05_tcode_router=>run( EXPORTING iv_command  = `/o`
-                                           io_client   = mo_dbl
-                                 IMPORTING ev_message  = lv_message
-                                           ev_msg_type = lv_type
-                                 RECEIVING result      = lv_result ).
+    DATA(ls_run) = zcl_zlk05_tcode_router=>run(
+        iv_command = `/o`
+        io_client  = mo_dbl ).
 
     cl_abap_unit_assert=>assert_equals( exp = zcl_zlk05_tcode_router=>c_msg
-                                        act = lv_result ).
-    cl_abap_unit_assert=>assert_equals( exp = `Warning` act = lv_type ).
-    cl_abap_unit_assert=>assert_char_cp( act = lv_message exp = `*session*` ).
-    cl_abap_unit_assert=>assert_initial( act = mo_dbl->mv_nav_call ).
+                                        act = ls_run-outcome ).
+    cl_abap_unit_assert=>assert_equals( exp = `Warning` act = ls_run-msg_type ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls_run-message exp = `*session*` ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->mv_nav_call ).
 
   ENDMETHOD.
 
   METHOD run_without_client.
 
-    DATA lv_result TYPE string.
-
-    zcl_zlk05_tcode_router=>run( EXPORTING iv_command = `SE38`
-                                           io_client  = VALUE #( )
-                                 RECEIVING result     = lv_result ).
+    DATA(ls_run) = zcl_zlk05_tcode_router=>run(
+        iv_command = `SE38`
+        io_client  = VALUE #( ) ).
 
     cl_abap_unit_assert=>assert_equals( exp = zcl_zlk05_tcode_router=>c_none
-                                        act = lv_result ).
+                                        act = ls_run-outcome ).
 
   ENDMETHOD.
 

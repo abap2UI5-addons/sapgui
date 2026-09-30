@@ -93,15 +93,13 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
 
     " the command field and Back belong to the frame - they work the
     " same way on every screen of every transaction
-    DATA lv_frame TYPE string.
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client   = client
-                iv_event    = lv_event
-                iv_command  = mv_command
-      IMPORTING ev_message  = mv_message
-                ev_msg_type = mv_msgtype
-      RECEIVING result      = lv_frame ).
-    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = client
+        iv_event   = lv_event
+        iv_command = mv_command ).
+    mv_message = ls_frame-message.
+    mv_msgtype = ls_frame-msg_type.
+    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
       RETURN.
     ENDIF.
 
@@ -175,7 +173,7 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
 
   METHOD view_display.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -241,69 +239,69 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://wrench` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Correct status - { c_na }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true`
-        )->open( `VBox`
+        )->ele( `VBox`
         )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " ----- T JSL - Simple Job Selection -----
-    work->leaf( `Title`
+    work->tag( `Title`
         )->a( n = `text`  v = `Simple Job Selection`
         )->a( n = `level` v = `H4` ).
 
-    DATA(row) = work->open( `HBox`
+    DATA(row) = work->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Job Name` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `id`          v = `idJobName`
         )->a( n = `value`       v = client->_bind( mv_jobname )
         )->a( n = `placeholder` v = `* for all`
         )->a( n = `width`       v = `14rem`
         )->a( n = `submit`      v = client->_event( `EXECUTE` ) ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `User Name` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `value`       v = client->_bind( mv_user )
         )->a( n = `placeholder` v = `* for all`
         )->a( n = `width`       v = `11rem`
         )->a( n = `submit`      v = client->_event( `EXECUTE` ) ).
-    row->shut( ).
+    row->end( ).
 
-    DATA(row2) = work->open( `HBox`
+    DATA(row2) = work->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row2 iv_text = `Job Status` ).
 
-    DATA(st) = row2->open( `Select`
+    DATA(st) = row2->ele( `Select`
         )->a( n = `selectedKey` v = client->_bind( mv_status )
         )->a( n = `width`       v = `14rem` ).
-    DATA(sti) = st->open( `items` ).
-    sti->leaf( n = `Item` ns = `core`
+    DATA(sti) = st->ele( `items` ).
+    sti->tag( n = `Item` ns = `core`
         )->a( n = `key`  v = ``
         )->a( n = `text` v = `All statuses`
-        )->leaf( n = `Item` ns = `core` )->a( n = `key` v = `P` )->a( n = `text` v = `Scheduled`
-        )->leaf( n = `Item` ns = `core` )->a( n = `key` v = `S` )->a( n = `text` v = `Released`
-        )->leaf( n = `Item` ns = `core` )->a( n = `key` v = `R` )->a( n = `text` v = `Active`
-        )->leaf( n = `Item` ns = `core` )->a( n = `key` v = `F` )->a( n = `text` v = `Finished`
-        )->leaf( n = `Item` ns = `core` )->a( n = `key` v = `A` )->a( n = `text` v = `Cancelled` ).
-    st->shut( ).
+        )->tag( n = `Item` ns = `core` )->a( n = `key` v = `P` )->a( n = `text` v = `Scheduled`
+        )->tag( n = `Item` ns = `core` )->a( n = `key` v = `S` )->a( n = `text` v = `Released`
+        )->tag( n = `Item` ns = `core` )->a( n = `key` v = `R` )->a( n = `text` v = `Active`
+        )->tag( n = `Item` ns = `core` )->a( n = `key` v = `F` )->a( n = `text` v = `Finished`
+        )->tag( n = `Item` ns = `core` )->a( n = `key` v = `A` )->a( n = `text` v = `Cancelled` ).
+    st->end( ).
 
     zcl_zlk05_gui_frame=>add_label( io_parent = row2 iv_text = `Job Start Condition` ).
-    row2->leaf( `Input`
+    row2->tag( `Input`
         )->a( n = `value`   v = `All`
         )->a( n = `enabled` v = `false`
         )->a( n = `width`   v = `10rem`
         )->a( n = `tooltip` v = |Extended Job Selection - { c_na }| ).
-    row2->shut( ).
+    row2->end( ).
 
     client->follow_up_action(
         val   = client->cs_event-set_focus
         t_arg = VALUE #( ( `idJobName` ) ) ).
 
     " ----- the job list -----
-    DATA(grid) = work->open( n = `Table` ns = `table`
+    DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_jobs )
         )->a( n = `visibleRowCountMode` v = `Auto`
         )->a( n = `selectionMode`       v = `Single`
@@ -313,7 +311,7 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
                   val   = `DISPLAY`
                   t_arg = VALUE #( ( `${JOBNAME}|${JOBCOUNT}` ) ) ) ).
 
-    DATA(cols) = grid->open( n = `columns` ns = `table` ).
+    DATA(cols) = grid->ele( n = `columns` ns = `table` ).
 
     " the column sequence of the original job overview list
     DATA(lt_col) = VALUE string_table(
@@ -327,24 +325,24 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
 
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
-      DATA(col) = cols->open( n = `Column` ns = `table`
+      DATA(col) = cols->ele( n = `Column` ns = `table`
           )->a( n = `width` v = lv_wid ).
-      col->open( n = `label` ns = `table`
-          )->leaf( `Label` )->a( n = `text` v = lv_head )->shut( )->shut( ).
-      col->open( n = `template` ns = `table` ).
+      col->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+      col->ele( n = `template` ns = `table` ).
       IF lv_fld = `STATUSTXT`.
-        col->leaf( `ObjectStatus`
+        col->tag( `ObjectStatus`
             )->a( n = `text`  v = |\{{ lv_fld }\}|
             )->a( n = `state` v = `{STATE}` ).
       ELSE.
-        col->leaf( `Text`
+        col->tag( `Text`
             )->a( n = `text`     v = |\{{ lv_fld }\}|
             )->a( n = `wrapping` v = `false` ).
       ENDIF.
-      col->shut( ).
+      col->end( ).
     ENDLOOP.
 
-    work->leaf( `Text`
+    work->tag( `Text`
         )->a( n = `text`  v = `Display only - no job is released, cancelled or deleted here`
         )->a( n = `class` v = `sapUiTinyMarginTop` ).
 
@@ -361,7 +359,7 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
 
   METHOD view_detail.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -407,21 +405,21 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://debug` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Debug Job (Simulation) - { c_na }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true`
-        )->open( `VBox`
+        )->ele( `VBox`
         )->a( n = `class` v = `sapUiSmallMargin` ).
 
-    DATA(grid) = work->open( n = `Table` ns = `table`
+    DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_steps )
         )->a( n = `visibleRowCountMode` v = `Auto`
         )->a( n = `selectionMode`       v = `Single`
         )->a( n = `rowHeight`           v = `26`
         )->a( n = `minAutoRowCount`     v = `10` ).
 
-    DATA(cols) = grid->open( n = `columns` ns = `table` ).
+    DATA(cols) = grid->ele( n = `columns` ns = `table` ).
 
     DATA(lt_col) = VALUE string_table(
         ( `Step|STEPCOUNT|5rem` )
@@ -433,18 +431,18 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
 
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
-      DATA(col) = cols->open( n = `Column` ns = `table`
+      DATA(col) = cols->ele( n = `Column` ns = `table`
           )->a( n = `width` v = lv_wid ).
-      col->open( n = `label` ns = `table`
-          )->leaf( `Label` )->a( n = `text` v = lv_head )->shut( )->shut( ).
-      col->open( n = `template` ns = `table`
-          )->leaf( `Text`
+      col->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+      col->ele( n = `template` ns = `table`
+          )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
               )->a( n = `wrapping` v = `false` ).
-      col->shut( ).
+      col->end( ).
     ENDLOOP.
 
-    work->leaf( `Text`
+    work->tag( `Text`
         )->a( n = `text`  v = |{ lines( mt_steps ) } step(s) of job { mv_current }|
         )->a( n = `class` v = `sapUiTinyMarginTop` ).
 

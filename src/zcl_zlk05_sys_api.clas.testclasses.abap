@@ -59,7 +59,7 @@ CLASS ltcl_helpers IMPLEMENTATION.
   METHOD date_initial_stays_empty.
     " An empty date must not be rendered as 00.00.0000
     cl_abap_unit_assert=>assert_initial(
-        act = zcl_zlk05_sys_api=>format_date( '00000000' ) ).
+        zcl_zlk05_sys_api=>format_date( '00000000' ) ).
   ENDMETHOD.
 
   METHOD time_is_formatted.

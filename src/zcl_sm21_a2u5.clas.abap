@@ -75,15 +75,13 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
 
     " the command field and Back belong to the frame - they work the
     " same way on every screen of every transaction
-    DATA lv_frame TYPE string.
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client   = client
-                iv_event    = client->get( )-event
-                iv_command  = mv_command
-      IMPORTING ev_message  = mv_message
-                ev_msg_type = mv_msgtype
-      RECEIVING result      = lv_frame ).
-    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = client
+        iv_event   = client->get( )-event
+        iv_command = mv_command ).
+    mv_message = ls_frame-message.
+    mv_msgtype = ls_frame-msg_type.
+    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
       RETURN.
     ENDIF.
 
@@ -142,7 +140,7 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
 
   METHOD view_display.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -199,77 +197,77 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://request` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Use New System Log Transaction - { c_na }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true`
-        )->open( `VBox`
+        )->ele( `VBox`
         )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " ----- the selection block of the entry screen -----
-    DATA(row) = work->open( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(row) = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `From Date/Time` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `id`          v = `idLogFrom`
         )->a( n = `value`       v = client->_bind( mv_date_from )
         )->a( n = `placeholder` v = `YYYYMMDD`
         )->a( n = `width`       v = `10rem`
         )->a( n = `submit`      v = client->_event( `EXECUTE` ) ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `To Date/Time` ).
-    row->leaf( `Input`
+    row->tag( `Input`
         )->a( n = `value`       v = client->_bind( mv_date_to )
         )->a( n = `placeholder` v = `YYYYMMDD`
         )->a( n = `width`       v = `10rem`
         )->a( n = `submit`      v = client->_event( `EXECUTE` ) ).
-    row->shut( ).
+    row->end( ).
 
-    DATA(row2) = work->open( `HBox`
+    DATA(row2) = work->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row2 iv_text = `User` ).
-    row2->leaf( `Input`
+    row2->tag( `Input`
         )->a( n = `value`       v = client->_bind( mv_user )
         )->a( n = `placeholder` v = `blank for all`
         )->a( n = `width`       v = `10rem`
         )->a( n = `submit`      v = client->_event( `EXECUTE` ) ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row2 iv_text = `Transaction Code` ).
-    row2->leaf( `Input`
+    row2->tag( `Input`
         )->a( n = `value`       v = client->_bind( mv_tcode )
         )->a( n = `placeholder` v = `blank for all`
         )->a( n = `width`       v = `10rem`
         )->a( n = `submit`      v = client->_event( `EXECUTE` ) ).
-    row2->shut( ).
+    row2->end( ).
 
-    DATA(row3) = work->open( `HBox`
+    DATA(row3) = work->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMarginTop` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row3 iv_text = `Problem Class` ).
-    row3->leaf( `Input`
+    row3->tag( `Input`
         )->a( n = `value`   v = `All messages`
         )->a( n = `enabled` v = `false`
         )->a( n = `width`   v = `10rem`
         )->a( n = `tooltip` v = |Problem class restriction - { c_na }| ).
-    row3->leaf( `Button`
+    row3->tag( `Button`
         )->a( n = `text`    v = `System Log: Further Restrictions`
         )->a( n = `icon`    v = `sap-icon://filter`
         )->a( n = `enabled` v = `false`
         )->a( n = `class`   v = `sapUiMediumMarginBegin`
         )->a( n = `tooltip` v = |System Log: Further Restrictions - { c_na }| ).
-    row3->shut( ).
+    row3->end( ).
 
     client->follow_up_action(
         val   = client->cs_event-set_focus
         t_arg = VALUE #( ( `idLogFrom` ) ) ).
 
     " the result list - the original SM21 shows it as an ALV grid
-    DATA(grid) = work->open( n = `Table` ns = `table`
+    DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_syslog )
         )->a( n = `visibleRowCountMode` v = `Auto`
         )->a( n = `selectionMode`       v = `Single`
         )->a( n = `rowHeight`           v = `26`
         )->a( n = `minAutoRowCount`     v = `10` ).
 
-    DATA(cols) = grid->open( n = `columns` ns = `table` ).
+    DATA(cols) = grid->ele( n = `columns` ns = `table` ).
 
     " the column sequence of the original system log list
     DATA(lt_col) = VALUE string_table(
@@ -285,18 +283,18 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
 
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
-      DATA(col) = cols->open( n = `Column` ns = `table`
+      DATA(col) = cols->ele( n = `Column` ns = `table`
           )->a( n = `width` v = lv_wid ).
-      col->open( n = `label` ns = `table`
-          )->leaf( `Label` )->a( n = `text` v = lv_head )->shut( )->shut( ).
-      col->open( n = `template` ns = `table`
-          )->leaf( `Text`
+      col->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+      col->ele( n = `template` ns = `table`
+          )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
               )->a( n = `wrapping` v = `false` ).
-      col->shut( ).
+      col->end( ).
     ENDLOOP.
 
-    work->leaf( `Text`
+    work->tag( `Text`
         )->a( n = `text`  v = |Local system log of instance { sy-host }|
         )->a( n = `class` v = `sapUiTinyMarginTop` ).
 

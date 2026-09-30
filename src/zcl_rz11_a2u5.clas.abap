@@ -89,15 +89,13 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
 
     " the command field and Back belong to the frame - they work the
     " same way on every screen of every transaction
-    DATA lv_frame TYPE string.
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client   = client
-                iv_event    = lv_event
-                iv_command  = mv_command
-      IMPORTING ev_message  = mv_message
-                ev_msg_type = mv_msgtype
-      RECEIVING result      = lv_frame ).
-    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = client
+        iv_event   = lv_event
+        iv_command = mv_command ).
+    mv_message = ls_frame-message.
+    mv_msgtype = ls_frame-msg_type.
+    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
       RETURN.
     ENDIF.
 
@@ -167,7 +165,7 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
 
   METHOD view_display.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -216,17 +214,17 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://search` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Find - { c_na }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true` ).
 
     " group box of dynpro 1000 - Profile Parameter Maintenance
-    DATA(sel) = work->open( `Panel`
+    DATA(sel) = work->ele( `Panel`
         )->a( n = `headerText` v = `Profile Parameter Maintenance`
         )->a( n = `class`      v = `sapUiTinyMargin`
-        )->open( `content`
-        )->open( `HBox`
+        )->ele( `content`
+        )->ele( `HBox`
         )->a( n = `alignItems` v = `Center`
         )->a( n = `class`      v = `sapUiTinyMargin` ).
 
@@ -234,7 +232,7 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
                                     iv_text   = `Parameter Name`
                                     iv_width  = `10rem` ).
 
-    sel->leaf( `Input`
+    sel->tag( `Input`
         )->a( n = `id`          v = `idParaName`
         )->a( n = `value`       v = client->_bind( mv_pattern )
         )->a( n = `placeholder` v = `e.g. rdisp/* or login/*`
@@ -245,14 +243,14 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
         val   = client->cs_event-set_focus
         t_arg = VALUE #( ( `idParaName` ) ) ).
 
-    DATA(grid) = work->open( n = `Table` ns = `table`
+    DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_params )
         )->a( n = `visibleRowCountMode` v = `Auto`
         )->a( n = `selectionMode`       v = `Single`
         )->a( n = `rowHeight`           v = `26`
         )->a( n = `minAutoRowCount`     v = `10` ).
 
-    DATA(cols) = grid->open( n = `columns` ns = `table` ).
+    DATA(cols) = grid->ele( n = `columns` ns = `table` ).
 
     " column texts of RSPFLDOC (502 Name, 501 Value, 503 Type,
     " 510 Dynamic Parameter, 506 Parameter Group, 507 Description)
@@ -266,20 +264,20 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
 
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
-      DATA(col) = cols->open( n = `Column` ns = `table`
+      DATA(col) = cols->ele( n = `Column` ns = `table`
           )->a( n = `width` v = lv_wid ).
-      col->open( n = `label` ns = `table`
-          )->leaf( `Label` )->a( n = `text` v = lv_head )->shut( )->shut( ).
-      col->open( n = `template` ns = `table`
-          )->leaf( `Link`
+      col->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` v = lv_head )->end( )->end( ).
+      col->ele( n = `template` ns = `table`
+          )->tag( `Link`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
               )->a( n = `press`    v = client->_event( val   = `DISPLAY`
                                                       t_arg = VALUE #( ( `${PARANAME}` ) ) )
               )->a( n = `wrapping` v = `false` ).
-      col->shut( ).
+      col->end( ).
     ENDLOOP.
 
-    work->leaf( `Text`
+    work->tag( `Text`
         )->a( n = `text`  v = `Display only - no parameter is changed here`
         )->a( n = `class` v = `sapUiTinyMargin` ).
 
@@ -296,7 +294,7 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
 
   METHOD view_detail.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
@@ -335,28 +333,28 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
             ( icon = `sap-icon://history` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Change History - { c_na }| ) ) ).
 
-    DATA(work) = page->open( `ScrollContainer`
+    DATA(work) = page->ele( `ScrollContainer`
         )->a( n = `height`   v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical` v = `true` ).
 
     " group box text of dynpro 1001 - Parameter Properties
-    DATA(tab) = work->open( `Panel`
+    DATA(tab) = work->ele( `Panel`
         )->a( n = `headerText` v = `Parameter Properties`
         )->a( n = `class`      v = `sapUiTinyMargin`
-        )->open( `content`
-        )->open( `Table`
+        )->ele( `content`
+        )->ele( `Table`
             )->a( n = `items`   v = client->_bind( mt_detail )
             )->a( n = `growing` v = `true`
             )->a( n = `class`   v = `sapUiSizeCompact` ).
 
-    tab->open( `columns`
-        )->open( `Column` )->a( n = `width` v = `18rem`
-            )->leaf( `Text` )->a( n = `text` v = `Attribute` )->shut(
-        )->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Value` )->shut(
-        )->shut( )->open( `items`
-            )->open( `ColumnListItem` )->open( `cells`
-                )->leaf( `Text` )->a( n = `text` v = `{LABEL}`
-                )->leaf( `Text` )->a( n = `text` v = `{VALUE}` ).
+    tab->ele( `columns`
+        )->ele( `Column` )->a( n = `width` v = `18rem`
+            )->tag( `Text` )->a( n = `text` v = `Attribute` )->end(
+        )->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Value` )->end(
+        )->end( )->ele( `items`
+            )->ele( `ColumnListItem` )->ele( `cells`
+                )->tag( `Text` )->a( n = `text` v = `{LABEL}`
+                )->tag( `Text` )->a( n = `text` v = `{VALUE}` ).
 
     " function keys of the SAP GUI - F3 / Shift+F3 / F12 and F8
     zcl_zlk05_gui_frame=>register_keys(

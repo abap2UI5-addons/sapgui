@@ -123,9 +123,7 @@ CLASS zcl_se80_api DEFINITION PUBLIC.
 
     " ===== Pretty Printer =====
     METHODS pretty_print
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-                iv_source     TYPE string
+      IMPORTING iv_source     TYPE string
       RETURNING VALUE(result) TYPE string.
 
     " ===== Metadata =====
@@ -298,7 +296,6 @@ CLASS zcl_se80_api DEFINITION PUBLIC.
 
     METHODS get_object_dependencies
       IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
       RETURNING VALUE(result) TYPE ty_t_usage.
 
     METHODS search_replace_source
@@ -743,7 +740,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
       WHEN 'PROG' OR 'FUNC'.
         DATA lv_rep TYPE syrepid.
         IF iv_type = 'FUNC'.
-          SELECT SINGLE include FROM tfdir WHERE funcname = @iv_name INTO @lv_rep.
+          SELECT SINGLE include FROM tfdir WHERE funcname = @iv_name INTO @lv_rep ##SUBRC_OK.
         ELSE.
           lv_rep = iv_name.
         ENDIF.
@@ -838,7 +835,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
       WHEN 'PROG' OR 'FUNC'.
         DATA lv_rep TYPE syrepid.
         IF iv_type = 'FUNC'.
-          SELECT SINGLE include FROM tfdir WHERE funcname = @iv_name INTO @lv_rep.
+          SELECT SINGLE include FROM tfdir WHERE funcname = @iv_name INTO @lv_rep ##SUBRC_OK.
         ELSE.
           lv_rep = iv_name.
         ENDIF.
@@ -860,8 +857,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD pretty_print.
-    " For classes, use CL_OO_CLIF_SOURCE pretty print
-    " For programs, use PRETTY_PRINTER function
+    " PRETTY_PRINTER works on any source, class sections included
     DATA lt_source TYPE STANDARD TABLE OF string.
     SPLIT iv_source AT cl_abap_char_utilities=>newline INTO TABLE lt_source.
 
@@ -917,7 +913,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
         LOOP AT lt_fld ASSIGNING FIELD-SYMBOL(<fld>).
           APPEND VALUE #(
             name    = CONV string( <fld>-fieldname )
-            keyflag = COND #( WHEN <fld>-keyflag = 'X' THEN `🔑` )
+            keyflag = COND #( WHEN <fld>-keyflag = 'X' THEN `Key` )
             typtype = CONV string( <fld>-datatype )
             type    = COND #( WHEN <fld>-rollname IS NOT INITIAL
                               THEN CONV string( <fld>-rollname )
@@ -1357,7 +1353,6 @@ CLASS zcl_se80_api IMPLEMENTATION.
     " Preview first N rows of a table
     DATA lt_lines TYPE STANDARD TABLE OF string.
     TRY.
-        DATA(lv_sql) = |SELECT * FROM { iv_name } UP TO { iv_maxrows } ROWS|.
         " Use dynamic SELECT
         DATA lt_result TYPE REF TO data.
         CREATE DATA lt_result TYPE STANDARD TABLE OF (iv_name).
@@ -1432,7 +1427,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
             " Register new
             SELECT SINGLE devclass FROM tadir
               WHERE pgmid = 'R3TR' AND object = 'PROG'
-              AND obj_name = @iv_old_name INTO @DATA(lv_pkg).
+              AND obj_name = @iv_old_name INTO @DATA(lv_pkg) ##SUBRC_OK.
             IF lv_pkg IS NOT INITIAL.
               CALL FUNCTION 'TR_TADIR_INTERFACE'
                 EXPORTING
@@ -1570,8 +1565,16 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD get_class_friends.
-    " Friends - simplified (table structure varies by release)
-    CLEAR result.
+    " Friends of the active version, SE24 tab Friends
+    SELECT refclsname FROM seofriends
+      WHERE clsname = @iv_name AND version = '1'
+      ORDER BY refclsname
+      INTO TABLE @DATA(lt_friends).
+    LOOP AT lt_friends ASSIGNING FIELD-SYMBOL(<friend>).
+      APPEND VALUE #(
+        name = CONV string( <friend>-refclsname )
+        type = `Friend` ) TO result.
+    ENDLOOP.
   ENDMETHOD.
 
 
@@ -1629,7 +1632,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
     " Foreign keys for a table
     SELECT fieldname, checktable FROM dd03l
       WHERE tabname = @iv_name AND as4local = 'A'
-      AND checktable IS NOT INITIAL AND checktable <> '*'
+      AND checktable <> ' ' AND checktable <> '*'
       AND fieldname NOT LIKE '.%'
       ORDER BY position
       INTO TABLE @DATA(lt_fk).
@@ -1845,7 +1848,7 @@ CLASS zcl_se80_api IMPLEMENTATION.
     SELECT SINGLE obj_name FROM tadir
       WHERE pgmid = 'R3TR' AND object = @iv_type
       AND obj_name = @iv_name
-      INTO @DATA(lv_found).
+      INTO @DATA(lv_dummy).
     IF sy-subrc <> 0.
       result = `Unknown`.
       RETURN.
@@ -2038,19 +2041,19 @@ CLASS zcl_se80_api IMPLEMENTATION.
   METHOD get_object_description.
     CASE iv_type.
       WHEN 'CLAS' OR 'INTF'.
-        SELECT SINGLE descript FROM seoclasstx WHERE clsname = @iv_name AND langu = 'E' INTO @result.
+        SELECT SINGLE descript FROM seoclasstx WHERE clsname = @iv_name AND langu = 'E' INTO @result ##SUBRC_OK.
       WHEN 'PROG'.
-        SELECT SINGLE text FROM trdirt WHERE name = @iv_name AND sprsl = 'E' INTO @result.
+        SELECT SINGLE text FROM trdirt WHERE name = @iv_name AND sprsl = 'E' INTO @result ##SUBRC_OK.
       WHEN 'TABL' OR 'VIEW'.
-        SELECT SINGLE ddtext FROM dd02t WHERE tabname = @iv_name AND ddlanguage = 'E' INTO @result.
+        SELECT SINGLE ddtext FROM dd02t WHERE tabname = @iv_name AND ddlanguage = 'E' INTO @result ##SUBRC_OK.
       WHEN 'DTEL'.
-        SELECT SINGLE ddtext FROM dd04t WHERE rollname = @iv_name AND ddlanguage = 'E' INTO @result.
+        SELECT SINGLE ddtext FROM dd04t WHERE rollname = @iv_name AND ddlanguage = 'E' INTO @result ##SUBRC_OK.
       WHEN 'DOMA'.
-        SELECT SINGLE ddtext FROM dd01t WHERE domname = @iv_name AND ddlanguage = 'E' INTO @result.
+        SELECT SINGLE ddtext FROM dd01t WHERE domname = @iv_name AND ddlanguage = 'E' INTO @result ##SUBRC_OK.
       WHEN 'FUGR'.
-        SELECT SINGLE areat FROM tlibt WHERE area = @iv_name AND spras = 'E' INTO @result.
+        SELECT SINGLE areat FROM tlibt WHERE area = @iv_name AND spras = 'E' INTO @result ##SUBRC_OK.
       WHEN 'MSAG'.
-        SELECT SINGLE stext FROM t100a WHERE arbgb = @iv_name INTO @result.
+        SELECT SINGLE stext FROM t100a WHERE arbgb = @iv_name INTO @result ##SUBRC_OK.
       WHEN OTHERS.
         CLEAR result.
     ENDCASE.

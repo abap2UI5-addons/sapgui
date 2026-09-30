@@ -94,10 +94,10 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
     METHODS load_object.
     "! Repository Browser (left column)
     METHODS build_browser
-      IMPORTING io_parent TYPE REF TO z2ui5_cl_ai_xml.
+      IMPORTING io_parent TYPE REF TO z2ui5_cl_ui5_view_builder.
     "! Object editor (right column)
     METHODS build_editor
-      IMPORTING io_parent TYPE REF TO z2ui5_cl_ai_xml.
+      IMPORTING io_parent TYPE REF TO z2ui5_cl_ui5_view_builder.
     "! Band 1 of the frame - the original SE80 menu bar
     METHODS menu_entries
       RETURNING VALUE(result) TYPE string_table.
@@ -145,15 +145,13 @@ CLASS zcl_se80_ui IMPLEMENTATION.
 
     " the command field and Back belong to the frame - they work the
     " same way on every screen of every transaction
-    DATA lv_frame TYPE string.
-    zcl_zlk05_gui_frame=>handle_frame_event(
-      EXPORTING io_client   = client
-                iv_event    = lv_event
-                iv_command  = mv_command
-      IMPORTING ev_message  = mv_message
-                ev_msg_type = mv_msg_type
-      RECEIVING result      = lv_frame ).
-    IF lv_frame = zcl_zlk05_gui_frame=>c_navigated.
+    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = client
+        iv_event   = lv_event
+        iv_command = mv_command ).
+    mv_message = ls_frame-message.
+    mv_msg_type = ls_frame-msg_type.
+    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
       RETURN.
     ENDIF.
 
@@ -242,10 +240,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         mv_edit_mode = xsdbool( mv_edit_mode = abap_false ).
       WHEN 'SAVE'.
         IF mv_source IS INITIAL.
-          mv_message = `Source code is empty.`. mv_msg_type = `Error`.
+          mv_message = `Source code is empty.`.
+mv_msg_type = `Error`.
         ELSE.
           DATA(ls_s) = mo_api->save_source( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
-          mv_message = ls_s-message. mv_msg_type = COND #( WHEN ls_s-success = abap_true THEN `Success` ELSE `Error` ).
+          mv_message = ls_s-message.
+mv_msg_type = COND #( WHEN ls_s-success = abap_true THEN `Success` ELSE `Error` ).
           APPEND VALUE ty_s_log(
             icon = COND #( WHEN ls_s-success = abap_true THEN `sap-icon://sys-enter-2` ELSE `sap-icon://error` )
             type = COND #( WHEN ls_s-success = abap_true THEN `Success` ELSE `Error` )
@@ -253,12 +253,15 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         ENDIF.
       WHEN 'ACTIVATE'.
         DATA(ls_a) = mo_api->activate_object( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
-        mv_message = ls_a-message. mv_msg_type = COND #( WHEN ls_a-success = abap_true THEN `Success` ELSE `Error` ).
+        mv_message = ls_a-message.
+mv_msg_type = COND #( WHEN ls_a-success = abap_true THEN `Success` ELSE `Error` ).
         APPEND VALUE ty_s_log(
           icon = COND #( WHEN ls_a-success = abap_true THEN `sap-icon://sys-enter-2` ELSE `sap-icon://error` )
           type = COND #( WHEN ls_a-success = abap_true THEN `Success` ELSE `Error` )
           message = ls_a-message ) TO mt_log.
-        IF ls_a-success = abap_true. load_object( ). ENDIF.
+        IF ls_a-success = abap_true.
+load_object( ).
+ENDIF.
       WHEN 'CHECK'.
         DATA(lt_c) = mo_api->check_syntax( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
         IF lt_c IS NOT INITIAL.
@@ -280,8 +283,9 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           APPEND VALUE ty_s_log( icon = `sap-icon://sys-enter-2` type = `Success` message = `No syntax errors found.` ) TO mt_log.
         ENDIF.
       WHEN 'PRETTY_PRINT'.
-        mv_source = mo_api->pretty_print( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
-        mv_message = `Pretty Printer executed.`. mv_msg_type = `Success`.
+        mv_source = mo_api->pretty_print( mv_source ).
+        mv_message = `Pretty Printer executed.`.
+mv_msg_type = `Success`.
       WHEN 'WHERE_USED'.
         mt_usages = mo_api->get_where_used( mv_cur_obj_name ).
         mv_popup_title = |Where-Used List: { mv_cur_obj_name }|.
@@ -291,7 +295,8 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         client->popup_destroy( ).
       WHEN 'USAGE_CLICK'.
         IF lines( lt_arg ) >= 2.
-          mv_cur_obj_name = lt_arg[ 1 ]. mv_cur_obj_type = lt_arg[ 2 ].
+          mv_cur_obj_name = lt_arg[ 1 ].
+mv_cur_obj_type = lt_arg[ 2 ].
           mv_show_whereu = abap_false.
           client->popup_destroy( ).
           load_object( ).
@@ -398,7 +403,9 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           DATA lv_o TYPE i.
           DO.
             FIND lv_fl IN SECTION OFFSET lv_o OF lv_sl MATCH OFFSET DATA(lv_mo).
-            IF sy-subrc <> 0. EXIT. ENDIF.
+            IF sy-subrc <> 0.
+EXIT.
+ENDIF.
             lv_cnt2 = lv_cnt2 + 1.
             IF lv_fline = 0.
               DATA lv_nl TYPE i.
@@ -427,7 +434,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         mv_msg_type = `Warning`.
       WHEN 'SHOW_DEPS'.
         " Show object dependencies
-        mt_usages = mo_api->get_object_dependencies( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
+        mt_usages = mo_api->get_object_dependencies( mv_cur_obj_name ).
         mv_popup_title = |Used Objects: { mv_cur_obj_name }|.
         mv_show_whereu = abap_true.
       WHEN 'REFRESH'.
@@ -448,7 +455,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
       otype = mv_cur_obj_type
     ) INTO mt_recent INDEX 1.
     IF lines( mt_recent ) > 20.
-      DELETE mt_recent FROM 21.
+      DELETE mt_recent FROM 21 TO lines( mt_recent ).
     ENDIF.
     mv_recent_key = mv_cur_obj_name.
     " Add to navigation history
@@ -462,9 +469,13 @@ CLASS zcl_se80_ui IMPLEMENTATION.
       mv_hist_pos = lines( mt_history ).
     ENDIF.
     DATA(ls) = mo_api->load_source( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
-    mv_source = ls-source. mv_source_local = ls-source_local. mv_source_test = ls-source_test. mv_syntax_mode = ls-syntax_mode.
+    mv_source = ls-source.
+mv_source_local = ls-source_local.
+mv_source_test = ls-source_test.
+mv_syntax_mode = ls-syntax_mode.
     IF ls-success = abap_false AND ls-message IS NOT INITIAL.
-      mv_message = ls-message. mv_msg_type = `Warning`.
+      mv_message = ls-message.
+mv_msg_type = `Warning`.
     ENDIF.
     mo_api->get_metadata( EXPORTING iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type
                           IMPORTING et_methods = mt_methods et_fields = mt_fields ).
@@ -631,7 +642,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
 
   METHOD view_display.
 
-    DATA(view) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
     DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
 
     " band 6 - status bar
@@ -665,7 +676,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
                                        it_buttons = app_buttons( ) ).
 
     " band 5 - work area: repository browser and object editor side by side
-    DATA(flex) = page->open( `HBox`
+    DATA(flex) = page->ele( `HBox`
         )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `width`      v = `100%`
         )->a( n = `alignItems` v = `Stretch` ).
@@ -695,70 +706,70 @@ CLASS zcl_se80_ui IMPLEMENTATION.
   METHOD build_browser.
 
     " ===== Repository Browser (left column) =====
-    DATA(col) = io_parent->open( `VBox` )->a( n = `width` v = `320px` ).
+    DATA(col) = io_parent->ele( `VBox` )->a( n = `width` v = `320px` ).
 
     " --- Package with navigation ---
-    DATA(bar1) = col->open( `Toolbar` )->a( n = `height` v = `2.5rem` ).
-    bar1->leaf( `Button`
+    DATA(bar1) = col->ele( `Toolbar` )->a( n = `height` v = `2.5rem` ).
+    bar1->tag( `Button`
         )->a( n = `icon`    v = `sap-icon://nav-back`
         )->a( n = `tooltip` v = `Superpackage`
         )->a( n = `press`   v = client->_event( `NAV_UP` )
         )->a( n = `type`    v = `Transparent`
-        )->leaf( `Input`
+        )->tag( `Input`
             )->a( n = `value`       v = client->_bind( mv_cur_package )
             )->a( n = `submit`      v = client->_event( `REFRESH` )
             )->a( n = `width`       v = `200px`
             )->a( n = `placeholder` v = `Package`
-        )->leaf( `Button`
+        )->tag( `Button`
             )->a( n = `icon`    v = `sap-icon://display`
             )->a( n = `tooltip` v = `Display`
             )->a( n = `press`   v = client->_event( `REFRESH` )
             )->a( n = `type`    v = `Transparent` ).
 
     " --- Object search ---
-    DATA(bar2) = col->open( `Toolbar` )->a( n = `height` v = `2.5rem` ).
-    bar2->leaf( `SearchField`
+    DATA(bar2) = col->ele( `Toolbar` )->a( n = `height` v = `2.5rem` ).
+    bar2->tag( `SearchField`
         )->a( n = `placeholder` v = `Object name`
         )->a( n = `value`       v = client->_bind( mv_search )
         )->a( n = `search`      v = client->_event( `SEARCH` )
         )->a( n = `width`       v = `200px` ).
-    DATA(type_sel) = bar2->open( `Select`
+    DATA(type_sel) = bar2->ele( `Select`
         )->a( n = `selectedKey` v = client->_bind( mv_search_type )
         )->a( n = `width`       v = `105px`
         )->a( n = `tooltip`     v = `Object type` ).
-    DATA(type_items) = type_sel->open( `items` ).
-    type_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `ALL`  )->a( n = `text` v = `All` ).
-    type_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `CLAS` )->a( n = `text` v = `Class` ).
-    type_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `INTF` )->a( n = `text` v = `Interface` ).
-    type_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `PROG` )->a( n = `text` v = `Program` ).
-    type_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `FUGR` )->a( n = `text` v = `Func.Group` ).
-    type_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `TABL` )->a( n = `text` v = `Table` ).
-    type_items->leaf( n = `Item` ns = `core` )->a( n = `key` v = `DDLS` )->a( n = `text` v = `CDS View` ).
+    DATA(type_items) = type_sel->ele( `items` ).
+    type_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `ALL`  )->a( n = `text` v = `All` ).
+    type_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `CLAS` )->a( n = `text` v = `Class` ).
+    type_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `INTF` )->a( n = `text` v = `Interface` ).
+    type_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `PROG` )->a( n = `text` v = `Program` ).
+    type_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `FUGR` )->a( n = `text` v = `Func.Group` ).
+    type_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `TABL` )->a( n = `text` v = `Table` ).
+    type_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `DDLS` )->a( n = `text` v = `CDS View` ).
 
     " --- Recent objects + tree expand/collapse ---
-    DATA(bar3) = col->open( `Toolbar` )->a( n = `height` v = `2rem` ).
+    DATA(bar3) = col->ele( `Toolbar` )->a( n = `height` v = `2rem` ).
     IF mt_recent IS NOT INITIAL.
-      DATA(rec_sel) = bar3->open( `Select`
+      DATA(rec_sel) = bar3->ele( `Select`
           )->a( n = `width`       v = `160px`
           )->a( n = `tooltip`     v = `Recently used objects`
           )->a( n = `selectedKey` v = client->_bind( mv_recent_key )
           )->a( n = `change`      v = client->_event( `RECENT_CLICK` ) ).
-      DATA(rec_items) = rec_sel->open( `items` ).
+      DATA(rec_items) = rec_sel->ele( `items` ).
       LOOP AT mt_recent ASSIGNING FIELD-SYMBOL(<rc>).
-        rec_items->leaf( n = `Item` ns = `core`
+        rec_items->tag( n = `Item` ns = `core`
             )->a( n = `key`  v = <rc>-key
             )->a( n = `text` v = <rc>-text ).
       ENDLOOP.
     ENDIF.
-    bar3->leaf( `ToolbarSpacer`
-        )->leaf( `Button`
+    bar3->tag( `ToolbarSpacer`
+        )->tag( `Button`
             )->a( n = `icon`    v = `sap-icon://expand-group`
             )->a( n = `tooltip` v = `Expand`
             )->a( n = `type`    v = `Transparent`
             )->a( n = `press`   v = client->_event_client(
                 val   = client->cs_event-control_by_id
                 t_arg = VALUE #( ( `se80Tree` ) ( `expandToLevel` ) ( `3` ) ) )
-        )->leaf( `Button`
+        )->tag( `Button`
             )->a( n = `icon`    v = `sap-icon://collapse-group`
             )->a( n = `tooltip` v = `Collapse`
             )->a( n = `type`    v = `Transparent`
@@ -771,14 +782,14 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     DATA lv_bind TYPE string.
     CONCATENATE `{path:'` lv_path `', parameters:{arrayNames:['NODES']}}` INTO lv_bind.
 
-    DATA(scroll) = col->open( `ScrollContainer`
+    DATA(scroll) = col->ele( `ScrollContainer`
         )->a( n = `height`   v = `calc(100vh - 140px)`
         )->a( n = `vertical` v = `true` ).
-    scroll->open( `Tree`
+    scroll->ele( `Tree`
         )->a( n = `id`             v = `se80Tree`
         )->a( n = `items`          v = lv_bind
         )->a( n = `noDataText`     v = `No objects found`
-        )->open( `StandardTreeItem`
+        )->ele( `StandardTreeItem`
             )->a( n = `title` v = `{TEXT}`
             )->a( n = `icon`  v = `{ICON}`
             )->a( n = `type`  v = `Active`
@@ -790,31 +801,30 @@ CLASS zcl_se80_ui IMPLEMENTATION.
 
   METHOD build_editor.
 
-    DATA(col) = io_parent->open( `VBox`
+    DATA(col) = io_parent->ele( `VBox`
         )->a( n = `height` v = `100%`
         )->a( n = `width`  v = `100%` ).
 
     " the object functions moved up into band 4 of the frame, only the
     " editor local bars are left here
-    DATA(lv_edit) = z2ui5_cl_ai_xml=>as_bool( mv_edit_mode ).
 
     " ===== Object entry / package path / lock information =====
-    DATA(bar2) = col->open( `Toolbar` )->a( n = `height` v = `2rem` ).
-    bar2->leaf( `Input`
+    DATA(bar2) = col->ele( `Toolbar` )->a( n = `height` v = `2rem` ).
+    bar2->tag( `Input`
         )->a( n = `value`       v = client->_bind( mv_quick_nav )
         )->a( n = `width`       v = `160px`
         )->a( n = `placeholder` v = `Other object`
         )->a( n = `submit`      v = client->_event( `QUICK_NAV` ) ).
     IF mv_breadcrumb IS NOT INITIAL.
-      bar2->leaf( `Text` )->a( n = `text` v = mv_breadcrumb ).
+      bar2->tag( `Text` )->a( n = `text` v = mv_breadcrumb ).
     ENDIF.
     IF mv_lock_info IS NOT INITIAL.
-      bar2->leaf( `ObjectStatus`
+      bar2->tag( `ObjectStatus`
           )->a( n = `text`  v = mv_lock_info
           )->a( n = `state` v = `Warning` ).
     ENDIF.
-    bar2->leaf( `ToolbarSpacer`
-        )->leaf( `Button`
+    bar2->tag( `ToolbarSpacer`
+        )->tag( `Button`
             )->a( n = `icon`    v = COND #( WHEN mv_dark_theme = abap_true
                                             THEN `sap-icon://lightbulb` ELSE `sap-icon://darkmode` )
             )->a( n = `tooltip` v = `Switch Editor Colors`
@@ -822,36 +832,36 @@ CLASS zcl_se80_ui IMPLEMENTATION.
             )->a( n = `type`    v = `Transparent` ).
 
     " ===== Find / Replace / Goto line =====
-    DATA(bar3) = col->open( `Toolbar` )->a( n = `height` v = `2rem` ).
-    bar3->leaf( `Label`
+    DATA(bar3) = col->ele( `Toolbar` )->a( n = `height` v = `2rem` ).
+    bar3->tag( `Label`
         )->a( n = `text` v = `Find`
-        )->leaf( `Input`
+        )->tag( `Input`
             )->a( n = `value`       v = client->_bind( mv_find )
             )->a( n = `width`       v = `130px`
             )->a( n = `placeholder` v = `Search term`
             )->a( n = `submit`      v = client->_event( `FIND_IN_SOURCE` )
-        )->leaf( `Button`
+        )->tag( `Button`
             )->a( n = `icon`    v = `sap-icon://search`
             )->a( n = `tooltip` v = `Find`
             )->a( n = `press`   v = client->_event( `FIND_IN_SOURCE` )
             )->a( n = `type`    v = `Transparent`
-        )->leaf( `Label`
+        )->tag( `Label`
             )->a( n = `text` v = `Replace`
-        )->leaf( `Input`
+        )->tag( `Input`
             )->a( n = `value`       v = client->_bind( mv_replace )
             )->a( n = `width`       v = `130px`
             )->a( n = `placeholder` v = `Replace with`
             )->a( n = `submit`      v = client->_event( `REPLACE_ALL` )
-        )->leaf( `Button`
+        )->tag( `Button`
             )->a( n = `text`    v = `Replace All`
             )->a( n = `tooltip` v = `Replace All`
             )->a( n = `press`   v = client->_event( `REPLACE_ALL` )
             )->a( n = `type`    v = `Transparent`
-            )->a( n = `enabled` v = lv_edit
-        )->leaf( `ToolbarSeparator`
-        )->leaf( `Label`
+            )->a( n = `enabled` b = mv_edit_mode
+        )->tag( `ToolbarSeparator`
+        )->tag( `Label`
             )->a( n = `text` v = `Line`
-        )->leaf( `Input`
+        )->tag( `Input`
             )->a( n = `value`  v = client->_bind( mv_goto_line )
             )->a( n = `width`  v = `60px`
             )->a( n = `type`   v = `Number`
@@ -859,33 +869,33 @@ CLASS zcl_se80_ui IMPLEMENTATION.
 
     " ===== Status message =====
     IF mv_message IS NOT INITIAL.
-      col->leaf( `MessageStrip`
+      col->tag( `MessageStrip`
           )->a( n = `text`            v = mv_message
           )->a( n = `type`            v = mv_msg_type
           )->a( n = `showCloseButton` v = `true` ).
     ENDIF.
 
     " ===== Tab strip =====
-    DATA(tabs) = col->open( `IconTabBar`
+    DATA(tabs) = col->ele( `IconTabBar`
         )->a( n = `selectedKey`          v = client->_bind( mv_active_tab )
         )->a( n = `expandable`           v = `false`
         )->a( n = `stretchContentHeight` v = `true`
-        )->open( `items` ).
+        )->ele( `items` ).
 
     " --- Source Code ---
-    DATA(t1) = tabs->open( `IconTabFilter`
+    DATA(t1) = tabs->ele( `IconTabFilter`
         )->a( n = `text` v = `Source Code`
         )->a( n = `key`  v = `SRC`
         )->a( n = `icon` v = `sap-icon://syntax` ).
-    DATA(c1) = t1->open( `content` ).
+    DATA(c1) = t1->ele( `content` ).
     IF mv_edit_mode = abap_true.
-      c1->leaf( `TextArea`
+      c1->tag( `TextArea`
           )->a( n = `value`   v = client->_bind( mv_source )
           )->a( n = `height`  v = `calc(100vh - 190px)`
           )->a( n = `width`   v = `100%`
           )->a( n = `growing` v = `false` ).
     ELSE.
-      c1->leaf( n = `CodeEditor` ns = `editor`
+      c1->tag( n = `CodeEditor` ns = `editor`
           )->a( n = `value`      v = client->_bind( mv_source )
           )->a( n = `type`       v = mv_syntax_mode
           )->a( n = `height`     v = `calc(100vh - 190px)`
@@ -895,19 +905,19 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     ENDIF.
 
     " --- Local Definitions/Implementations ---
-    DATA(t2) = tabs->open( `IconTabFilter`
+    DATA(t2) = tabs->ele( `IconTabFilter`
         )->a( n = `text` v = `Local Definitions/Implementations`
         )->a( n = `key`  v = `LOC`
         )->a( n = `icon` v = `sap-icon://detail-view` ).
-    DATA(c2) = t2->open( `content` ).
+    DATA(c2) = t2->ele( `content` ).
     IF mv_edit_mode = abap_true.
-      c2->leaf( `TextArea`
+      c2->tag( `TextArea`
           )->a( n = `value`   v = client->_bind( mv_source_local )
           )->a( n = `height`  v = `calc(100vh - 190px)`
           )->a( n = `width`   v = `100%`
           )->a( n = `growing` v = `false` ).
     ELSE.
-      c2->leaf( n = `CodeEditor` ns = `editor`
+      c2->tag( n = `CodeEditor` ns = `editor`
           )->a( n = `value`      v = client->_bind( mv_source_local )
           )->a( n = `type`       v = `abap`
           )->a( n = `height`     v = `calc(100vh - 190px)`
@@ -917,19 +927,19 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     ENDIF.
 
     " --- Local Test Classes ---
-    DATA(t3) = tabs->open( `IconTabFilter`
+    DATA(t3) = tabs->ele( `IconTabFilter`
         )->a( n = `text` v = `Local Test Classes`
         )->a( n = `key`  v = `TST`
         )->a( n = `icon` v = `sap-icon://lab` ).
-    DATA(c3) = t3->open( `content` ).
+    DATA(c3) = t3->ele( `content` ).
     IF mv_edit_mode = abap_true.
-      c3->leaf( `TextArea`
+      c3->tag( `TextArea`
           )->a( n = `value`   v = client->_bind( mv_source_test )
           )->a( n = `height`  v = `calc(100vh - 190px)`
           )->a( n = `width`   v = `100%`
           )->a( n = `growing` v = `false` ).
     ELSE.
-      c3->leaf( n = `CodeEditor` ns = `editor`
+      c3->tag( n = `CodeEditor` ns = `editor`
           )->a( n = `value`      v = client->_bind( mv_source_test )
           )->a( n = `type`       v = `abap`
           )->a( n = `height`     v = `calc(100vh - 190px)`
@@ -939,12 +949,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     ENDIF.
 
     " --- Text Elements ---
-    tabs->open( `IconTabFilter`
+    tabs->ele( `IconTabFilter`
         )->a( n = `text` v = `Text Elements`
         )->a( n = `key`  v = `TXT`
         )->a( n = `icon` v = `sap-icon://text`
-        )->open( `content`
-            )->leaf( n = `CodeEditor` ns = `editor`
+        )->ele( `content`
+            )->tag( n = `CodeEditor` ns = `editor`
                 )->a( n = `value`    v = client->_bind( mv_text_elem )
                 )->a( n = `type`     v = `text`
                 )->a( n = `height`   v = `calc(100vh - 190px)`
@@ -952,12 +962,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
                 )->a( n = `editable` v = `false` ).
 
     " --- Documentation ---
-    tabs->open( `IconTabFilter`
+    tabs->ele( `IconTabFilter`
         )->a( n = `text` v = `Documentation`
         )->a( n = `key`  v = `DOC`
         )->a( n = `icon` v = `sap-icon://document`
-        )->open( `content`
-            )->leaf( n = `CodeEditor` ns = `editor`
+        )->ele( `content`
+            )->tag( n = `CodeEditor` ns = `editor`
                 )->a( n = `value`    v = client->_bind( mv_docu )
                 )->a( n = `type`     v = `text`
                 )->a( n = `height`   v = `calc(100vh - 190px)`
@@ -965,67 +975,67 @@ CLASS zcl_se80_ui IMPLEMENTATION.
                 )->a( n = `editable` v = `false` ).
 
     " --- Properties ---
-    DATA(t4) = tabs->open( `IconTabFilter`
+    DATA(t4) = tabs->ele( `IconTabFilter`
         )->a( n = `text` v = `Properties`
         )->a( n = `key`  v = `INFO`
         )->a( n = `icon` v = `sap-icon://hint` ).
-    DATA(info) = t4->open( `content` ).
+    DATA(info) = t4->ele( `content` ).
 
     IF mt_props IS NOT INITIAL.
-      DATA(prop_list) = info->open( `List`
+      DATA(prop_list) = info->ele( `List`
           )->a( n = `headerText` v = `Properties`
           )->a( n = `items`      v = client->_bind( mt_props ) ).
-      prop_list->open( `items`
-          )->open( `DisplayListItem`
+      prop_list->ele( `items`
+          )->ele( `DisplayListItem`
               )->a( n = `label` v = `{LABEL}`
               )->a( n = `value` v = `{VALUE}` ).
     ENDIF.
 
     IF mt_methods IS NOT INITIAL.
-      DATA(meth_tab) = info->open( `Table`
+      DATA(meth_tab) = info->ele( `Table`
           )->a( n = `headerText` v = |Methods ({ lines( mt_methods ) })|
           )->a( n = `items`      v = client->_bind( mt_methods ) ).
-      DATA(meth_cols) = meth_tab->open( `columns` ).
-      meth_cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Method` ).
-      meth_cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Visibility` ).
-      meth_cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Type` ).
-      meth_tab->open( `items`
-          )->open( `ColumnListItem`
-              )->open( `cells`
-                  )->leaf( `Text` )->a( n = `text` v = `{CMPNAME}`
-                  )->leaf( `Text` )->a( n = `text` v = `{EXPOSURE}`
-                  )->leaf( `Text` )->a( n = `text` v = `{MTDTYPE}` ).
+      DATA(meth_cols) = meth_tab->ele( `columns` ).
+      meth_cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Method` ).
+      meth_cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Visibility` ).
+      meth_cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Type` ).
+      meth_tab->ele( `items`
+          )->ele( `ColumnListItem`
+              )->ele( `cells`
+                  )->tag( `Text` )->a( n = `text` v = `{CMPNAME}`
+                  )->tag( `Text` )->a( n = `text` v = `{EXPOSURE}`
+                  )->tag( `Text` )->a( n = `text` v = `{MTDTYPE}` ).
     ENDIF.
 
     IF mt_fields IS NOT INITIAL.
-      DATA(fld_tab) = info->open( `Table`
+      DATA(fld_tab) = info->ele( `Table`
           )->a( n = `headerText` v = |Attributes ({ lines( mt_fields ) })|
           )->a( n = `items`      v = client->_bind( mt_fields ) ).
-      DATA(fld_cols) = fld_tab->open( `columns` ).
-      fld_cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Name` ).
-      fld_cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Key` ).
-      fld_cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Category` ).
-      fld_cols->open( `Column` )->leaf( `Text` )->a( n = `text` v = `Type` ).
-      fld_tab->open( `items`
-          )->open( `ColumnListItem`
-              )->open( `cells`
-                  )->leaf( `Text` )->a( n = `text` v = `{NAME}`
-                  )->leaf( `Text` )->a( n = `text` v = `{KEYFLAG}`
-                  )->leaf( `Text` )->a( n = `text` v = `{TYPTYPE}`
-                  )->leaf( `Text` )->a( n = `text` v = `{TYPE}` ).
+      DATA(fld_cols) = fld_tab->ele( `columns` ).
+      fld_cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Name` ).
+      fld_cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Key` ).
+      fld_cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Category` ).
+      fld_cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = `Type` ).
+      fld_tab->ele( `items`
+          )->ele( `ColumnListItem`
+              )->ele( `cells`
+                  )->tag( `Text` )->a( n = `text` v = `{NAME}`
+                  )->tag( `Text` )->a( n = `text` v = `{KEYFLAG}`
+                  )->tag( `Text` )->a( n = `text` v = `{TYPTYPE}`
+                  )->tag( `Text` )->a( n = `text` v = `{TYPE}` ).
     ENDIF.
 
     " ===== Message list =====
     IF mt_log IS NOT INITIAL.
-      DATA(log_panel) = col->open( `Panel`
+      DATA(log_panel) = col->ele( `Panel`
           )->a( n = `headerText` v = |Messages ({ lines( mt_log ) })|
           )->a( n = `expandable` v = `true`
           )->a( n = `expanded`   v = `true`
           )->a( n = `height`     v = `150px` ).
-      DATA(log_list) = log_panel->open( `List`
+      DATA(log_list) = log_panel->ele( `List`
           )->a( n = `items` v = client->_bind( mt_log ) ).
-      log_list->open( `items`
-          )->open( `StandardListItem`
+      log_list->ele( `items`
+          )->ele( `StandardListItem`
               )->a( n = `title`     v = `{MESSAGE}`
               )->a( n = `info`      v = `{LINE}`
               )->a( n = `icon`      v = `{ICON}`
@@ -1039,34 +1049,34 @@ CLASS zcl_se80_ui IMPLEMENTATION.
 
     " popup_display( ) expects a fragment definition as root element, exactly
     " like z2ui5_cl_xml_view=>factory_popup( ) produces it.
-    DATA(popup) = z2ui5_cl_ai_xml=>factory( ).
+    DATA(popup) = z2ui5_cl_ui5_view_builder=>factory( ).
 
-    DATA(dialog) = popup->open( n = `FragmentDefinition` ns = `core`
+    DATA(dialog) = popup->ele( n = `FragmentDefinition` ns = `core`
         )->a( n = `xmlns`      v = `sap.m`
         )->a( n = `xmlns:core` v = `sap.ui.core`
-        )->open( `Dialog`
+        )->ele( `Dialog`
             )->a( n = `title`         v = mv_popup_title
             )->a( n = `contentWidth`  v = `600px`
             )->a( n = `contentHeight` v = `400px` ).
 
     IF mt_usages IS NOT INITIAL.
-      DATA(list) = dialog->open( `List`
+      DATA(list) = dialog->ele( `List`
           )->a( n = `items` v = client->_bind( mt_usages ) ).
-      list->open( `items`
-          )->open( `StandardListItem`
+      list->ele( `items`
+          )->ele( `StandardListItem`
               )->a( n = `title`       v = `{OBJ_NAME}`
               )->a( n = `description` v = `{OBJECT}`
               )->a( n = `type`        v = `Active`
               )->a( n = `press`       v = client->_event( val   = `USAGE_CLICK`
                                                           t_arg = VALUE #( ( `${OBJ_NAME}` ) ( `${OBJECT}` ) ) ) ).
     ELSE.
-      dialog->leaf( `MessageStrip`
+      dialog->tag( `MessageStrip`
           )->a( n = `text` v = `No usage found.`
           )->a( n = `type` v = `Information` ).
     ENDIF.
 
-    dialog->open( `endButton`
-        )->leaf( `Button`
+    dialog->ele( `endButton`
+        )->tag( `Button`
             )->a( n = `text`  v = `Continue`
             )->a( n = `press` v = client->_event( `CLOSE_WHEREU` ) ).
 
