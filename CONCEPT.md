@@ -1,4 +1,4 @@
-# Concept: where cloudy-sapgui goes next
+# Concept: where sapgui-in-abap2UI5 goes next
 
 Written 2026-09-30, after moving the views to `z2ui5_cl_ui5_view_builder` and
 adopting the abap2UI5 linter. Ordered by what has to happen first, not by

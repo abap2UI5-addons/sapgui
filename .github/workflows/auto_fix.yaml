@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   auto_fix:
-    if: github.repository == 'oblomov-dev/cloudy-sapgui'
+    if: github.repository == 'oblomov-dev/sapgui-in-abap2UI5'
     permissions:
       contents: write
       pull-requests: write

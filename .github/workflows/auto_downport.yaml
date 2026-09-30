@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   auto_downport:
-    if: github.repository == 'oblomov-dev/cloudy-sapgui'
+    if: github.repository == 'oblomov-dev/sapgui-in-abap2UI5'
     permissions:
       contents: write
     runs-on: ubuntu-latest
