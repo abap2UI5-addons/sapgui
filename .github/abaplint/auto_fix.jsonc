@@ -10,6 +10,7 @@
   "dependencies": [
     {
       "url": "https://github.com/abap2UI5/abap2UI5",
+      "branch": "1.146.0",
       "folder": "/deps/abap2ui5",
       "files": "/src/**/*.*"
     },
