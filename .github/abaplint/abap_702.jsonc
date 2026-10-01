@@ -15,8 +15,10 @@
       "files": "/src/**/*.*"
     },
     {
+      // the downported form of the release the other configs pin - moved with
+      // them by scripts/core-pin.mjs (abap2UI5 CONVENTIONS §9)
       "url": "https://github.com/abap2UI5/abap2UI5",
-      "branch": "702",
+      "branch": "1.146.0-702",
       "folder": "/deps/abap2ui5-702",
       "files": "/src/**/*.*"
     },

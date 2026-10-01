@@ -190,7 +190,17 @@ npm test        # abaplint.jsonc, abap_standard.jsonc, abap2ui5lint.jsonc
 | `npm run auto_downport` | rewrite `src/` to 7.02 syntax                        |
 
 abaplint resolves the dependencies by cloning abap2UI5 and the Steampunk API
-intersect, so the first run needs network access.
+intersect, so the first run needs network access. abap2UI5 is **pinned to a
+release tag** (the `"branch"` key of the dependency, abap2UI5 CONVENTIONS §9):
+users install a release next to this addon, so the checks run against that
+release and not against the framework's `main`. Four configs carry the pin
+(`abaplint.jsonc`, `.github/abaplint/abap_standard.jsonc`,
+`.github/abaplint/auto_fix.jsonc`, and the downported `<tag>-702` form in
+`.github/abaplint/abap_702.jsonc`); read and move them only with
+`scripts/core-pin.mjs` (`get` fails when they disagree). The `bump-core`
+workflow moves the pin weekly to the newest release after `npm run lint` and
+`npm run lint_standard` passed on it. Do not drop the key: abaplint then
+clones `main` silently.
 
 CI, in `.github/workflows`:
 
@@ -200,6 +210,7 @@ CI, in `.github/workflows`:
 | `abap2ui5lint`  | push to main, pull request    |
 | `ABAP_STANDARD` | push to main, pull request    |
 | `auto_fix`      | weekly, opens a pull request  |
+| `bump-core`     | weekly, opens a pull request  |
 | `auto_downport` | manual                        |
 | `ABAP_702`      | push to 702, after a downport |
 

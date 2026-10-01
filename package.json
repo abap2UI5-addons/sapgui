@@ -28,6 +28,6 @@
   "homepage": "https://github.com/abap2UI5-addons/sapgui",
   "devDependencies": {
     "@abap2ui5/linter": "^0.8.5",
-    "@abaplint/cli": "^2.120.10"
+    "@abaplint/cli": "^2.120.63"
   }
 }
