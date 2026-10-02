@@ -5,6 +5,9 @@ SM37, ST22, SU01 and more - rebuilt as [abap2UI5](https://github.com/abap2UI5/ab
 apps. Pure ABAP, installed with abapGit. No SAP GUI installation, no Fiori
 launchpad, no OData service.
 
+<img width="600" height="300" alt="image" src="https://github.com/user-attachments/assets/4617ae21-079f-4a1f-acb4-6e51a563b118" />
+
+
 ## What is this?
 
 You open one URL in the browser and land on **SAP Easy Access**, the same
