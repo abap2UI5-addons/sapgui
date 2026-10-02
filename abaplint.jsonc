@@ -248,6 +248,7 @@
     "use_new": true,
     "when_others_last": true,
     "whitespace_end": true,
+    "wrong_abapdoc_position": true,
     "xml_consistency": true
   }
 }
