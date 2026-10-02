@@ -44,8 +44,8 @@ CLASS zcl_zlk05_gui_frame DEFINITION PUBLIC FINAL CREATE PUBLIC.
     CONSTANTS c_navigated   TYPE string VALUE `NAV`.
     CONSTANTS c_message     TYPE string VALUE `MSG`.
 
-    "! Result of handle_frame_event( ): the outcome and the status bar text
     TYPES:
+      "! Result of handle_frame_event( ): the outcome and the status bar text
       BEGIN OF ty_s_frame_result,
         outcome  TYPE string,
         message  TYPE string,

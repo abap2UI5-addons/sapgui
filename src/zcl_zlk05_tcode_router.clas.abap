@@ -24,8 +24,8 @@ CLASS zcl_zlk05_tcode_router DEFINITION
       END OF ty_s_app.
     TYPES ty_t_app TYPE STANDARD TABLE OF ty_s_app WITH EMPTY KEY.
 
-    "! Result of run( ): the outcome and the message for the status bar
     TYPES:
+      "! Result of run( ): the outcome and the message for the status bar
       BEGIN OF ty_s_result,
         outcome  TYPE string,
         message  TYPE string,
