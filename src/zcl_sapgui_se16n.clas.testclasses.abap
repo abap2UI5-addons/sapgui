@@ -37,6 +37,10 @@ CLASS ltcl_se16n DEFINITION FINAL FOR TESTING
 
     " --- selection values entered in the field lines ---
     METHODS crit_from_field_lines FOR TESTING.
+    METHODS variant_xml_roundtrip FOR TESTING RAISING cx_static_check.
+    METHODS variant_old_json_read FOR TESTING RAISING cx_static_check.
+    METHODS variant_sample
+      RETURNING VALUE(result) TYPE zcl_sapgui_se16n=>ty_s_variant_data.
     METHODS crit_default_operator FOR TESTING.
     METHODS crit_skips_empty      FOR TESTING.
 
@@ -406,6 +410,44 @@ CLASS ltcl_se16n IMPLEMENTATION.
     mo_dbl->ms_get-event = `BACK_TO_INPUT`.
     mo_cut->on_event( ).
     cl_abap_unit_assert=>assert_true( mo_dbl->mv_nav_leave ).
+  ENDMETHOD.
+
+  METHOD variant_sample.
+    result = VALUE #(
+        table_name = `T100`
+        max_hits   = `200`
+        fields     = VALUE #( ( fname = `ARBGB` label = `Message Class` ftype = `CHAR`
+                                col_id = `C01` visible = abap_true opt = `EQ` low = `ZSAPGUI` )
+                              ( fname = `MSGNR` label = `Message Number` ftype = `NUMC`
+                                col_id = `C02` visible = abap_false opt = `BT` low = `001` high = `010` ) )
+        criteria   = VALUE #( ( fname = `ARBGB` sign = `I` opt = `EQ` low = `ZSAPGUI` ) ) ).
+  ENDMETHOD.
+
+  METHOD variant_xml_roundtrip.
+    " what is stored now: the XML of CALL TRANSFORMATION id, read back unchanged
+    DATA(ls_in) = variant_sample( ).
+    DATA(lv_xml) = mo_cut->variant_to_xml( ls_in ).
+    cl_abap_unit_assert=>assert_char_cp( act = lv_xml exp = `<*` ).
+
+    mo_cut->variant_from_store( EXPORTING iv_stored    = lv_xml
+                                IMPORTING es_data      = DATA(ls_out)
+                                          ev_converted = DATA(lv_converted) ).
+    cl_abap_unit_assert=>assert_equals( exp = ls_in act = ls_out ).
+    cl_abap_unit_assert=>assert_false( lv_converted ).
+  ENDMETHOD.
+
+  METHOD variant_old_json_read.
+    " a variant saved by a version before 2026-10 is JSON - it is read and
+    " reported for conversion
+    DATA(ls_in) = variant_sample( ).
+    " abap2ui5lint-disable-next-line non-released-api -- writes the old format the app has to read
+    DATA(lv_json) = z2ui5_cl_util=>json_stringify( ls_in ).
+
+    mo_cut->variant_from_store( EXPORTING iv_stored    = lv_json
+                                IMPORTING es_data      = DATA(ls_out)
+                                          ev_converted = DATA(lv_converted) ).
+    cl_abap_unit_assert=>assert_equals( exp = ls_in act = ls_out ).
+    cl_abap_unit_assert=>assert_true( lv_converted ).
   ENDMETHOD.
 
 ENDCLASS.

@@ -309,9 +309,10 @@ is loaded with `XMLView.create` in headless Chromium.
 
 The findings silenced in the source, each with its reason next to it:
 
-- `non-released-api` on `z2ui5_cl_util=>json_*` in SE16N: the stored display
-  variants in `ZSE16N_A2U5_VAR` are in that JSON format, and a different
-  serializer would make the existing ones unreadable.
+- `non-released-api` on `z2ui5_cl_util=>json_parse( )` in SE16N: display
+  variants are stored with `CALL TRANSFORMATION id` since 2026-10, and the
+  JSON reader of abap2UI5 is only used to read - and convert, on first
+  load - a variant saved by an older version.
 - `unescaped-text-in-attribute` on the `value` and `submit` of the command
   field in `ZCL_SAPGUI_FRAME`: the app hands in a `_bind( )` and an
   `_event( )`, which the linter cannot see from inside the frame.

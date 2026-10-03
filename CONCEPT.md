@@ -156,9 +156,10 @@ abap2UI5/linter, not worth waiting for).
 - **Texts.** Every text is hard-coded English. If other logon languages
   matter: text symbols or a message class, read the way the originals read
   theirs.
-- **SE16N variants.** The stored variants are JSON written by
-  `z2ui5_cl_util`, which abap2UI5 froze. Moving to `CALL TRANSFORMATION id`
-  (kernel, no dependency) needs a one-time conversion of `ZSE16N_A2U5_VAR`.
+- **SE16N variants** - done: stored as the XML of `CALL TRANSFORMATION id`
+  (kernel, no dependency). A variant still in the JSON of `z2ui5_cl_util`
+  is read once more with it and stored as XML right away, so the table
+  converts itself as its variants are used; no conversion run needed.
 
 ## 5. Downport to 7.02
 

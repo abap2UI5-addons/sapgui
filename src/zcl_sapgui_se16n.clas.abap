@@ -75,7 +75,8 @@ CLASS zcl_sapgui_se16n DEFINITION PUBLIC
              name TYPE string,
            END OF ty_s_variant_list,
            ty_t_variant_list TYPE STANDARD TABLE OF ty_s_variant_list WITH EMPTY KEY.
-    " payload that is stored as JSON in ZSE16N_A2U5_VAR-JSON_DATA
+    " payload that is stored in ZSE16N_A2U5_VAR-JSON_DATA - as XML of
+    " CALL TRANSFORMATION id; variants of older versions hold JSON there
     TYPES: BEGIN OF ty_s_variant_data,
              table_name TYPE string,
              max_hits   TYPE string,
@@ -132,6 +133,18 @@ CLASS zcl_sapgui_se16n DEFINITION PUBLIC
       RETURNING VALUE(result) TYPE string.
     METHODS count_entries.
     METHODS variant_save.
+    "! A variant as it is stored: the XML of CALL TRANSFORMATION id - kernel,
+    "! no dependency on a serializer of abap2UI5
+    METHODS variant_to_xml
+      IMPORTING is_data       TYPE ty_s_variant_data
+      RETURNING VALUE(result) TYPE string.
+    "! A stored variant read back. Variants saved before 2026-10 are JSON of
+    "! z2ui5_cl_util; ev_converted tells the caller to store them again.
+    METHODS variant_from_store
+      IMPORTING iv_stored    TYPE string
+      EXPORTING es_data      TYPE ty_s_variant_data
+                ev_converted TYPE abap_bool
+      RAISING   cx_static_check.
     METHODS variant_load
       IMPORTING iv_id TYPE string.
     METHODS variant_delete
@@ -1226,12 +1239,11 @@ CLASS zcl_sapgui_se16n IMPLEMENTATION.
         fields     = mt_fields
         criteria   = mt_crit ).
 
-    DATA lv_json TYPE string.
+    DATA lv_stored TYPE string.
     TRY.
-        " abap2ui5lint-disable-next-line non-released-api -- the stored variants are in this format, see README
-        lv_json = z2ui5_cl_util=>json_stringify( ls_payload ).
-      CATCH cx_root INTO DATA(lx_json).
-        mv_message      = |Variant could not be serialized: { lx_json->get_text( ) }|.
+        lv_stored = variant_to_xml( ls_payload ).
+      CATCH cx_root INTO DATA(lx_ser).
+        mv_message = |Variant could not be serialized: { lx_ser->get_text( ) }|.
         mv_msgtype = `Error`.
         RETURN.
     ENDTRY.
@@ -1259,7 +1271,7 @@ CLASS zcl_sapgui_se16n IMPLEMENTATION.
     ls_db-uname        = sy-uname.
     ls_db-table_name   = lv_tab.
     ls_db-variant_name = lv_name.
-    ls_db-json_data    = lv_json.
+    ls_db-json_data    = lv_stored.
     GET TIME STAMP FIELD ls_db-created_at.
 
     MODIFY zse16n_a2u5_var FROM @ls_db.
@@ -1277,6 +1289,36 @@ CLASS zcl_sapgui_se16n IMPLEMENTATION.
     ENDIF.
 
     variant_list_refresh( ).
+
+  ENDMETHOD.
+
+
+  METHOD variant_to_xml.
+    CALL TRANSFORMATION id
+      SOURCE variant = is_data
+      RESULT XML result.
+  ENDMETHOD.
+
+
+  METHOD variant_from_store.
+
+    CLEAR: es_data, ev_converted.
+    IF condense( iv_stored ) IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    IF iv_stored CP '<*'.
+      CALL TRANSFORMATION id
+        SOURCE XML iv_stored
+        RESULT variant = es_data.
+      RETURN.
+    ENDIF.
+
+    " the JSON of the versions before 2026-10, read once and stored again
+    " abap2ui5lint-disable-next-line non-released-api -- only to convert variants of older versions, see README
+    z2ui5_cl_util=>json_parse( EXPORTING val  = iv_stored
+                               CHANGING  data = es_data ).
+    ev_converted = abap_true.
 
   ENDMETHOD.
 
@@ -1302,14 +1344,25 @@ CLASS zcl_sapgui_se16n IMPLEMENTATION.
 
     DATA ls_payload TYPE ty_s_variant_data.
     TRY.
-        z2ui5_cl_util=>json_parse(
-          EXPORTING val  = ls_db-json_data
-          CHANGING  data = ls_payload ).
+        variant_from_store( EXPORTING iv_stored    = ls_db-json_data
+                            IMPORTING es_data      = ls_payload
+                                      ev_converted = DATA(lv_converted) ).
       CATCH cx_root INTO DATA(lx).
-        mv_message      = |Variant could not be read: { lx->get_text( ) }|.
+        mv_message = |Variant could not be read: { lx->get_text( ) }|.
         mv_msgtype = `Error`.
         RETURN.
     ENDTRY.
+
+    IF lv_converted = abap_true.
+      " a variant of an older version: from now on it is stored as XML
+      DATA(lv_xml) = variant_to_xml( ls_payload ).
+      UPDATE zse16n_a2u5_var SET json_data = @lv_xml
+        WHERE variant_id = @lv_id
+          AND uname      = @sy-uname.
+      IF sy-subrc = 0.
+        COMMIT WORK AND WAIT.
+      ENDIF.
+    ENDIF.
 
     IF ls_payload-table_name IS INITIAL.
       mv_message      = `Variant contains no data.`.
