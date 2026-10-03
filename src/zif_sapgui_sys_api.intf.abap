@@ -129,6 +129,15 @@ INTERFACE zif_sapgui_sys_api PUBLIC.
               iv_max        TYPE i DEFAULT 5000
     RETURNING VALUE(result) TYPE zcl_sapgui_sys_api=>ty_t_tr_object.
 
+  "! Requests and tasks that contain an object (E071) - SE03, Search for
+  "! Objects in Requests/Tasks. iv_obj_name takes * and +, iv_object
+  "! empty means every object type. Newest first.
+  METHODS search_object_in_requests
+    IMPORTING iv_obj_name   TYPE string
+              iv_object     TYPE string OPTIONAL
+              iv_max        TYPE i DEFAULT 500
+    RETURNING VALUE(result) TYPE zcl_sapgui_sys_api=>ty_t_object_request.
+
   METHODS get_clients
     RETURNING VALUE(result) TYPE zcl_sapgui_sys_api=>ty_t_client.
 

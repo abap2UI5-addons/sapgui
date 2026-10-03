@@ -133,6 +133,11 @@ CLASS zcl_sapgui_sys_api_db IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_sapgui_sys_api~search_object_in_requests.
+    result = zcl_sapgui_api_trn=>search_object_in_requests( iv_obj_name = iv_obj_name iv_object = iv_object iv_max = iv_max ).
+  ENDMETHOD.
+
+
   METHOD zif_sapgui_sys_api~get_clients.
     result = zcl_sapgui_api_adm=>get_clients( ).
   ENDMETHOD.

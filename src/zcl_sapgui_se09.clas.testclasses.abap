@@ -41,6 +41,7 @@ CLASS ltcl_se09 DEFINITION FINAL FOR TESTING
     METHODS detail_parent_request  FOR TESTING.
     METHODS detail_back_to_list    FOR TESTING.
     METHODS detail_f3_stays_inside FOR TESTING.
+    METHODS start_param_request    FOR TESTING.
     METHODS detail_has_gui_frame   FOR TESTING.
 
     " --- selection logic, free of any system access ---
@@ -548,6 +549,22 @@ CLASS ltcl_se09 IMPLEMENTATION.
     cl_abap_unit_assert=>assert_false(
         act = mo_cut->type_selected( `K` )
         msg = 'a workbench request must not pass here' ).
+  ENDMETHOD.
+
+  METHOD start_param_request.
+    " a jump from SE03: the request opens at once, Back leaves SE09
+    CAST zif_sapgui_start_params( mo_cut )->set_start_params(
+        VALUE #( ( name = zif_sapgui_start_params=>c_request value = `a4hk900123` ) ) ).
+    mo_dbl->mv_on_init = abap_true.
+    CAST z2ui5_if_app( mo_cut )->main( mo_dbl ).
+    cl_abap_unit_assert=>assert_equals( exp = `DETAIL` act = mo_cut->mv_mode ).
+    cl_abap_unit_assert=>assert_equals( exp = `A4HK900123` act = mo_cut->mv_current ).
+
+    mo_dbl->mv_on_init   = abap_false.
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `BACK_TO_LIST`.
+    CAST z2ui5_if_app( mo_cut )->main( mo_dbl ).
+    cl_abap_unit_assert=>assert_true( mo_dbl->mv_nav_leave ).
   ENDMETHOD.
 
 ENDCLASS.

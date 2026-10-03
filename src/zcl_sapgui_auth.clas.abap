@@ -286,7 +286,7 @@ CLASS zcl_sapgui_auth IMPLEMENTATION.
           result = denied( lv_msg_usr ).
         ENDIF.
 
-      WHEN `STMS` OR `SE09` OR `SE10`.
+      WHEN `STMS` OR `SE09` OR `SE10` OR `SE01` OR `SE03`.
         lv_subrc = sys( )->s_transprt_any( ).
         IF lv_subrc <> 0.
           MESSAGE e005(zsapgui) INTO DATA(lv_msg_tr).

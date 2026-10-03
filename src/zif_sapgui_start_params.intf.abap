@@ -33,6 +33,8 @@ INTERFACE zif_sapgui_start_params PUBLIC.
   CONSTANTS c_role TYPE string VALUE `ROLE`.
   "! Name of the start value that carries a message class (SE91)
   CONSTANTS c_msgclass TYPE string VALUE `MSGCLASS`.
+  "! Name of the start value that carries a transport request (SE09)
+  CONSTANTS c_request TYPE string VALUE `REQUEST`.
 
   METHODS set_start_params
     IMPORTING it_params TYPE ty_t_param.

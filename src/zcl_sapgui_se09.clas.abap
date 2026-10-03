@@ -26,6 +26,8 @@ CLASS zcl_sapgui_se09 DEFINITION PUBLIC
 * ---------------------------------------------------------------------
 
   PUBLIC SECTION.
+    INTERFACES zif_sapgui_start_params.
+
     CONSTANTS c_na TYPE string VALUE `not available in this environment`.
 
     " selection criteria
@@ -45,6 +47,10 @@ CLASS zcl_sapgui_se09 DEFINITION PUBLIC
     " current view
     DATA mv_mode     TYPE string.
     DATA mv_current  TYPE string.
+    "! Request to open on the first roundtrip (a jump from SE03)
+    DATA mv_start_request TYPE string.
+    "! Started by a jump: Back from the request leaves the transaction
+    DATA mv_called   TYPE abap_bool.
 
     METHODS view_display.
     METHODS view_detail.
@@ -74,6 +80,12 @@ ENDCLASS.
 
 CLASS zcl_sapgui_se09 IMPLEMENTATION.
 
+  METHOD zif_sapgui_start_params~set_start_params.
+    mv_start_request = to_upper( condense( VALUE #(
+        it_params[ name = zif_sapgui_start_params=>c_request ]-value OPTIONAL ) ) ).
+  ENDMETHOD.
+
+
   METHOD on_init.
 
     mv_user     = to_upper( sy-uname ).
@@ -84,7 +96,11 @@ CLASS zcl_sapgui_se09 IMPLEMENTATION.
     mv_typ_cop  = abap_false.
     mv_typ_move = abap_false.
     mv_mode     = `LIST`.
-    view_display( ).
+    IF mv_start_request IS NOT INITIAL.
+      mv_called = abap_true.
+      do_open( mv_start_request ).
+    ENDIF.
+    render( ).
 
   ENDMETHOD.
 
@@ -104,6 +120,10 @@ CLASS zcl_sapgui_se09 IMPLEMENTATION.
         ENDIF.
 
       WHEN 'BACK_TO_LIST'.
+        IF mv_called = abap_true.
+          client->nav_app_leave( ).
+          RETURN.
+        ENDIF.
         mv_mode = `LIST`.
 
       WHEN OTHERS.

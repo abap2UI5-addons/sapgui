@@ -36,8 +36,24 @@ CLASS zcl_sapgui_api_trn DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 iv_max        TYPE i DEFAULT 5000
       RETURNING VALUE(result) TYPE zcl_sapgui_sys_api=>ty_t_tr_object.
 
+    CLASS-METHODS search_object_in_requests
+      IMPORTING iv_obj_name   TYPE string
+                iv_object     TYPE string OPTIONAL
+                iv_max        TYPE i DEFAULT 500
+      RETURNING VALUE(result) TYPE zcl_sapgui_sys_api=>ty_t_object_request.
+
   PROTECTED SECTION.
   PRIVATE SECTION.
+
+    "! Text of a request type (E070-TRFUNCTION), as SE09 shows it
+    CLASS-METHODS function_text
+      IMPORTING iv_trfunction TYPE trfunction
+      RETURNING VALUE(result) TYPE string.
+
+    "! Text of a request status (E070-TRSTATUS), as SE09 shows it
+    CLASS-METHODS status_text
+      IMPORTING iv_trstatus   TYPE trstatus
+      RETURNING VALUE(result) TYPE string.
 
 
 ENDCLASS.
@@ -151,23 +167,9 @@ CLASS zcl_sapgui_api_trn IMPLEMENTATION.
       APPEND VALUE #(
         trkorr     = <t>-trkorr
         trfunction = <t>-trfunction
-        functxt    = SWITCH string( <t>-trfunction
-                       WHEN 'K' THEN `Workbench Request`
-                       WHEN 'W' THEN `Customizing Request`
-                       WHEN 'T' THEN `Transport of Copies`
-                       WHEN 'S' THEN `Development/Correction`
-                       WHEN 'R' THEN `Repair`
-                       WHEN 'X' THEN `Unclassified Task`
-                       WHEN 'Q' THEN `Customizing Task`
-                       ELSE CONV string( <t>-trfunction ) )
+        functxt    = function_text( <t>-trfunction )
         trstatus   = <t>-trstatus
-        statustxt  = SWITCH string( <t>-trstatus
-                       WHEN 'D' THEN `Modifiable`
-                       WHEN 'L' THEN `Modifiable, locked`
-                       WHEN 'O' THEN `Release started`
-                       WHEN 'R' THEN `Released`
-                       WHEN 'N' THEN `Released (import protection)`
-                       ELSE CONV string( <t>-trstatus ) )
+        statustxt  = status_text( <t>-trstatus )
         as4user    = <t>-as4user
         as4date    = zcl_sapgui_sys_api=>format_date( <t>-as4date )
         as4time    = zcl_sapgui_sys_api=>format_time( <t>-as4time )
@@ -177,6 +179,70 @@ CLASS zcl_sapgui_api_trn IMPLEMENTATION.
     ENDLOOP.
 
   ENDMETHOD.
+
+  METHOD function_text.
+    result = SWITCH #( iv_trfunction
+               WHEN 'K' THEN `Workbench Request`
+               WHEN 'W' THEN `Customizing Request`
+               WHEN 'T' THEN `Transport of Copies`
+               WHEN 'S' THEN `Development/Correction`
+               WHEN 'R' THEN `Repair`
+               WHEN 'X' THEN `Unclassified Task`
+               WHEN 'Q' THEN `Customizing Task`
+               ELSE CONV string( iv_trfunction ) ).
+  ENDMETHOD.
+
+
+  METHOD status_text.
+    result = SWITCH #( iv_trstatus
+               WHEN 'D' THEN `Modifiable`
+               WHEN 'L' THEN `Modifiable, locked`
+               WHEN 'O' THEN `Release started`
+               WHEN 'R' THEN `Released`
+               WHEN 'N' THEN `Released (import protection)`
+               ELSE CONV string( iv_trstatus ) ).
+  ENDMETHOD.
+
+
+  METHOD search_object_in_requests.
+
+    " SE03 - Search for Objects in Requests/Tasks: the object list E071 of
+    " every request and task, with the header E070 and its text E07T
+    DATA(lv_name)   = zcl_sapgui_sys_api=>to_like_pattern( iv_obj_name ).
+    DATA(lv_object) = CONV trobjtype( to_upper( condense( iv_object ) ) ).
+
+    SELECT FROM e071 AS o
+      INNER JOIN e070 AS h
+        ON h~trkorr = o~trkorr
+      LEFT OUTER JOIN e07t AS t
+        ON  t~trkorr = h~trkorr
+        AND t~langu  = @sy-langu
+      FIELDS h~trkorr, h~strkorr, h~trfunction, h~trstatus, h~as4user,
+             h~as4date, h~as4time, t~as4text, o~pgmid, o~object, o~obj_name
+      WHERE o~obj_name LIKE @lv_name ESCAPE '#'
+        AND ( o~object = @lv_object OR @lv_object = '' )
+      ORDER BY h~as4date DESCENDING, h~as4time DESCENDING, h~trkorr
+      INTO TABLE @DATA(lt_hit)
+      UP TO @iv_max ROWS.
+
+    LOOP AT lt_hit ASSIGNING FIELD-SYMBOL(<h>).
+      APPEND VALUE #(
+        trkorr     = <h>-trkorr
+        strkorr    = <h>-strkorr
+        trfunction = <h>-trfunction
+        functxt    = function_text( <h>-trfunction )
+        trstatus   = <h>-trstatus
+        statustxt  = status_text( <h>-trstatus )
+        as4user    = <h>-as4user
+        as4date    = zcl_sapgui_sys_api=>format_date( <h>-as4date )
+        as4text    = <h>-as4text
+        pgmid      = <h>-pgmid
+        object     = <h>-object
+        obj_name   = <h>-obj_name ) TO result.
+    ENDLOOP.
+
+  ENDMETHOD.
+
 
   METHOD get_transport_objects.
 

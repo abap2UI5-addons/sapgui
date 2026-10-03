@@ -287,6 +287,24 @@ CLASS zcl_sapgui_sys_api DEFINITION PUBLIC FINAL CREATE PUBLIC
       END OF ty_s_tr_object.
     TYPES ty_t_tr_object TYPE STANDARD TABLE OF ty_s_tr_object WITH EMPTY KEY.
 
+    TYPES:
+      "! One request or task that contains an object (SE03)
+      BEGIN OF ty_s_object_request,
+        trkorr     TYPE string,
+        strkorr    TYPE string,
+        trfunction TYPE string,
+        functxt    TYPE string,
+        trstatus   TYPE string,
+        statustxt  TYPE string,
+        as4user    TYPE string,
+        as4date    TYPE string,
+        as4text    TYPE string,
+        pgmid      TYPE string,
+        object     TYPE string,
+        obj_name   TYPE string,
+      END OF ty_s_object_request.
+    TYPES ty_t_object_request TYPE STANDARD TABLE OF ty_s_object_request WITH EMPTY KEY.
+
 * =====================================================================
 *  SCC4 - Client Maintenance
 * =====================================================================
@@ -545,6 +563,15 @@ CLASS zcl_sapgui_sys_api DEFINITION PUBLIC FINAL CREATE PUBLIC
       IMPORTING iv_trkorr     TYPE string
                 iv_max        TYPE i DEFAULT 5000
       RETURNING VALUE(result) TYPE ty_t_tr_object.
+
+    "! Requests and tasks that contain an object (E071) - SE03, Search for
+    "! Objects in Requests/Tasks. iv_obj_name takes * and +, iv_object
+    "! empty means every object type. Newest first.
+    CLASS-METHODS search_object_in_requests
+      IMPORTING iv_obj_name   TYPE string
+                iv_object     TYPE string OPTIONAL
+                iv_max        TYPE i DEFAULT 500
+      RETURNING VALUE(result) TYPE ty_t_object_request.
 
 * =====================================================================
 *  Methods - STMS Transport Management System
@@ -1451,6 +1478,11 @@ CLASS zcl_sapgui_sys_api IMPLEMENTATION.
 
   METHOD get_transports.
     result = api( )->get_transports( iv_user = iv_user iv_status = iv_status iv_max = iv_max ).
+  ENDMETHOD.
+
+
+  METHOD search_object_in_requests.
+    result = api( )->search_object_in_requests( iv_obj_name = iv_obj_name iv_object = iv_object iv_max = iv_max ).
   ENDMETHOD.
 
 

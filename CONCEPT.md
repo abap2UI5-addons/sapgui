@@ -8,8 +8,8 @@ by what is most fun.
 
 ## Where it stands
 
-- 28 apps for 33 transaction codes plus SAP Easy Access, 45 classes and 4 interfaces, about
-  35,000 lines, 618 ABAP Unit tests against `ZCL_SAPGUI_CLIENT_DBL`.
+- 29 apps for 35 transaction codes plus SAP Easy Access, 48 classes and 4 interfaces, about
+  37,000 lines, 629 ABAP Unit tests against `ZCL_SAPGUI_CLIENT_DBL`.
 - Green: abaplint (style profile and SAP_BASIS 7.50), the abap2UI5 linter and
   the unit tests, transpiled to JavaScript (section 2).
   The update from the system arrived red on all three (PCRE, which needs
@@ -186,8 +186,13 @@ every user today.
 
 Done since the first version of this list: SLG1, SM59, SP01, SE91, SM04 and
 SM30 (display only - it hands the table to SE16N), and beyond the list SU53,
-PFCG and WE02/WE05. Still open: SICF, SM13, SE84/SE03, and SM30 maintenance.
-The original list:
+PFCG and WE02/WE05; on 2026-10-03 SE03 (Search for Objects in
+Requests/Tasks, opening the request in SE09) and SE01 (the Transport
+Organizer of SE09). Still open: SICF, SM13, SE84 and SM30 maintenance.
+SICF and SM13 read tables (ICFSERVICE, VBHDR) that nothing here reads yet,
+so they want to be written on a system, where the field names are checked
+on activation - abaplint does not know SAP's tables and a wrong field only
+shows when the class is activated. The original list:
 
 | Transaction | What | Read from |
 | --- | --- | --- |

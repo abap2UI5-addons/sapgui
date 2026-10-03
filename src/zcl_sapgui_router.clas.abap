@@ -159,8 +159,8 @@ CLASS zcl_sapgui_router IMPLEMENTATION.
       ( tcode = `SE10`  text = `Transport Organizer`           icon = `sap-icon://request`            class = `ZCL_SAPGUI_SE09` )
       ( tcode = `SE93`  text = `Maintain Transaction`           icon = `sap-icon://action-settings`     class = `ZCL_SAPGUI_SE93` )
       " ----- Listed in the menu, not implemented here -----
-      ( tcode = `SE01`  text = `Transport Organizer (Extended)` icon = `sap-icon://request`           class = `` )
-      ( tcode = `SE03`  text = `Transport Organizer Tools`     icon = `sap-icon://wrench`             class = `` )
+      ( tcode = `SE01`  text = `Transport Organizer (Extended)` icon = `sap-icon://request`           class = `ZCL_SAPGUI_SE09` )
+      ( tcode = `SE03`  text = `Transport Organizer Tools`     icon = `sap-icon://wrench`             class = `ZCL_SAPGUI_SE03` )
       ( tcode = `SM30`  text = `Call View Maintenance`         icon = `sap-icon://table-view`         class = `ZCL_SAPGUI_SM30` ) ).
 
     " The texts above are the English fallback. The SAP GUI shows the text of

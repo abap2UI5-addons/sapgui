@@ -251,6 +251,11 @@ CLASS zcl_sapgui_sys_api_dbl IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD zif_sapgui_sys_api~search_object_in_requests.
+    reply( EXPORTING iv_method = `SEARCH_OBJECT_IN_REQUESTS` iv_key = |{ iv_obj_name }| CHANGING cv_value = result ).
+  ENDMETHOD.
+
+
   METHOD zif_sapgui_sys_api~get_clients.
     reply( EXPORTING iv_method = `GET_CLIENTS` CHANGING cv_value = result ).
   ENDMETHOD.
