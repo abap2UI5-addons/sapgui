@@ -23,6 +23,9 @@ CLASS ltcl_sm21_a2u5 DEFINITION FINAL FOR TESTING
     METHODS view_empty_is_sane    FOR TESTING.
     METHODS message_reaches_view  FOR TESTING.
     METHODS view_has_gui_frame    FOR TESTING.
+    METHODS view_click_wired      FOR TESTING.
+    METHODS click_no_dump_entry   FOR TESTING.
+    METHODS click_dump_to_st22    FOR TESTING.
 ENDCLASS.
 
 
@@ -184,6 +187,36 @@ CLASS ltcl_sm21_a2u5 IMPLEMENTATION.
         act = xsdbool( find( val = mo_dbl->mv_view
                              sub = `not available in this environment` ) >= 0 )
         msg = 'disabled original functions carry no explaining tooltip' ).
+  ENDMETHOD.
+
+  METHOD view_click_wired.
+    given_syslog( ).
+    mo_cut->view_display( ).
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( line_exists( mo_dbl->mt_events[ table_line = `GOTO_DUMP|${DATE}|${USER}|${CLASID}` ] ) )
+        msg = 'a click on a log entry must be able to open the dump' ).
+  ENDMETHOD.
+
+  METHOD click_no_dump_entry.
+    " a database error is no runtime error - no jump, a hint instead
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `GOTO_DUMP`.
+    mo_dbl->ms_get-t_event_arg = VALUE #( ( `01.01.2024|DEVELOPER|BY` ) ).
+    mo_cut->on_event( ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->mv_nav_call ).
+    cl_abap_unit_assert=>assert_equals( exp = `Information` act = mo_cut->mv_msgtype ).
+  ENDMETHOD.
+
+  METHOD click_dump_to_st22.
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `GOTO_DUMP`.
+    mo_dbl->ms_get-t_event_arg = VALUE #( ( |01.01.2024\|{ sy-uname }\|AB0| ) ).
+    mo_cut->on_event( ).
+    IF mo_dbl->mv_nav_call IS INITIAL.
+      cl_abap_unit_assert=>assert_not_initial( mo_cut->mv_message ).
+    ELSE.
+      cl_abap_unit_assert=>assert_equals( exp = `ZCL_ST22_A2U5` act = mo_dbl->mv_nav_call ).
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.

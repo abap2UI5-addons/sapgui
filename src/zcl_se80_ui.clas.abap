@@ -118,6 +118,12 @@ ENDCLASS.
 CLASS zcl_se80_ui IMPLEMENTATION.
 
   METHOD z2ui5_if_app~main.
+
+    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
+    " so the app is protected even when it is started directly by URL
+    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
+      RETURN.
+    ENDIF.
     me->client = client.
     IF mo_api IS NOT BOUND.
       mo_api = NEW zcl_se80_api( ).
@@ -238,7 +244,13 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           mv_msg_type = `Warning`.
         ENDIF.
       WHEN 'TOGGLE_EDIT'.
-        mv_edit_mode = xsdbool( mv_edit_mode = abap_false ).
+        IF zcl_se80_api=>c_write_enabled = abap_false.
+          mv_edit_mode = abap_false.
+          mv_message   = `Display only - the Object Navigator of this environment does not change repository objects.`.
+          mv_msg_type  = `Warning`.
+        ELSE.
+          mv_edit_mode = xsdbool( mv_edit_mode = abap_false ).
+        ENDIF.
       WHEN 'SAVE'.
         IF mv_source IS INITIAL.
           mv_message = `Source code is empty.`.
@@ -652,11 +664,11 @@ CLASS zcl_se80_ui IMPLEMENTATION.
                                           iv_msg_type = mv_msg_type ).
 
     " band 1 - menu bar
-    zcl_zlk05_gui_frame=>build_menu_bar( io_parent  = page
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client io_parent  = page
                                         it_entries = menu_entries( ) ).
 
     " band 2 - system function bar with the command field
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
@@ -664,7 +676,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
 
     " band 3 - title bar. The object currently loaded is named next to the
     " original screen title.
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = `Object Navigator`
         iv_hint   = COND string( WHEN mv_object_title IS NOT INITIAL

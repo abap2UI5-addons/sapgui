@@ -32,10 +32,52 @@ CLASS ltcl_se38_a2u5 DEFINITION FINAL FOR TESTING
     METHODS source_back_to_list    FOR TESTING.
     METHODS source_has_gui_frame   FOR TESTING.
     METHODS source_repo_browser    FOR TESTING.
+
+    METHODS start_opens_program    FOR TESTING.
+    METHODS start_back_leaves      FOR TESTING.
+    METHODS start_unknown_param    FOR TESTING.
 ENDCLASS.
 
 
 CLASS ltcl_se38_a2u5 IMPLEMENTATION.
+
+  METHOD start_opens_program.
+    " a jump from another transaction opens the program directly
+    DATA(lv_pool) = CONV string( cl_oo_classname_service=>get_classpool_name( 'ZCL_SE38_A2U5' ) ).
+    CAST zif_zlk05_start_params( mo_cut )->set_start_params(
+        VALUE #( ( name = zif_zlk05_start_params=>c_program value = to_lower( lv_pool ) ) ) ).
+    mo_dbl->mv_on_init = abap_true.
+    CAST z2ui5_if_app( mo_cut )->main( mo_dbl ).
+
+    IF mo_dbl->mv_view CS `No Authorization`.
+      RETURN.   " the tester may not use SE38 at all - guarded, nothing opened
+    ENDIF.
+    IF mo_cut->mv_msgtype = `Error`.
+      " the tester has no S_DEVELOP for the package - then the program must
+      " NOT have been opened, which is the other half of the contract
+      cl_abap_unit_assert=>assert_initial( mo_cut->mv_source ).
+      RETURN.
+    ENDIF.
+    cl_abap_unit_assert=>assert_equals( exp = `SOURCE` act = mo_cut->mv_mode ).
+    cl_abap_unit_assert=>assert_true( mo_cut->mv_called ).
+    cl_abap_unit_assert=>assert_equals( exp = lv_pool act = mo_cut->mv_current ).
+  ENDMETHOD.
+
+  METHOD start_back_leaves.
+    " Back returns to the calling transaction, not to the SE38 list
+    mo_cut->mv_called = abap_true.
+    mo_cut->mv_mode   = `SOURCE`.
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `BACK_TO_LIST`.
+    mo_cut->on_event( ).
+    cl_abap_unit_assert=>assert_true( mo_dbl->mv_nav_leave ).
+  ENDMETHOD.
+
+  METHOD start_unknown_param.
+    CAST zif_zlk05_start_params( mo_cut )->set_start_params(
+        VALUE #( ( name = `SOMETHING_ELSE` value = `X` ) ) ).
+    cl_abap_unit_assert=>assert_initial( mo_cut->mv_start_program ).
+  ENDMETHOD.
 
   METHOD setup.
     mo_cut = NEW #( ).

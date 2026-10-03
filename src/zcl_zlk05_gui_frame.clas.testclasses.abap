@@ -133,10 +133,24 @@ CLASS ltcl_frame IMPLEMENTATION.
         iv_event   = zcl_zlk05_gui_frame=>c_ev_command
         iv_command = `/nsm37` ).
 
+    " inside a transaction /n REPLACES the running one, as in the SAP GUI
     cl_abap_unit_assert=>assert_equals( exp = zcl_zlk05_gui_frame=>c_navigated
                                         act = ls_frame-outcome ).
     cl_abap_unit_assert=>assert_equals( exp = `ZCL_SM37_A2U5`
+                                        act = mo_dbl->mv_nav_replace ).
+    cl_abap_unit_assert=>assert_initial( act = mo_dbl->mv_nav_call
+                                         msg = '/n must not stack the new transaction' ).
+
+    " from the root of the session it is started on top of the root
+    mo_dbl->reset( ).
+    ls_frame = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = mo_dbl
+        iv_event   = zcl_zlk05_gui_frame=>c_ev_command
+        iv_command = `/nsm37`
+        iv_root    = abap_true ).
+    cl_abap_unit_assert=>assert_equals( exp = `ZCL_SM37_A2U5`
                                         act = mo_dbl->mv_nav_call ).
+    cl_abap_unit_assert=>assert_initial( act = mo_dbl->mv_nav_replace ).
 
   ENDMETHOD.
 

@@ -36,6 +36,10 @@ CLASS ltcl_se24_a2u5 DEFINITION FINAL FOR TESTING
     METHODS detail_back_to_list    FOR TESTING.
     METHODS detail_f3_stays_inside FOR TESTING.
     METHODS detail_has_gui_frame   FOR TESTING.
+    METHODS detail_click_wired     FOR TESTING.
+    METHODS source_attribute_hint  FOR TESTING.
+    METHODS source_method_to_se38  FOR TESTING.
+    METHODS source_unknown_method  FOR TESTING.
 ENDCLASS.
 
 
@@ -232,7 +236,7 @@ CLASS ltcl_se24_a2u5 IMPLEMENTATION.
     given_class_detail( ).
     mo_cut->view_detail( ).
 
-    LOOP AT VALUE string_table( ( `F3` ) ( `Shift+F3` ) ( `F12` ) )
+    LOOP AT VALUE string_table( ( `F3` ) ( `F12` ) )
          INTO DATA(lv_key).
       cl_abap_unit_assert=>assert_true(
           act = mo_dbl->has_shortcut( iv_keys  = lv_key
@@ -243,6 +247,12 @@ CLASS ltcl_se24_a2u5 IMPLEMENTATION.
                                       iv_event = zcl_zlk05_gui_frame=>c_ev_back )
           msg = |{ lv_key } leaves the transaction instead of the screen| ).
     ENDLOOP.
+    " Shift+F3 is Exit in the SAP GUI - it leaves the transaction from
+    " every one of its screens, not only one screen back
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_shortcut( iv_keys  = `Shift+F3`
+                                    iv_event = zcl_zlk05_gui_frame=>c_ev_exit )
+        msg = 'Shift+F3 must leave the transaction' ).
   ENDMETHOD.
 
   METHOD detail_has_gui_frame.
@@ -329,6 +339,47 @@ CLASS ltcl_se24_a2u5 IMPLEMENTATION.
         act = xsdbool( find( val = mo_dbl->mv_view
                              sub = `not available in this environment` ) >= 0 )
         msg = 'the disabled SE24 functions do not explain themselves' ).
+  ENDMETHOD.
+
+  METHOD detail_click_wired.
+    given_class_detail( ).
+    mo_cut->view_detail( ).
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( line_exists( mo_dbl->mt_events[ table_line = `SOURCE|${CMPNAME}|${CMPTYPE}` ] ) )
+        msg = 'a click on a component must be able to open its source' ).
+  ENDMETHOD.
+
+  METHOD source_attribute_hint.
+    given_class_detail( ).
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `SOURCE`.
+    mo_dbl->ms_get-t_event_arg = VALUE #( ( `MV_OBJNAME|Attribute` ) ).
+    mo_cut->on_event( ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->mv_nav_call ).
+    cl_abap_unit_assert=>assert_equals( exp = `Information` act = mo_cut->mv_msgtype ).
+  ENDMETHOD.
+
+  METHOD source_method_to_se38.
+    given_class_detail( ).
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `SOURCE`.
+    mo_dbl->ms_get-t_event_arg = VALUE #( ( `VIEW_DISPLAY|Method` ) ).
+    mo_cut->on_event( ).
+    IF mo_dbl->mv_nav_call IS INITIAL.
+      cl_abap_unit_assert=>assert_not_initial( mo_cut->mv_message ).
+    ELSE.
+      cl_abap_unit_assert=>assert_equals( exp = `ZCL_SE38_A2U5` act = mo_dbl->mv_nav_call ).
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD source_unknown_method.
+    given_class_detail( ).
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `SOURCE`.
+    mo_dbl->ms_get-t_event_arg = VALUE #( ( `NO_SUCH_METHOD_X|Method` ) ).
+    mo_cut->on_event( ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->mv_nav_call ).
+    cl_abap_unit_assert=>assert_equals( exp = `Warning` act = mo_cut->mv_msgtype ).
   ENDMETHOD.
 
 ENDCLASS.

@@ -25,6 +25,7 @@ CLASS ltcl_se16n DEFINITION FINAL FOR TESTING
     METHODS where_exclude_not    FOR TESTING.
     METHODS where_two_fields_and FOR TESTING.
     METHODS where_skips_empty    FOR TESTING.
+    METHODS where_rejects_unknown_field FOR TESTING.
 
     " --- rendered views ---
     METHODS view_1_wellformed    FOR TESTING.
@@ -45,6 +46,11 @@ CLASS ltcl_se16n DEFINITION FINAL FOR TESTING
     " --- returning from another transaction (F3 there) ---
     METHODS navigated_renders_step_1 FOR TESTING.
     METHODS navigated_renders_step_3 FOR TESTING.
+
+    " --- started from another transaction (SE11 Contents, SM30) ---
+    METHODS start_table_loads        FOR TESTING.
+    METHODS start_back_leaves        FOR TESTING.
+
 ENDCLASS.
 
 
@@ -176,6 +182,7 @@ CLASS ltcl_se16n IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD where_include_or.
+    mo_cut->mv_table_name = `MARA`.
     " two include lines on the SAME field are OR-combined
     mo_cut->mt_crit = VALUE #(
       ( fname = `MATNR` sign = `I` opt = `EQ` low = `1` )
@@ -186,6 +193,7 @@ CLASS ltcl_se16n IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD where_exclude_not.
+    mo_cut->mv_table_name = `MARA`.
     " sign = E must negate the condition - it was silently ignored before
     mo_cut->mt_crit = VALUE #(
       ( fname = `MTART` sign = `E` opt = `EQ` low = `FERT` ) ).
@@ -195,6 +203,7 @@ CLASS ltcl_se16n IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD where_two_fields_and.
+    mo_cut->mv_table_name = `MARA`.
     " different fields are AND-combined, exclude stays negated
     mo_cut->mt_crit = VALUE #(
       ( fname = `MATNR` sign = `I` opt = `EQ` low = `1` )
@@ -210,6 +219,20 @@ CLASS ltcl_se16n IMPLEMENTATION.
       ( fname = `MATNR` sign = `I` opt = `EQ` low = `` high = `` )
       ( fname = ``      sign = `I` opt = `EQ` low = `X` ) ).
     cl_abap_unit_assert=>assert_equals( exp = `1 = 1` act = mo_cut->build_where( ) ).
+  ENDMETHOD.
+
+  METHOD where_rejects_unknown_field.
+    " field names come back from the browser - a name that is not a field
+    " of the table (or an attempt to smuggle SQL in) must never reach the
+    " dynamic WHERE clause
+    mo_cut->mv_table_name = `MARA`.
+    mo_cut->mt_crit = VALUE #(
+      ( fname = `NO_SUCH_FIELD` sign = `I` opt = `EQ` low = `1` )
+      ( fname = `MATNR = MATNR OR MATNR` sign = `I` opt = `EQ` low = `1` )
+      ( fname = `MTART` sign = `I` opt = `EQ` low = `FERT` ) ).
+    cl_abap_unit_assert=>assert_equals(
+        exp = `( MTART = 'FERT' )`
+        act = mo_cut->build_where( ) ).
   ENDMETHOD.
 
   " ===================== rendered views =====================
@@ -350,6 +373,31 @@ CLASS ltcl_se16n IMPLEMENTATION.
     cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view sub = `Number of Hits` ) >= 0 )
         msg = 'the result screen does not show the number of hits' ).
+  ENDMETHOD.
+
+
+  METHOD start_table_loads.
+    CAST zif_zlk05_start_params( mo_cut )->set_start_params(
+        VALUE #( ( name = zif_zlk05_start_params=>c_table value = ` t000 ` ) ) ).
+    cl_abap_unit_assert=>assert_equals( exp = `T000` act = mo_cut->mv_start_table ).
+    mo_dbl->mv_on_init = abap_true.
+    CAST z2ui5_if_app( mo_cut )->main( mo_dbl ).
+    IF mo_dbl->mv_view CS `No Authorization`.
+      RETURN.
+    ENDIF.
+    " the selection screen of the table is shown at once, not step 1
+    cl_abap_unit_assert=>assert_true( mo_cut->mv_called ).
+    cl_abap_unit_assert=>assert_equals( exp = 2 act = mo_cut->mv_step ).
+    cl_abap_unit_assert=>assert_not_initial( mo_cut->mt_fields ).
+  ENDMETHOD.
+
+  METHOD start_back_leaves.
+    mo_cut->mv_called = abap_true.
+    mo_cut->mv_step   = 2.
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `BACK_TO_INPUT`.
+    mo_cut->on_event( ).
+    cl_abap_unit_assert=>assert_true( mo_dbl->mv_nav_leave ).
   ENDMETHOD.
 
 ENDCLASS.

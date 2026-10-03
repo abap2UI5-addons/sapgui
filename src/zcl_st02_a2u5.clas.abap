@@ -47,6 +47,12 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
 
   METHOD z2ui5_if_app~main.
 
+    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
+    " so the app is protected even when it is started directly by URL
+    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
+      RETURN.
+    ENDIF.
+
     me->client = client.
 
     IF client->check_on_init( ).
@@ -123,19 +129,19 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
                                           iv_message  = mv_message
                                           iv_msg_type = mv_msgtype ).
 
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE #( ( `List` ) ( `Edit` ) ( `Goto` )
                               ( `Environment` ) ( `System` ) ( `Help` ) ) ).
 
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event_nav_app_leave( ) ).
 
     " T 000 - Tune Summary (&)
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = |Tune Summary ({ sy-host })| ).
 
@@ -207,7 +213,9 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
     LOOP AT lt_bcol INTO DATA(lv_bcol).
       SPLIT lv_bcol AT `|` INTO DATA(lv_bhead) DATA(lv_bfld) DATA(lv_bwid).
       DATA(bcol) = bcols->ele( n = `Column` ns = `table`
-          )->a( n = `width` t = lv_bwid ).
+          )->a( n = `width` t = lv_bwid
+          )->a( n = `sortProperty`   v = lv_bfld
+          )->a( n = `filterProperty` v = lv_bfld ).
       bcol->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_bhead )->end( )->end( ).
       bcol->ele( n = `template` ns = `table`
@@ -242,7 +250,9 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
     LOOP AT lt_mcol INTO DATA(lv_mcol).
       SPLIT lv_mcol AT `|` INTO DATA(lv_mhead) DATA(lv_mfld) DATA(lv_mwid).
       DATA(mcol) = mcols->ele( n = `Column` ns = `table`
-          )->a( n = `width` t = lv_mwid ).
+          )->a( n = `width` t = lv_mwid
+          )->a( n = `sortProperty`   v = lv_mfld
+          )->a( n = `filterProperty` v = lv_mfld ).
       mcol->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_mhead )->end( )->end( ).
       mcol->ele( n = `template` ns = `table`

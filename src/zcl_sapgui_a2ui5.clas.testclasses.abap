@@ -158,7 +158,7 @@ CLASS ltcl_launcher IMPLEMENTATION.
     " system but is no part of this environment at all. This half of the
     " test keeps working even when every listed transaction has its app.
     DATA(lt_outside) = VALUE string_table(
-        ( `SM04` ) ( `SP01` ) ( `SM35` ) ( `SU53` ) ).
+        ( `SM36` ) ( `SM35` ) ( `SU56` ) ( `SM13` ) ).
 
     LOOP AT lt_outside INTO DATA(lv_tcode).
       IF line_exists( mo_cut->mt_all_tcodes[ tcode = lv_tcode ] )

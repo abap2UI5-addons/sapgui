@@ -85,6 +85,14 @@ CLASS zcl_se80_api DEFINITION PUBLIC.
         message TYPE string,
       END OF ty_s_result.
 
+    " ===== Write protection =====
+    " The Object Navigator of this environment is READ-ONLY. All methods
+    " that change the repository (save, activate, create, delete, rename,
+    " copy, transport) refuse to run while this constant is abap_false.
+    " Switching it on is a deliberate code change - and even then every
+    " change still needs S_DEVELOP for the concrete package and object.
+    CONSTANTS c_write_enabled TYPE abap_bool VALUE abap_false.
+
     " ===== Navigation =====
     METHODS get_package_tree
       IMPORTING iv_package    TYPE devclass
@@ -313,6 +321,30 @@ CLASS zcl_se80_api DEFINITION PUBLIC.
   PROTECTED SECTION.
   PRIVATE SECTION.
 
+    " S_DEVELOP key of a repository object: TADIR package, the object type
+    " S_DEVELOP expects (a function module is checked via its group).
+    METHODS develop_key
+      IMPORTING iv_name    TYPE sobj_name
+                iv_type    TYPE trobjtype
+      EXPORTING ev_package TYPE string
+                ev_objtype TYPE string
+                ev_objname TYPE string.
+
+    " Gate of every changing method: write switch + S_DEVELOP.
+    " iv_package is used for objects that do not exist yet (create / copy).
+    METHODS check_write
+      IMPORTING iv_name       TYPE sobj_name
+                iv_type       TYPE trobjtype
+                iv_actvt      TYPE activ_auth
+                iv_package    TYPE devclass OPTIONAL
+      RETURNING VALUE(result) TYPE ty_s_result.
+
+    " S_DEVELOP display for one object
+    METHODS check_read
+      IMPORTING iv_name       TYPE sobj_name
+                iv_type       TYPE trobjtype
+      RETURNING VALUE(result) TYPE ty_s_result.
+
     METHODS read_class_source
       IMPORTING iv_name       TYPE sobj_name
       RETURNING VALUE(result) TYPE ty_s_source_result.
@@ -344,7 +376,9 @@ CLASS zcl_se80_api DEFINITION PUBLIC.
 ENDCLASS.
 
 
-CLASS zcl_se80_api IMPLEMENTATION.
+
+CLASS ZCL_SE80_API IMPLEMENTATION.
+
 
   METHOD get_package_tree.
     " Sub-packages
@@ -510,6 +544,13 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD load_source.
+    DATA(ls_gate) = check_read( iv_name = iv_name iv_type = iv_type ).
+    IF ls_gate-success = abap_false.
+      result-success = abap_false.
+      result-message = ls_gate-message.
+      RETURN.
+    ENDIF.
+
     CASE iv_type.
       WHEN 'CLAS' OR 'INTF'.
         result = read_class_source( iv_name ).
@@ -702,6 +743,14 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD save_source.
+    DATA(ls_gate) = check_write( iv_name  = iv_name
+                                iv_type  = iv_type
+                                iv_actvt = zcl_zlk05_auth=>c_actvt_change ).
+    IF ls_gate-success = abap_false.
+      result = ls_gate.
+      RETURN.
+    ENDIF.
+
     DATA lt_source TYPE string_table.
     SPLIT iv_source AT cl_abap_char_utilities=>newline INTO TABLE lt_source.
 
@@ -764,6 +813,14 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD activate_object.
+    DATA(ls_gate) = check_write( iv_name  = iv_name
+                                iv_type  = iv_type
+                                iv_actvt = zcl_zlk05_auth=>c_actvt_activate ).
+    IF ls_gate-success = abap_false.
+      result = ls_gate.
+      RETURN.
+    ENDIF.
+
     DATA lt_objects TYPE STANDARD TABLE OF dwinactiv WITH EMPTY KEY.
     DATA ls_obj TYPE dwinactiv.
 
@@ -1350,6 +1407,12 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD get_table_content.
+    DATA(ls_auth) = zcl_zlk05_auth=>check_table_display( CONV string( iv_name ) ).
+    IF ls_auth-allowed = abap_false.
+      result = |* { ls_auth-message }|.
+      RETURN.
+    ENDIF.
+
     " Preview first N rows of a table
     DATA lt_lines TYPE string_table.
     TRY.
@@ -1416,6 +1479,14 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD rename_object.
+    DATA(ls_gate) = check_write( iv_name  = iv_old_name
+                                iv_type  = iv_type
+                                iv_actvt = zcl_zlk05_auth=>c_actvt_delete ).
+    IF ls_gate-success = abap_false.
+      result = ls_gate.
+      RETURN.
+    ENDIF.
+
     CASE iv_type.
       WHEN 'PROG'.
         " Copy source to new name, delete old
@@ -1647,6 +1718,15 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD create_interface.
+    DATA(ls_gate) = check_write( iv_name  = iv_name
+                                iv_type  = 'INTF'
+                                iv_actvt = zcl_zlk05_auth=>c_actvt_create
+                                iv_package = iv_package ).
+    IF ls_gate-success = abap_false.
+      result = ls_gate.
+      RETURN.
+    ENDIF.
+
     TRY.
         DATA ls_intf TYPE vseointerf.
         ls_intf-clsname = iv_name.
@@ -1708,6 +1788,15 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD create_class.
+    DATA(ls_gate) = check_write( iv_name  = iv_name
+                                iv_type  = 'CLAS'
+                                iv_actvt = zcl_zlk05_auth=>c_actvt_create
+                                iv_package = iv_package ).
+    IF ls_gate-success = abap_false.
+      result = ls_gate.
+      RETURN.
+    ENDIF.
+
     TRY.
         DATA(ls_class) = VALUE vseoclass(
           clsname  = iv_name
@@ -1757,6 +1846,15 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD copy_object.
+    DATA(ls_gate) = check_write( iv_name  = iv_target_name
+                                iv_type  = iv_source_type
+                                iv_actvt = zcl_zlk05_auth=>c_actvt_create
+                                iv_package = iv_package ).
+    IF ls_gate-success = abap_false.
+      result = ls_gate.
+      RETURN.
+    ENDIF.
+
     CASE iv_source_type.
       WHEN 'PROG'.
         DATA lt_source TYPE string_table.
@@ -1813,6 +1911,15 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD create_program.
+    DATA(ls_gate) = check_write( iv_name  = iv_name
+                                iv_type  = 'PROG'
+                                iv_actvt = zcl_zlk05_auth=>c_actvt_create
+                                iv_package = iv_package ).
+    IF ls_gate-success = abap_false.
+      result = ls_gate.
+      RETURN.
+    ENDIF.
+
     DATA lt_source TYPE string_table.
     APPEND |REPORT { iv_name }.| TO lt_source.
 
@@ -1865,6 +1972,14 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD delete_object.
+    DATA(ls_gate) = check_write( iv_name  = iv_name
+                                iv_type  = iv_type
+                                iv_actvt = zcl_zlk05_auth=>c_actvt_delete ).
+    IF ls_gate-success = abap_false.
+      result = ls_gate.
+      RETURN.
+    ENDIF.
+
     CASE iv_type.
       WHEN 'PROG'.
         CALL FUNCTION 'RS_DELETE_PROGRAM'
@@ -1914,6 +2029,14 @@ CLASS zcl_se80_api IMPLEMENTATION.
 
 
   METHOD lock_in_transport.
+    DATA(ls_gate) = check_write( iv_name  = iv_name
+                                iv_type  = iv_type
+                                iv_actvt = zcl_zlk05_auth=>c_actvt_change ).
+    IF ls_gate-success = abap_false.
+      result = ls_gate.
+      RETURN.
+    ENDIF.
+
     DATA ls_e071 TYPE e071.
     DATA lt_e071 TYPE STANDARD TABLE OF e071 WITH EMPTY KEY.
     ls_e071-pgmid = 'R3TR'.
@@ -2067,6 +2190,80 @@ CLASS zcl_se80_api IMPLEMENTATION.
       FIND ALL OCCURRENCES OF cl_abap_char_utilities=>newline IN iv_source MATCH COUNT result.
       result = result + 1.
     ENDIF.
+  ENDMETHOD.
+
+  METHOD develop_key.
+
+    CLEAR: ev_package, ev_objtype, ev_objname.
+
+    DATA(lv_type) = CONV trobjtype( to_upper( iv_type ) ).
+    DATA(lv_name) = CONV sobj_name( to_upper( iv_name ) ).
+
+    IF lv_type = 'FUNC'.
+      " S_DEVELOP checks a function module through its function group
+      SELECT SINGLE area FROM enlfdir WHERE funcname = @lv_name INTO @DATA(lv_area).
+      lv_type = 'FUGR'.
+      lv_name = lv_area.
+    ENDIF.
+
+    ev_objtype = lv_type.
+    ev_objname = lv_name.
+
+    SELECT SINGLE devclass FROM tadir
+      WHERE pgmid = 'R3TR' AND object = @lv_type AND obj_name = @lv_name
+      INTO @DATA(lv_devclass).
+    ev_package = lv_devclass.
+
+  ENDMETHOD.
+
+
+  METHOD check_write.
+
+    result-success = abap_false.
+
+    IF c_write_enabled = abap_false.
+      MESSAGE e013(zlk05) INTO result-message.
+      RETURN.
+    ENDIF.
+
+    develop_key( EXPORTING iv_name    = iv_name
+                           iv_type    = iv_type
+                 IMPORTING ev_package = DATA(lv_package)
+                           ev_objtype = DATA(lv_objtype)
+                           ev_objname = DATA(lv_objname) ).
+    IF lv_package IS INITIAL.
+      lv_package = iv_package.
+    ENDIF.
+    IF lv_package IS INITIAL.
+      MESSAGE e014(zlk05) WITH iv_type iv_name INTO result-message.
+      RETURN.
+    ENDIF.
+
+    DATA(ls_auth) = zcl_zlk05_auth=>check_develop( iv_actvt   = iv_actvt
+                                                  iv_package = lv_package
+                                                  iv_objtype = lv_objtype
+                                                  iv_objname = lv_objname ).
+    result-success = ls_auth-allowed.
+    result-message = ls_auth-message.
+
+  ENDMETHOD.
+
+
+  METHOD check_read.
+
+    develop_key( EXPORTING iv_name    = iv_name
+                           iv_type    = iv_type
+                 IMPORTING ev_package = DATA(lv_package)
+                           ev_objtype = DATA(lv_objtype)
+                           ev_objname = DATA(lv_objname) ).
+
+    DATA(ls_auth) = zcl_zlk05_auth=>check_develop( iv_actvt   = zcl_zlk05_auth=>c_actvt_display
+                                                  iv_package = lv_package
+                                                  iv_objtype = lv_objtype
+                                                  iv_objname = lv_objname ).
+    result-success = ls_auth-allowed.
+    result-message = ls_auth-message.
+
   ENDMETHOD.
 
 ENDCLASS.

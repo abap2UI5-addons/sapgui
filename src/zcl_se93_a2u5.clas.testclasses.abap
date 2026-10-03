@@ -67,6 +67,13 @@ CLASS ltcl_se93_a2u5 DEFINITION FINAL FOR TESTING
     METHODS upd_mode_asynchronous  FOR TESTING.
     METHODS upd_mode_local         FOR TESTING.
     METHODS upd_mode_empty         FOR TESTING.
+
+    " --- Test and Display Program ---
+    METHODS detail_test_wired        FOR TESTING.
+    METHODS detail_goto_wired        FOR TESTING.
+    METHODS detail_test_jumps        FOR TESTING.
+    METHODS detail_goto_no_program   FOR TESTING.
+
 ENDCLASS.
 
 
@@ -666,6 +673,42 @@ CLASS ltcl_se93_a2u5 IMPLEMENTATION.
     " a transaction that is not an OO one carries no update mode
     CLEAR mo_cut->ms_detail-upd_mode.
     cl_abap_unit_assert=>assert_initial( mo_cut->upd_mode_text( ) ).
+  ENDMETHOD.
+
+
+  METHOD detail_test_wired.
+    given_detail( detail_dialog( ) ).
+    mo_cut->view_detail( ).
+    cl_abap_unit_assert=>assert_true( mo_dbl->has_event( `TEST_TCODE` ) ).
+  ENDMETHOD.
+
+  METHOD detail_goto_wired.
+    given_detail( detail_dialog( ) ).
+    mo_cut->view_detail( ).
+    cl_abap_unit_assert=>assert_true( mo_dbl->has_event( `GOTO_PROGRAM` ) ).
+  ENDMETHOD.
+
+  METHOD detail_test_jumps.
+    " SE93 is one of the transactions of this environment: Test starts it
+    given_detail( detail_dialog( ) ).
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `TEST_TCODE`.
+    mo_cut->on_event( ).
+    IF mo_dbl->mv_nav_call IS INITIAL.
+      cl_abap_unit_assert=>assert_not_initial( mo_cut->mv_message ).
+    ELSE.
+      cl_abap_unit_assert=>assert_equals( exp = `ZCL_SE93_A2U5` act = mo_dbl->mv_nav_call ).
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD detail_goto_no_program.
+    DATA(ls_detail) = detail_dialog( ).
+    CLEAR ls_detail-pgmna.
+    given_detail( ls_detail ).
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `GOTO_PROGRAM`.
+    mo_cut->on_event( ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->mv_nav_call ).
   ENDMETHOD.
 
 ENDCLASS.

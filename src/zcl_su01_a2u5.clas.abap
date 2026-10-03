@@ -23,6 +23,7 @@ CLASS zcl_su01_a2u5 DEFINITION PUBLIC.
 
   PUBLIC SECTION.
     INTERFACES z2ui5_if_app.
+    INTERFACES zif_zlk05_start_params.
 
     CONSTANTS c_na TYPE string VALUE `not available in this environment`.
 
@@ -56,19 +57,41 @@ CLASS zcl_su01_a2u5 DEFINITION PUBLIC.
     METHODS menu_entries
       RETURNING VALUE(result) TYPE string_table.
 
+    "! User handed over by another transaction (SM04 ...). SU01 then shows
+    "! the user directly, and Back returns to the calling transaction.
+    DATA mv_start_user TYPE string.
+    DATA mv_called     TYPE abap_bool.
+
   PRIVATE SECTION.
 ENDCLASS.
 
 
 CLASS zcl_su01_a2u5 IMPLEMENTATION.
 
+  METHOD zif_zlk05_start_params~set_start_params.
+    mv_start_user = to_upper( condense( VALUE #(
+        it_params[ name = zif_zlk05_start_params=>c_user ]-value OPTIONAL ) ) ).
+  ENDMETHOD.
+
+
   METHOD z2ui5_if_app~main.
+
+    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
+    " so the app is protected even when it is started directly by URL
+    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
+      RETURN.
+    ENDIF.
 
     me->client = client.
 
     IF client->check_on_init( ).
       mv_mode = `LIST`.
-      view_display( ).
+      IF mv_start_user IS NOT INITIAL.
+        mv_pattern = mv_start_user.
+        mv_called  = abap_true.
+        do_open( mv_start_user ).
+      ENDIF.
+      render( ).
     ELSEIF client->check_on_navigated( ).
       " Another transaction was left with F3 / the Back arrow and handed
       " control back to this one. The framework supplies an EMPTY event here
@@ -109,7 +132,26 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
         IF lines( lt_arg ) > 0.
           do_open( lt_arg[ 1 ] ).
         ENDIF.
+      WHEN 'DISPLAY_ROLE'.
+        " like the role tab of SU01: a role opens in the role maintenance
+        IF lines( lt_arg ) > 0 AND lt_arg[ 1 ] IS NOT INITIAL.
+          DATA(ls_run) = zcl_zlk05_tcode_router=>run(
+              iv_command = `PFCG`
+              io_client  = client
+              it_params  = VALUE #( ( name  = zif_zlk05_start_params=>c_role
+                                      value = lt_arg[ 1 ] ) ) ).
+          IF ls_run-outcome = zcl_zlk05_tcode_router=>c_nav.
+            RETURN.
+          ENDIF.
+          mv_message = ls_run-message.
+          mv_msgtype = ls_run-msg_type.
+        ENDIF.
       WHEN 'BACK_TO_LIST'.
+        " shown for another transaction: Back returns there
+        IF mv_called = abap_true.
+          client->nav_app_leave( ).
+          RETURN.
+        ENDIF.
         mv_mode = `LIST`.
       WHEN OTHERS.
     ENDCASE.
@@ -157,6 +199,17 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
   METHOD do_open.
 
     CLEAR mt_roles.
+
+    " S_USER_GRP for the group of this user - the hit list is filtered the
+    " same way, this protects a user name that was typed or handed over
+    DATA(ls_auth) = zcl_zlk05_auth=>check_user_display( iv_bname ).
+    IF ls_auth-allowed = abap_false.
+      mv_message = ls_auth-message.
+      mv_msgtype = `Error`.
+      mv_mode    = `LIST`.
+      RETURN.
+    ENDIF.
+
     mv_current = iv_bname.
     mt_roles   = zcl_zlk05_sys_api=>get_user_roles( iv_bname ).
     mv_mode    = `DETAIL`.
@@ -180,19 +233,19 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
                                           iv_msg_type = mv_msgtype ).
 
     " band 1 - menu bar
-    zcl_zlk05_gui_frame=>build_menu_bar( io_parent  = page
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client io_parent  = page
                                         it_entries = menu_entries( ) ).
 
     " band 2 - system function bar with the command field. This is the entry
     " screen of the transaction, so Back leaves it.
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event_nav_app_leave( ) ).
 
     " band 3 - title bar
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = `User Maintenance: Initial Screen` ).
 
@@ -268,7 +321,9 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` t = lv_wid ).
+          )->a( n = `width` t = lv_wid
+          )->a( n = `sortProperty`   v = lv_fld
+          )->a( n = `filterProperty` v = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
 
@@ -311,13 +366,13 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
                                           iv_msg_type = mv_msgtype ).
 
     " band 1 - menu bar
-    zcl_zlk05_gui_frame=>build_menu_bar( io_parent  = page
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client io_parent  = page
                                         it_entries = menu_entries( ) ).
 
     " band 2 - system function bar. This is the second screen of the
     " transaction, so Back returns to the initial screen instead of
     " leaving SU01.
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
@@ -325,7 +380,7 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
 
     " band 3 - title bar. The original title of the display screen is
     " "Display Users", the user and the tab are named next to it.
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = `Display Users`
         iv_hint   = |User { mv_current } - Roles| ).
@@ -377,13 +432,22 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` t = lv_wid ).
+          )->a( n = `width` t = lv_wid
+          )->a( n = `sortProperty`   v = lv_fld
+          )->a( n = `filterProperty` v = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
-      col->ele( n = `template` ns = `table`
-          )->tag( `Text`
-              )->a( n = `text`     v = |\{{ lv_fld }\}|
-              )->a( n = `wrapping` v = `false` ).
+      DATA(tmpl) = col->ele( n = `template` ns = `table` ).
+      IF lv_fld = `AGR_NAME`.
+        " the role opens in the role maintenance (PFCG)
+        tmpl->tag( `Link`
+            )->a( n = `text`  v = `{AGR_NAME}`
+            )->a( n = `press` v = client->_event( val = `DISPLAY_ROLE` arg = `${AGR_NAME}` ) ).
+      ELSE.
+        tmpl->tag( `Text`
+            )->a( n = `text`     v = |\{{ lv_fld }\}|
+            )->a( n = `wrapping` v = `false` ).
+      ENDIF.
       col->end( ).
     ENDLOOP.
 

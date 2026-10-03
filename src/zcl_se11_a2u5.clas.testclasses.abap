@@ -37,6 +37,10 @@ CLASS ltcl_se11_a2u5 DEFINITION FINAL FOR TESTING
     METHODS detail_back_to_list    FOR TESTING.
     METHODS detail_f3_stays_inside FOR TESTING.
     METHODS detail_has_gui_frame   FOR TESTING.
+
+    METHODS detail_contents_wired    FOR TESTING.
+    METHODS detail_contents_jumps    FOR TESTING.
+
 ENDCLASS.
 
 
@@ -331,7 +335,7 @@ CLASS ltcl_se11_a2u5 IMPLEMENTATION.
     given_table_detail( ).
     mo_cut->view_detail( ).
 
-    LOOP AT VALUE string_table( ( `F3` ) ( `Shift+F3` ) ( `F12` ) )
+    LOOP AT VALUE string_table( ( `F3` ) ( `F12` ) )
          INTO DATA(lv_key).
       cl_abap_unit_assert=>assert_true(
           act = mo_dbl->has_shortcut( iv_keys  = lv_key
@@ -342,6 +346,12 @@ CLASS ltcl_se11_a2u5 IMPLEMENTATION.
                                       iv_event = zcl_zlk05_gui_frame=>c_ev_back )
           msg = |{ lv_key } leaves the transaction instead of the screen| ).
     ENDLOOP.
+    " Shift+F3 is Exit in the SAP GUI - it leaves the transaction from
+    " every one of its screens, not only one screen back
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_shortcut( iv_keys  = `Shift+F3`
+                                    iv_event = zcl_zlk05_gui_frame=>c_ev_exit )
+        msg = 'Shift+F3 must leave the transaction' ).
   ENDMETHOD.
 
   METHOD detail_has_gui_frame.
@@ -357,6 +367,28 @@ CLASS ltcl_se11_a2u5 IMPLEMENTATION.
           act = xsdbool( find( val = mo_dbl->mv_view sub = lv_text ) >= 0 )
           msg = |the SAP GUI frame does not show "{ lv_text }"| ).
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD detail_contents_wired.
+    given_table_detail( ).
+    mo_cut->view_detail( ).
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event( `CONTENTS` )
+        msg = 'Table Contents is not wired' ).
+  ENDMETHOD.
+
+  METHOD detail_contents_jumps.
+    " SE16N is started with the table - or the router tells why not
+    given_table_detail( ).
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `CONTENTS`.
+    mo_cut->on_event( ).
+    IF mo_dbl->mv_nav_call IS INITIAL.
+      cl_abap_unit_assert=>assert_not_initial( mo_cut->mv_message ).
+    ELSE.
+      cl_abap_unit_assert=>assert_equals( exp = `ZCL_SE16N_A2U5` act = mo_dbl->mv_nav_call ).
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.

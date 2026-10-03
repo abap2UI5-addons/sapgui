@@ -414,7 +414,7 @@ CLASS ltcl_se09_a2u5 IMPLEMENTATION.
     given_detail( ).
     mo_cut->view_detail( ).
 
-    LOOP AT VALUE string_table( ( `F3` ) ( `Shift+F3` ) ( `F12` ) )
+    LOOP AT VALUE string_table( ( `F3` ) ( `F12` ) )
          INTO DATA(lv_key).
       cl_abap_unit_assert=>assert_true(
           act = mo_dbl->has_shortcut( iv_keys  = lv_key
@@ -425,6 +425,12 @@ CLASS ltcl_se09_a2u5 IMPLEMENTATION.
                                       iv_event = zcl_zlk05_gui_frame=>c_ev_back )
           msg = |{ lv_key } leaves the transaction instead of the screen| ).
     ENDLOOP.
+    " Shift+F3 is Exit in the SAP GUI - it leaves the transaction from
+    " every one of its screens, not only one screen back
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_shortcut( iv_keys  = `Shift+F3`
+                                    iv_event = zcl_zlk05_gui_frame=>c_ev_exit )
+        msg = 'Shift+F3 must leave the transaction' ).
   ENDMETHOD.
 
   METHOD detail_has_gui_frame.

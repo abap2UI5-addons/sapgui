@@ -48,6 +48,12 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
 
   METHOD z2ui5_if_app~main.
 
+    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
+    " so the app is protected even when it is started directly by URL
+    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
+      RETURN.
+    ENDIF.
+
     me->client = client.
 
     IF client->check_on_init( ).
@@ -89,6 +95,28 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
     CASE client->get_event( ).
       WHEN 'EXECUTE'.
         do_search( ).
+      WHEN 'GOTO_DUMP'.
+        " the system log writes AB* messages for runtime errors - from such
+        " an entry the dump analysis opens with the day and the user
+        SPLIT client->get_event_arg( ) AT `|` INTO DATA(lv_date) DATA(lv_user) DATA(lv_msgno).
+        IF lv_msgno NP `AB*`.
+          mv_message = `Choose an entry of a runtime error (message AB*) to display its dump.`.
+          mv_msgtype = `Information`.
+        ELSE.
+          " DD.MM.YYYY -> YYYYMMDD
+          DATA(lv_ymd) = COND string( WHEN strlen( lv_date ) = 10
+                                      THEN |{ lv_date+6(4) }{ lv_date+3(2) }{ lv_date(2) }| ).
+          DATA(ls_run) = zcl_zlk05_tcode_router=>run(
+              iv_command = `ST22`
+              io_client  = client
+              it_params  = VALUE #( ( name = zif_zlk05_start_params=>c_date value = lv_ymd )
+                                    ( name = zif_zlk05_start_params=>c_user value = lv_user ) ) ).
+          IF ls_run-outcome = zcl_zlk05_tcode_router=>c_nav.
+            RETURN.
+          ENDIF.
+          mv_message = ls_run-message.
+          mv_msgtype = ls_run-msg_type.
+        ENDIF.
       WHEN OTHERS.
     ENDCASE.
 
@@ -149,19 +177,19 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
                                           iv_msg_type = mv_msgtype ).
 
     " M - the menu bar of the SM21 entry screen
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE #( ( `System log` ) ( `Edit` ) ( `Goto` )
                               ( `Environment` ) ( `System` ) ( `Help` ) ) ).
 
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event_nav_app_leave( ) ).
 
     " T 100 - System Log: Local Analysis of &
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = |System Log: Local Analysis of { sy-host }| ).
 
@@ -263,6 +291,8 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
     " the result list - the original SM21 shows it as an ALV grid
     DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_syslog )
+        )->a( n = `cellClick`           v = client->_event( val = `GOTO_DUMP`
+                                                            arg = `${DATE}|${USER}|${CLASID}` )
         )->a( n = `visibleRowCountMode` v = `Auto`
         )->a( n = `selectionMode`       v = `Single`
         )->a( n = `rowHeight`           v = `26`
@@ -285,7 +315,9 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` t = lv_wid ).
+          )->a( n = `width` t = lv_wid
+          )->a( n = `sortProperty`   v = lv_fld
+          )->a( n = `filterProperty` v = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`

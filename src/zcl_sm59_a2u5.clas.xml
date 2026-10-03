@@ -3,13 +3,14 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <VSEOCLASS>
-    <CLSNAME>ZCL_ZLK05_TMP_PROBE</CLSNAME>
+    <CLSNAME>ZCL_SM59_A2U5</CLSNAME>
     <LANGU>E</LANGU>
-    <DESCRIPT>TEMP - probe area menu tree S000</DESCRIPT>
+    <DESCRIPT>RFC Connections (abap2UI5)</DESCRIPT>
     <STATE>1</STATE>
     <CLSCCINCL>X</CLSCCINCL>
     <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
+    <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
    </VSEOCLASS>
   </asx:values>
  </asx:abap>

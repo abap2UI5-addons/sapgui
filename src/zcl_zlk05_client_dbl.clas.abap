@@ -11,6 +11,15 @@ CLASS zcl_zlk05_client_dbl DEFINITION
     DATA mv_popover       TYPE string.
     DATA mv_nav_call      TYPE string.
     DATA mv_nav_leave     TYPE abap_bool.
+    "! nav_app_leave( app ) - the app that REPLACES the running one (/n)
+    DATA mv_nav_replace   TYPE string.
+    "! message_box_display - text, type and the event raised on close
+    DATA mv_msgbox         TYPE string.
+    DATA mv_msgbox_type    TYPE string.
+    DATA mv_msgbox_onclose TYPE string.
+    DATA mv_popup_destroyed TYPE abap_bool.
+    "! What get_app( ) returns - the running app for the frame functions
+    DATA mo_app           TYPE REF TO z2ui5_if_app.
     DATA mt_follow_up     TYPE string_table.
 
     " Every follow-up action with its arguments, as `ACTION:arg1,arg2`.
@@ -94,7 +103,8 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
 
   METHOD reset.
     CLEAR: mv_view, mv_popup, mv_popover, mv_nav_call, mv_nav_leave,
-           mt_follow_up, mt_follow_up_arg, mt_events.
+           mt_follow_up, mt_follow_up_arg, mt_events, mv_nav_replace,
+           mv_msgbox, mv_msgbox_type, mv_msgbox_onclose, mv_popup_destroyed.
   ENDMETHOD.
 
   METHOD has_shortcut.
@@ -252,6 +262,9 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
 
   METHOD z2ui5_if_client~nav_app_leave.
     mv_nav_leave = abap_true.
+    IF app IS BOUND.
+      mv_nav_replace = cl_abap_typedescr=>describe_by_object_ref( app )->get_relative_name( ).
+    ENDIF.
   ENDMETHOD.
 
   " ---------- steerable ----------
@@ -325,12 +338,16 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~get_app.
+    result = mo_app.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~get_app_prev.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~message_box_display.
+    mv_msgbox         = |{ text }|.
+    mv_msgbox_type    = type.
+    mv_msgbox_onclose = onclose.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~message_toast_display.
@@ -358,6 +375,7 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~popup_destroy.
+    mv_popup_destroyed = abap_true.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~popover_model_update.

@@ -28,6 +28,9 @@ CLASS ltcl_st22_a2u5 DEFINITION FINAL FOR TESTING
     METHODS sel_status_bar        FOR TESTING.
     METHODS message_reaches_view  FOR TESTING.
     METHODS date_input_guarded    FOR TESTING.
+    METHODS start_params_taken    FOR TESTING.
+    METHODS called_back_leaves    FOR TESTING.
+    METHODS not_called_back_stays FOR TESTING.
 
     " screen 2 - list of selected runtime errors
     METHODS list_is_sane          FOR TESTING.
@@ -43,6 +46,9 @@ CLASS ltcl_st22_a2u5 DEFINITION FINAL FOR TESTING
     METHODS detail_title          FOR TESTING.
     METHODS detail_source_stated  FOR TESTING.
     METHODS detail_has_gui_frame  FOR TESTING.
+    METHODS detail_goto_wired     FOR TESTING.
+    METHODS detail_goto_jumps     FOR TESTING.
+    METHODS detail_goto_no_prog   FOR TESTING.
     METHODS detail_back_to_list   FOR TESTING.
 ENDCLASS.
 
@@ -68,6 +74,38 @@ CLASS ltcl_st22_a2u5 IMPLEMENTATION.
           ahost = `s4h` modno = `1` errorid = `MESSAGE_TYPE_X`
           program = `SAPLSETX` incl = `LSETXU01` line = `17`
           key_date = '20240101' key_time = '130000' key_mod = `1` ) ).
+  ENDMETHOD.
+
+  METHOD detail_goto_wired.
+    given_dump_detail( ).
+    mo_cut->view_detail( ).
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event( `GOTO_PROGRAM` )
+        msg = '"Go to Affected Program" is not wired' ).
+  ENDMETHOD.
+
+  METHOD detail_goto_jumps.
+    " the jump goes through the router: SE38 is started - or, without the
+    " authorization for SE38, the user gets the router's message
+    given_dump_detail( ).
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `GOTO_PROGRAM`.
+    mo_cut->on_event( ).
+    IF mo_dbl->mv_nav_call IS INITIAL.
+      cl_abap_unit_assert=>assert_not_initial( mo_cut->mv_message ).
+    ELSE.
+      cl_abap_unit_assert=>assert_equals( exp = `ZCL_SE38_A2U5` act = mo_dbl->mv_nav_call ).
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD detail_goto_no_prog.
+    given_dump_detail( ).
+    DELETE mo_cut->mt_detail WHERE label = `Program`.
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `GOTO_PROGRAM`.
+    mo_cut->on_event( ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->mv_nav_call ).
+    cl_abap_unit_assert=>assert_equals( exp = `Warning` act = mo_cut->mv_msgtype ).
   ENDMETHOD.
 
   METHOD given_dump_detail.
@@ -338,6 +376,33 @@ CLASS ltcl_st22_a2u5 IMPLEMENTATION.
         exp = -1
         act = find( val = mo_dbl->mv_view sub = `MOCK_NAV_LEAVE` )
         msg = 'the long text leaves the app instead of returning to the list' ).
+  ENDMETHOD.
+
+  METHOD start_params_taken.
+    mo_cut->zif_zlk05_start_params~set_start_params( VALUE #(
+        ( name = zif_zlk05_start_params=>c_date value = ` 20240101 ` )
+        ( name = zif_zlk05_start_params=>c_user value = `developer` ) ) ).
+    cl_abap_unit_assert=>assert_equals( exp = `20240101`  act = mo_cut->mv_start_date ).
+    cl_abap_unit_assert=>assert_equals( exp = `DEVELOPER` act = mo_cut->mv_start_user ).
+  ENDMETHOD.
+
+  METHOD called_back_leaves.
+    " started from SM21: Back from the list returns to the system log
+    mo_cut->mv_called    = abap_true.
+    mo_cut->mv_mode      = `LIST`.
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `BACK_TO_SEL`.
+    mo_cut->on_event( ).
+    cl_abap_unit_assert=>assert_true( mo_dbl->mv_nav_leave ).
+  ENDMETHOD.
+
+  METHOD not_called_back_stays.
+    mo_cut->mv_mode      = `LIST`.
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `BACK_TO_SEL`.
+    mo_cut->on_event( ).
+    cl_abap_unit_assert=>assert_false( mo_dbl->mv_nav_leave ).
+    cl_abap_unit_assert=>assert_equals( exp = `SEL` act = mo_cut->mv_mode ).
   ENDMETHOD.
 
 ENDCLASS.

@@ -34,8 +34,10 @@ CLASS zcl_sm37_a2u5 DEFINITION PUBLIC.
     DATA mv_command   TYPE string.
     DATA mt_jobs     TYPE zcl_zlk05_sys_api=>ty_t_job.
     DATA mt_steps    TYPE zcl_zlk05_sys_api=>ty_t_jobstep.
+    DATA mt_joblog   TYPE zcl_zlk05_sys_api=>ty_t_joblog.
 
   PROTECTED SECTION.
+    DATA mv_cur_jobcount TYPE string.
     DATA mv_mode     TYPE string.
     DATA mv_current  TYPE string.
     DATA mv_message   TYPE string.
@@ -55,6 +57,8 @@ CLASS zcl_sm37_a2u5 DEFINITION PUBLIC.
     METHODS do_open
       IMPORTING iv_jobname  TYPE string
                 iv_jobcount TYPE string.
+    METHODS do_joblog.
+    METHODS view_joblog.
 
   PRIVATE SECTION.
 ENDCLASS.
@@ -63,6 +67,12 @@ ENDCLASS.
 CLASS zcl_sm37_a2u5 IMPLEMENTATION.
 
   METHOD z2ui5_if_app~main.
+
+    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
+    " so the app is protected even when it is started directly by URL
+    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
+      RETURN.
+    ENDIF.
 
     me->client = client.
 
@@ -117,6 +127,10 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
         ENDIF.
       WHEN 'BACK_TO_LIST'.
         mv_mode = `LIST`.
+      WHEN 'JOBLOG'.
+        do_joblog( ).
+      WHEN 'BACK_TO_STEPS'.
+        mv_mode = `DETAIL`.
       WHEN OTHERS.
     ENDCASE.
 
@@ -128,6 +142,8 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
 
     IF mv_mode = `DETAIL`.
       view_detail( ).
+    ELSEIF mv_mode = `LOG`.
+      view_joblog( ).
     ELSE.
       view_display( ).
     ENDIF.
@@ -154,10 +170,119 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD do_joblog.
+
+    zcl_zlk05_sys_api=>get_job_log(
+      EXPORTING iv_jobname  = mv_current
+                iv_jobcount = mv_cur_jobcount
+      IMPORTING et_log      = mt_joblog
+                ev_message  = DATA(lv_msg) ).
+
+    IF lv_msg IS NOT INITIAL.
+      mv_message = lv_msg.
+      mv_msgtype = `Warning`.
+      RETURN.
+    ENDIF.
+
+    mv_mode    = `LOG`.
+    mv_message = |{ lines( mt_joblog ) } line(s) in the job log.|.
+    mv_msgtype = `Information`.
+
+  ENDMETHOD.
+
+
+  METHOD view_joblog.
+
+    DATA(view) = z2ui5_cl_ui5_view_builder=>factory( ).
+    DATA(page) = zcl_zlk05_gui_frame=>open_window( view ).
+
+    zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
+                                          iv_message  = mv_message
+                                          iv_msg_type = mv_msgtype ).
+
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
+        io_parent  = page
+        it_entries = VALUE #( ( `Job log` ) ( `Edit` ) ( `Goto` ) ( `System` ) ( `Help` ) ) ).
+
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
+        io_parent     = page
+        iv_cmd_value  = client->_bind( mv_command )
+        iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
+        iv_back_event = client->_event( `BACK_TO_STEPS` ) ).
+
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
+        io_parent = page
+        iv_title  = |Job Log Entries for { mv_current } / { mv_cur_jobcount }| ).
+
+    zcl_zlk05_gui_frame=>build_app_bar(
+        io_parent  = page
+        it_buttons = VALUE #(
+            ( text = `Step List` icon = `sap-icon://nav-back`
+              tooltip = `Back to the step list (F3)`
+              press = client->_event( `BACK_TO_STEPS` ) )
+            ( sep = abap_true )
+            ( icon = `sap-icon://message-information` color = zcl_zlk05_gui_frame=>c_grey
+              tooltip = |Long Text - { c_na }| ) ) ).
+
+    DATA(work) = page->ele( `ScrollContainer`
+        )->a( n = `height`     v = zcl_zlk05_gui_frame=>c_work_height
+        )->a( n = `vertical`   v = `true`
+        )->a( n = `horizontal` v = `true` ).
+
+    DATA(grid) = work->ele( n = `Table` ns = `table`
+        )->a( n = `rows`                v = client->_bind( mt_joblog )
+        )->a( n = `visibleRowCountMode` v = `Auto`
+        )->a( n = `selectionMode`       v = `Single`
+        )->a( n = `rowHeight`           v = `26`
+        )->a( n = `minAutoRowCount`     v = `10` ).
+
+    DATA(cols) = grid->ele( n = `columns` ns = `table` ).
+
+    " the columns of the original job log list
+    DATA(lt_col) = VALUE string_table(
+        ( `Date|ENTERDATE|7rem` )
+        ( `Time|ENTERTIME|6rem` )
+        ( `Message Text|TEXT|50rem` )
+        ( `Message Class|MSGID|9rem` )
+        ( `No.|MSGNO|4rem` )
+        ( `Type|MSGTYPE|4rem` ) ).
+
+    LOOP AT lt_col INTO DATA(lv_col).
+      SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
+      DATA(col) = cols->ele( n = `Column` ns = `table`
+          )->a( n = `width` t = lv_wid
+          )->a( n = `sortProperty`   v = lv_fld
+          )->a( n = `filterProperty` v = lv_fld ).
+      col->ele( n = `label` ns = `table`
+          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+      col->ele( n = `template` ns = `table` ).
+      IF lv_fld = `MSGTYPE`.
+        col->tag( `ObjectStatus`
+            )->a( n = `text`  v = `{MSGTYPE}`
+            )->a( n = `state` v = `{STATE}` ).
+      ELSE.
+        col->tag( `Text`
+            )->a( n = `text`     v = |\{{ lv_fld }\}|
+            )->a( n = `wrapping` v = `false` ).
+      ENDIF.
+      col->end( ).
+    ENDLOOP.
+
+    zcl_zlk05_gui_frame=>register_keys(
+        io_client    = client
+        iv_back_name = `BACK_TO_STEPS` ).
+
+    client->view_display( view->stringify( ) ).
+
+  ENDMETHOD.
+
+
+
   METHOD do_open.
 
     CLEAR mt_steps.
-    mv_current = iv_jobname.
+    mv_current      = iv_jobname.
+    mv_cur_jobcount = iv_jobcount.
     mt_steps   = zcl_zlk05_sys_api=>get_job_steps( iv_jobname  = iv_jobname
                                                    iv_jobcount = iv_jobcount ).
 
@@ -181,19 +306,19 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
                                           iv_message  = mv_message
                                           iv_msg_type = mv_msgtype ).
 
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE #( ( `Job` ) ( `Edit` ) ( `Goto` ) ( `Extras` )
                               ( `Settings` ) ( `System` ) ( `Help` ) ) ).
 
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event_nav_app_leave( ) ).
 
     " T JOV_TITLE - Job Overview
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = `Job Overview` ).
 
@@ -327,7 +452,9 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` t = lv_wid ).
+          )->a( n = `width` t = lv_wid
+          )->a( n = `sortProperty`   v = lv_fld
+          )->a( n = `filterProperty` v = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table` ).
@@ -367,19 +494,19 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
                                           iv_message  = mv_message
                                           iv_msg_type = mv_msgtype ).
 
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE #( ( `Job` ) ( `Edit` ) ( `Goto` ) ( `Extras` )
                               ( `Settings` ) ( `System` ) ( `Help` ) ) ).
 
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event( `BACK_TO_LIST` ) ).
 
     " T STEP_TITLE - Step List Overview
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = `Step List Overview`
         iv_hint   = |Job { mv_current }| ).
@@ -392,7 +519,8 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
               press = client->_event( `BACK_TO_LIST` ) )
             ( sep = abap_true )
             ( text = `Job log` icon = `sap-icon://text-align-justified`
-              tooltip = |Job log - { c_na }| )
+              tooltip = `Display the job log`
+              press = client->_event( `JOBLOG` ) )
             ( text = `Spool list` icon = `sap-icon://print`
               tooltip = |Spool list - { c_na }| )
             ( sep = abap_true )
@@ -433,7 +561,9 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` t = lv_wid ).
+          )->a( n = `width` t = lv_wid
+          )->a( n = `sortProperty`   v = lv_fld
+          )->a( n = `filterProperty` v = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`

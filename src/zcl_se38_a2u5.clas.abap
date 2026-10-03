@@ -2,6 +2,7 @@ CLASS zcl_se38_a2u5 DEFINITION PUBLIC.
 
   PUBLIC SECTION.
     INTERFACES z2ui5_if_app.
+    INTERFACES zif_zlk05_start_params.
 
     DATA mv_progname TYPE string.
     DATA mv_source   TYPE string.
@@ -13,6 +14,10 @@ CLASS zcl_se38_a2u5 DEFINITION PUBLIC.
     DATA mv_current  TYPE string.
     DATA mv_message   TYPE string.
     DATA mv_msgtype  TYPE string.
+    "! Program handed over by another transaction (ST22 ...). SE38 then
+    "! opens it directly, and Back returns to the calling transaction.
+    DATA mv_start_program TYPE string.
+    DATA mv_called        TYPE abap_bool.
 
     DATA client TYPE REF TO z2ui5_if_client.
 
@@ -34,13 +39,30 @@ ENDCLASS.
 
 CLASS zcl_se38_a2u5 IMPLEMENTATION.
 
+  METHOD zif_zlk05_start_params~set_start_params.
+    mv_start_program = to_upper( condense( VALUE #(
+        it_params[ name = zif_zlk05_start_params=>c_program ]-value OPTIONAL ) ) ).
+  ENDMETHOD.
+
+
   METHOD z2ui5_if_app~main.
+
+    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
+    " so the app is protected even when it is started directly by URL
+    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
+      RETURN.
+    ENDIF.
 
     me->client = client.
 
     IF client->check_on_init( ).
       mv_mode = `LIST`.
-      view_display( ).
+      IF mv_start_program IS NOT INITIAL.
+        mv_progname = mv_start_program.
+        mv_called   = abap_true.
+        do_open( mv_start_program ).
+      ENDIF.
+      render( ).
     ELSEIF client->check_on_navigated( ).
       " Another transaction was left with F3 / the Back arrow and handed
       " control back to this one. The framework supplies an EMPTY event here
@@ -86,6 +108,12 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
           do_open( to_upper( condense( mv_progname ) ) ).
         ENDIF.
       WHEN 'BACK_TO_LIST'.
+        " opened from another transaction: Back goes back there, the way
+        " the SAP GUI returns from CALL TRANSACTION
+        IF mv_called = abap_true.
+          client->nav_app_leave( ).
+          RETURN.
+        ENDIF.
         mv_mode = `LIST`.
       WHEN OTHERS.
     ENDCASE.
@@ -125,6 +153,16 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
   METHOD do_open.
 
     CLEAR mv_source.
+
+    " S_DEVELOP display for the concrete program - the generic check of
+    " the transaction only says that the user may use the editor at all
+    DATA(ls_auth) = zcl_zlk05_auth=>check_program_display( iv_name ).
+    IF ls_auth-allowed = abap_false.
+      mv_message = ls_auth-message.
+      mv_msgtype = `Error`.
+      RETURN.
+    ENDIF.
+
     mv_current = iv_name.
     mv_source  = zcl_zlk05_sys_api=>get_program_source( iv_name ).
 
@@ -148,19 +186,19 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
                                           iv_message  = mv_message
                                           iv_msg_type = mv_msgtype ).
 
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE string_table(
             ( `Program` ) ( `Edit` ) ( `Goto` ) ( `Utilities` )
             ( `Environment` ) ( `System` ) ( `Help` ) ) ).
 
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event_nav_app_leave( ) ).
 
-    zcl_zlk05_gui_frame=>build_title_bar( io_parent = page
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client io_parent = page
                                           iv_title  = `ABAP Editor: Initial Screen` ).
 
     " Application function bar. This app reads the repository, so none of
@@ -325,19 +363,19 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
                                           iv_message  = mv_message
                                           iv_msg_type = mv_msgtype ).
 
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE string_table(
             ( `Program` ) ( `Edit` ) ( `Goto` ) ( `Utilities` )
             ( `Environment` ) ( `System` ) ( `Help` ) ) ).
 
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event( `BACK_TO_LIST` ) ).
 
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = |ABAP Editor: Display Report { mv_current }| ).
 

@@ -18,6 +18,7 @@ CLASS zcl_st22_a2u5 DEFINITION PUBLIC.
 
   PUBLIC SECTION.
     INTERFACES z2ui5_if_app.
+    INTERFACES zif_zlk05_start_params.
 
     CONSTANTS c_na TYPE string VALUE `not available in this environment`.
 
@@ -46,6 +47,12 @@ CLASS zcl_st22_a2u5 DEFINITION PUBLIC.
       IMPORTING iv_key TYPE string.
     METHODS render.
 
+    "! Started from another transaction (SM21) with date and user: the
+    "! selection runs at once, and Back from the list returns there
+    DATA mv_start_date TYPE string.
+    DATA mv_start_user TYPE string.
+    DATA mv_called     TYPE abap_bool.
+
   PRIVATE SECTION.
     METHODS date_from_input
       RETURNING VALUE(result) TYPE d.
@@ -54,7 +61,21 @@ ENDCLASS.
 
 CLASS zcl_st22_a2u5 IMPLEMENTATION.
 
+  METHOD zif_zlk05_start_params~set_start_params.
+    mv_start_date = condense( VALUE #(
+        it_params[ name = zif_zlk05_start_params=>c_date ]-value OPTIONAL ) ).
+    mv_start_user = to_upper( condense( VALUE #(
+        it_params[ name = zif_zlk05_start_params=>c_user ]-value OPTIONAL ) ) ).
+  ENDMETHOD.
+
+
   METHOD z2ui5_if_app~main.
+
+    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
+    " so the app is protected even when it is started directly by URL
+    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
+      RETURN.
+    ENDIF.
 
     me->client = client.
 
@@ -62,7 +83,15 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
       mv_mode      = `SEL`.
       mv_date_from = |{ sy-datum - 7 }|.
       mv_date_to   = |{ sy-datum }|.
-      view_display( ).
+      IF mv_start_date IS NOT INITIAL OR mv_start_user IS NOT INITIAL.
+        mv_called = abap_true.
+        IF mv_start_date IS NOT INITIAL.
+          mv_date_from = mv_start_date.
+        ENDIF.
+        mv_user = mv_start_user.
+        do_search( ).
+      ENDIF.
+      render( ).
     ELSEIF client->check_on_navigated( ).
       " Another transaction was left with F3 / the Back arrow and handed
       " control back to this one. The framework supplies an EMPTY event here
@@ -106,7 +135,30 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
       WHEN 'BACK_TO_LIST'.
         mv_mode = `LIST`.
       WHEN 'BACK_TO_SEL'.
+        IF mv_called = abap_true.
+          client->nav_app_leave( ).
+          RETURN.
+        ENDIF.
         mv_mode = `SEL`.
+      WHEN 'GOTO_PROGRAM'.
+        " like the original: jump into the ABAP Editor with the program of
+        " the dump - through the router, so SE38 is checked like typed in
+        DATA(lv_prog) = VALUE string( mt_detail[ label = `Program` ]-value OPTIONAL ).
+        IF lv_prog IS INITIAL.
+          mv_message = `The dump does not name a program.`.
+          mv_msgtype = `Warning`.
+        ELSE.
+          DATA(ls_run) = zcl_zlk05_tcode_router=>run(
+              iv_command = `SE38`
+              io_client  = client
+              it_params  = VALUE #( ( name  = zif_zlk05_start_params=>c_program
+                                      value = lv_prog ) ) ).
+          IF ls_run-outcome = zcl_zlk05_tcode_router=>c_nav.
+            RETURN.
+          ENDIF.
+          mv_message = ls_run-message.
+          mv_msgtype = ls_run-msg_type.
+        ENDIF.
       WHEN OTHERS.
     ENDCASE.
 
@@ -130,20 +182,10 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
 
 
   METHOD date_from_input.
-
-    " The input carries YYYYMMDD. An unusable value falls back to a week ago
-    " instead of selecting the whole SNAP table.
-    result = sy-datum - 7.
-
-    DATA(lv_in) = condense( mv_date_from ).
-    REPLACE ALL OCCURRENCES OF `.` IN lv_in WITH ``.
-    REPLACE ALL OCCURRENCES OF `-` IN lv_in WITH ``.
-    REPLACE ALL OCCURRENCES OF `/` IN lv_in WITH ``.
-
-    IF strlen( lv_in ) = 8 AND lv_in CO `0123456789`.
-      result = lv_in.
-    ENDIF.
-
+    " An unusable value falls back to a week ago instead of selecting the
+    " whole SNAP table.
+    DATA(lv_week_ago) = CONV d( sy-datum - 7 ).
+    result = zcl_zlk05_sys_api=>parse_date( iv_in = mv_date_from iv_default = lv_week_ago ).
   ENDMETHOD.
 
 
@@ -217,18 +259,18 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
                                           iv_message  = mv_message
                                           iv_msg_type = mv_msgtype ).
 
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE #( ( `Runtime Errors` ) ( `Edit` ) ( `Goto` )
                               ( `System` ) ( `Help` ) ) ).
 
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event_nav_app_leave( ) ).
 
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = |ABAP Runtime Errors - Client { sy-mandt }| ).
 
@@ -378,18 +420,18 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
                                           iv_message  = mv_message
                                           iv_msg_type = mv_msgtype ).
 
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE #( ( `Runtime Errors` ) ( `Edit` ) ( `Goto` )
                               ( `System` ) ( `Help` ) ) ).
 
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event( `BACK_TO_SEL` ) ).
 
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = `List of Selected Runtime Errors` ).
 
@@ -453,7 +495,9 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` t = lv_wid ).
+          )->a( n = `width` t = lv_wid
+          )->a( n = `sortProperty`   v = lv_fld
+          )->a( n = `filterProperty` v = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`
@@ -486,18 +530,18 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
                                           iv_message  = mv_message
                                           iv_msg_type = mv_msgtype ).
 
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE #( ( `Runtime Errors` ) ( `Edit` ) ( `Goto` )
                               ( `System` ) ( `Help` ) ) ).
 
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event( `BACK_TO_LIST` ) ).
 
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = `Runtime Error Long Text`
         iv_hint   = mv_current ).
@@ -510,7 +554,8 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
               press = client->_event( `BACK_TO_LIST` ) )
             ( sep = abap_true )
             ( text = `Go to Affected Program` icon = `sap-icon://source-code`
-              tooltip = |Go to Affected Program - { c_na }| )
+              tooltip = `Display the terminated program in the ABAP Editor`
+              press = client->_event( `GOTO_PROGRAM` ) )
             ( text = `Debugger` icon = `sap-icon://inspect`
               tooltip = |Debugger - { c_na }| )
             ( sep = abap_true )

@@ -88,6 +88,12 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
 
   METHOD z2ui5_if_app~main.
 
+    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
+    " so the app is protected even when it is started directly by URL
+    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
+      RETURN.
+    ENDIF.
+
     me->client = client.
 
     IF client->check_on_init( ).
@@ -215,19 +221,19 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
                                           iv_msg_type = mv_msgtype ).
 
     " M 000001/2/3 - Performance Trace, Edit, Goto
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE #( ( `Performance Trace` ) ( `Edit` ) ( `Goto` )
                               ( `System` ) ( `Help` ) ) ).
 
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event_nav_app_leave( ) ).
 
     " T 0010
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = `ST05 Performance Trace` ).
 
@@ -413,7 +419,9 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
       LOOP AT lt_col INTO DATA(lv_col).
         SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
         DATA(col) = cols->ele( n = `Column` ns = `table`
-            )->a( n = `width` t = lv_wid ).
+            )->a( n = `width` t = lv_wid
+          )->a( n = `sortProperty`   v = lv_fld
+          )->a( n = `filterProperty` v = lv_fld ).
         col->ele( n = `label` ns = `table`
             )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
         col->ele( n = `template` ns = `table`
@@ -453,19 +461,19 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
                                           iv_message  = mv_message
                                           iv_msg_type = mv_msgtype ).
 
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE #( ( `Performance Trace` ) ( `Edit` ) ( `Goto` )
                               ( `System` ) ( `Help` ) ) ).
 
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event( `BACK_0010` ) ).
 
     " T 0020
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = `Conditions for Trace Recording` ).
 

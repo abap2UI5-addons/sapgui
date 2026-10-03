@@ -2,6 +2,7 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
 
   PUBLIC SECTION.
     INTERFACES z2ui5_if_app.
+    INTERFACES zif_zlk05_start_params.
 
     CONSTANTS c_max_cols    TYPE i VALUE 50.
     CONSTANTS c_default_max TYPE i VALUE 200.
@@ -122,6 +123,16 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
     METHODS build_condition
       IMPORTING is_crit       TYPE ty_s_crit
       RETURNING VALUE(result) TYPE string.
+    " True when iv_fname is a field of the table in mv_table_name. The field
+    " names travel through the browser, so they are checked against the
+    " dictionary before they are put into the dynamic WHERE / ORDER BY.
+    METHODS is_table_field
+      IMPORTING iv_fname      TYPE string
+      RETURNING VALUE(result) TYPE abap_bool.
+    " S_TABU_DIS / S_TABU_NAM for mv_table_name. Sets the status bar
+    " message and returns abap_false when the user may not see the table.
+    METHODS check_table_auth
+      RETURNING VALUE(result) TYPE abap_bool.
     "! complete WHERE clause - include lines of one field are OR-combined,
     "! exclude lines are negated, different fields are AND-combined
     METHODS build_where
@@ -134,17 +145,43 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
       IMPORTING iv_id TYPE string.
     METHODS variant_list_refresh.
 
+    "! Table handed over by another transaction (SE11 Contents, SM30).
+    "! SE16N then starts on its selection screen, and Back from there
+    "! returns to the calling transaction.
+    DATA mv_start_table TYPE string.
+    DATA mv_called      TYPE abap_bool.
+
   PRIVATE SECTION.
 ENDCLASS.
 
 
 CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
+  METHOD zif_zlk05_start_params~set_start_params.
+    mv_start_table = to_upper( condense( VALUE #(
+        it_params[ name = zif_zlk05_start_params=>c_table ]-value OPTIONAL ) ) ).
+  ENDMETHOD.
+
+
   METHOD z2ui5_if_app~main.
+
+    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
+    " so the app is protected even when it is started directly by URL
+    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
+      RETURN.
+    ENDIF.
 
     me->client = client.
     IF client->check_on_init( ).
-      view_step_1( ).
+      IF mv_start_table IS NOT INITIAL.
+        mv_called     = abap_true.
+        mv_table_name = mv_start_table.
+        load_metadata( ).
+        IF mv_step = 2.
+          variant_list_refresh( ).
+        ENDIF.
+      ENDIF.
+      render( ).
     ELSEIF client->check_on_navigated( ).
       " Another transaction was left with F3 and handed control back to this
       " one. The framework supplies an EMPTY event here and check_on_init is
@@ -272,6 +309,11 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
         view_step_2( ).
 
       WHEN `BACK_TO_INPUT`.
+        " started from another transaction: Back returns there
+        IF mv_called = abap_true.
+          client->nav_app_leave( ).
+          RETURN.
+        ENDIF.
         CLEAR: mt_fields, mt_crit, mt_rows, mv_message, mv_total_rows, mv_search.
         mv_message_type = `Information`.
         mv_step         = 1.
@@ -348,12 +390,12 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
                                           iv_message  = mv_message
                                           iv_msg_type = mv_message_type ).
 
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE string_table(
             ( `Table Display` ) ( `Edit` ) ( `Goto` ) ( `Extras` ) ( `System` ) ( `Help` ) ) ).
 
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
@@ -361,7 +403,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
                                      THEN client->_event( `BACK_TO_INPUT` )
                                      ELSE client->_event_nav_app_leave( ) ) ).
 
-    zcl_zlk05_gui_frame=>build_title_bar( io_parent = page
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client io_parent = page
                                           iv_title  = `General Table Display` ).
 
     " Application function bar. Only the buttons that this app can serve are
@@ -610,18 +652,18 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
                                           iv_message  = mv_message
                                           iv_msg_type = mv_message_type ).
 
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE string_table(
             ( `Table Entry` ) ( `Edit` ) ( `Goto` ) ( `System` ) ( `Help` ) ) ).
 
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event( `BACK_TO_SEL` ) ).
 
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = |{ to_upper( mv_table_name ) }: Display of Entries Found| ).
 
@@ -896,6 +938,46 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD is_table_field.
+
+    result = abap_false.
+    DATA(lv_fname) = to_upper( condense( iv_fname ) ).
+    IF lv_fname IS INITIAL OR NOT matches( val = lv_fname pcre = `[A-Z0-9_/]+` ).
+      RETURN.
+    ENDIF.
+
+    TRY.
+        DATA(lo_type) = cl_abap_typedescr=>describe_by_name( mv_table_name ).
+        DATA lo_struct TYPE REF TO cl_abap_structdescr.
+        CASE lo_type->kind.
+          WHEN cl_abap_typedescr=>kind_table.
+            lo_struct ?= CAST cl_abap_tabledescr( lo_type )->get_table_line_type( ).
+          WHEN cl_abap_typedescr=>kind_struct.
+            lo_struct ?= lo_type.
+          WHEN OTHERS.
+            RETURN.
+        ENDCASE.
+        DATA(lt_view) = lo_struct->get_included_view( ).
+        result = xsdbool( line_exists( lt_view[ name = lv_fname ] ) ).
+      CATCH cx_root.
+        result = abap_false.
+    ENDTRY.
+
+  ENDMETHOD.
+
+
+  METHOD check_table_auth.
+
+    DATA(ls_auth) = zcl_zlk05_auth=>check_table_display( mv_table_name ).
+    result = ls_auth-allowed.
+    IF result = abap_false.
+      mv_message      = ls_auth-message.
+      mv_message_type = `Error`.
+    ENDIF.
+
+  ENDMETHOD.
+
+
   METHOD build_condition.
 
     DATA(lv_low) = is_crit-low.
@@ -940,6 +1022,11 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
     " distinct field names in the order of the selection screen
     LOOP AT mt_crit ASSIGNING FIELD-SYMBOL(<c>) WHERE fname IS NOT INITIAL.
       IF <c>-low IS INITIAL AND <c>-high IS INITIAL.
+        CONTINUE.
+      ENDIF.
+      " never put a name into the WHERE clause that is not a field of the
+      " table - the names come back from the browser
+      IF is_table_field( <c>-fname ) = abap_false.
         CONTINUE.
       ENDIF.
       IF NOT line_exists( lt_field[ table_line = <c>-fname ] ).
@@ -990,6 +1077,10 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    IF check_table_auth( ) = abap_false.
+      RETURN.
+    ENDIF.
+
     " Exactly the same WHERE clause as Execute, so that the number of entries
     " always matches the result list.
     crit_from_fields( ).
@@ -1016,6 +1107,10 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
     CLEAR: mt_rows, mv_message.
     mv_total_rows = 0.
 
+    IF check_table_auth( ) = abap_false.
+      RETURN.
+    ENDIF.
+
     crit_from_fields( ).
     DATA(lv_where) = build_where( ).
 
@@ -1035,6 +1130,9 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
     " Sort order
     DATA lt_order TYPE string_table.
     LOOP AT mt_fields ASSIGNING FIELD-SYMBOL(<sf>) WHERE sort = 'A' OR sort = 'D'.
+      IF is_table_field( <sf>-fname ) = abap_false.
+        CONTINUE.
+      ENDIF.
       APPEND |{ <sf>-fname } { COND #( WHEN <sf>-sort = 'A' THEN `ASCENDING` ELSE `DESCENDING` ) }| TO lt_order.
     ENDLOOP.
     DATA(lv_order) = concat_lines_of( table = lt_order sep = `, ` ).

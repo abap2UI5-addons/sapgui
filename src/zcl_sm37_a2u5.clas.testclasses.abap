@@ -30,6 +30,13 @@ CLASS ltcl_sm37_a2u5 DEFINITION FINAL FOR TESTING
     METHODS detail_title            FOR TESTING.
     METHODS detail_step_columns     FOR TESTING.
     METHODS detail_back_to_list     FOR TESTING.
+
+    " --- job log ---
+    METHODS joblog_button_wired      FOR TESTING.
+    METHODS joblog_view_is_sane      FOR TESTING.
+    METHODS joblog_back_to_steps     FOR TESTING.
+    METHODS joblog_unknown_job       FOR TESTING.
+
 ENDCLASS.
 
 
@@ -252,6 +259,54 @@ CLASS ltcl_sm37_a2u5 IMPLEMENTATION.
         exp = -1
         act = find( val = mo_dbl->mv_view sub = `MOCK_NAV_LEAVE` )
         msg = 'the step list leaves the app instead of returning to the job list' ).
+  ENDMETHOD.
+
+
+  METHOD joblog_button_wired.
+    given_step_list( ).
+    mo_cut->view_detail( ).
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_event( `JOBLOG` )
+        msg = 'Job log is not wired on the step list' ).
+  ENDMETHOD.
+
+  METHOD joblog_view_is_sane.
+    given_step_list( ).
+    mo_cut->mv_cur_jobcount = `12345678`.
+    mo_cut->mt_joblog = VALUE #(
+        ( enterdate = `02.10.2026` entertime = `10:00:00` msgtype = `S` state = `Success`
+          text = `Job started` msgid = `00` msgno = `516` ) ).
+    mo_cut->view_joblog( ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->get_xml_errors( ) ).
+    cl_abap_unit_assert=>assert_char_cp( act = mo_dbl->mv_view
+                                         exp = `*Job Log Entries for ZDEMO_JOB / 12345678*` ).
+    LOOP AT VALUE string_table( ( `{ENTERDATE}` ) ( `{ENTERTIME}` ) ( `{TEXT}` )
+                                ( `{MSGID}` ) ( `{MSGNO}` ) ( `{MSGTYPE}` ) )
+         INTO DATA(lv_field).
+      cl_abap_unit_assert=>assert_true(
+          act = xsdbool( find( val = mo_dbl->mv_view sub = lv_field ) >= 0 )
+          msg = |column { lv_field } is not bound| ).
+    ENDLOOP.
+    cl_abap_unit_assert=>assert_true( mo_dbl->has_event( `BACK_TO_STEPS` ) ).
+  ENDMETHOD.
+
+  METHOD joblog_back_to_steps.
+    given_step_list( ).
+    mo_cut->mv_mode = `LOG`.
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `BACK_TO_STEPS`.
+    mo_cut->on_event( ).
+    cl_abap_unit_assert=>assert_equals( exp = `DETAIL` act = mo_cut->mv_mode ).
+    cl_abap_unit_assert=>assert_false( mo_dbl->mv_nav_leave ).
+  ENDMETHOD.
+
+  METHOD joblog_unknown_job.
+    given_step_list( ).
+    mo_cut->mv_current      = `ZZLK05_NO_SUCH_JOB`.
+    mo_cut->mv_cur_jobcount = `99999999`.
+    mo_cut->do_joblog( ).
+    cl_abap_unit_assert=>assert_equals( exp = `DETAIL` act = mo_cut->mv_mode ).
+    cl_abap_unit_assert=>assert_equals( exp = `Warning` act = mo_cut->mv_msgtype ).
   ENDMETHOD.
 
 ENDCLASS.

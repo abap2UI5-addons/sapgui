@@ -24,6 +24,8 @@ CLASS ltcl_sm12_a2u5 DEFINITION FINAL FOR TESTING
     METHODS list_back_nav_wired   FOR TESTING.
     METHODS list_empty_is_sane    FOR TESTING.
     METHODS message_reaches_view  FOR TESTING.
+    METHODS list_click_opens_user FOR TESTING.
+    METHODS click_jumps_to_su01   FOR TESTING.
 ENDCLASS.
 
 
@@ -178,6 +180,26 @@ CLASS ltcl_sm12_a2u5 IMPLEMENTATION.
     cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view sub = `Lock table overflow.` ) >= 0 )
         msg = 'the message from the enqueue server never reaches the status bar' ).
+  ENDMETHOD.
+
+  METHOD list_click_opens_user.
+    given_locklist( ).
+    mo_cut->view_list( ).
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( line_exists( mo_dbl->mt_events[ table_line = `DISPLAY_USER|${GUNAME}` ] ) )
+        msg = 'a click on a lock entry must open its user' ).
+  ENDMETHOD.
+
+  METHOD click_jumps_to_su01.
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `DISPLAY_USER`.
+    mo_dbl->ms_get-t_event_arg = VALUE #( ( CONV string( sy-uname ) ) ).
+    mo_cut->on_event( ).
+    IF mo_dbl->mv_nav_call IS INITIAL.
+      cl_abap_unit_assert=>assert_not_initial( mo_cut->mv_message ).
+    ELSE.
+      cl_abap_unit_assert=>assert_equals( exp = `ZCL_SU01_A2U5` act = mo_dbl->mv_nav_call ).
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.

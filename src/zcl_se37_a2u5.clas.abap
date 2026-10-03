@@ -70,6 +70,12 @@ CLASS zcl_se37_a2u5 IMPLEMENTATION.
 
   METHOD z2ui5_if_app~main.
 
+    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
+    " so the app is protected even when it is started directly by URL
+    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
+      RETURN.
+    ENDIF.
+
     me->client = client.
 
     IF client->check_on_init( ).
@@ -117,6 +123,25 @@ CLASS zcl_se37_a2u5 IMPLEMENTATION.
         ENDIF.
       WHEN 'BACK_TO_LIST'.
         mv_mode = `LIST`.
+      WHEN 'SOURCE'.
+        " the Source Code tab of SE37 - in the ABAP Editor with the include
+        " that holds the function module
+        DATA(lv_incl) = zcl_zlk05_sys_api=>get_function_include( mv_current ).
+        IF lv_incl IS INITIAL.
+          mv_message = |The source of { mv_current } could not be determined.|.
+          mv_msgtype = `Warning`.
+        ELSE.
+          DATA(ls_run) = zcl_zlk05_tcode_router=>run(
+              iv_command = `SE38`
+              io_client  = client
+              it_params  = VALUE #( ( name  = zif_zlk05_start_params=>c_program
+                                      value = lv_incl ) ) ).
+          IF ls_run-outcome = zcl_zlk05_tcode_router=>c_nav.
+            RETURN.
+          ENDIF.
+          mv_message = ls_run-message.
+          mv_msgtype = ls_run-msg_type.
+        ENDIF.
       WHEN OTHERS.
     ENDCASE.
 
@@ -195,19 +220,19 @@ CLASS zcl_se37_a2u5 IMPLEMENTATION.
                                           iv_msg_type = mv_msgtype ).
 
     " band 1 - menu bar
-    zcl_zlk05_gui_frame=>build_menu_bar( io_parent  = page
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client io_parent  = page
                                         it_entries = menu_entries( ) ).
 
     " band 2 - system function bar. Entry screen of the transaction, so
     " Back leaves it.
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event_nav_app_leave( ) ).
 
     " band 3 - title bar
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = `Function Builder: Initial Screen` ).
 
@@ -280,7 +305,9 @@ CLASS zcl_se37_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` t = lv_wid ).
+          )->a( n = `width` t = lv_wid
+          )->a( n = `sortProperty`   v = lv_fld
+          )->a( n = `filterProperty` v = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
 
@@ -323,19 +350,19 @@ CLASS zcl_se37_a2u5 IMPLEMENTATION.
                                           iv_msg_type = mv_msgtype ).
 
     " band 1 - menu bar
-    zcl_zlk05_gui_frame=>build_menu_bar( io_parent  = page
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client io_parent  = page
                                         it_entries = menu_entries( ) ).
 
     " band 2 - system function bar. Second screen of the transaction, so
     " Back returns to the initial screen instead of leaving SE37.
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event( `BACK_TO_LIST` ) ).
 
     " band 3 - title bar, original title 003 of SAPMS38L
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = |Function Builder: Display Function Module { mv_current }| ).
 
@@ -346,6 +373,10 @@ CLASS zcl_se37_a2u5 IMPLEMENTATION.
             ( text = `Back` icon = `sap-icon://nav-back`
               tooltip = `Back to the initial screen (F3)`
               press = client->_event( `BACK_TO_LIST` ) )
+            ( sep = abap_true )
+            ( text = `Source Code` icon = `sap-icon://source-code`
+              tooltip = `Display the source code in the ABAP Editor`
+              press = client->_event( `SOURCE` ) )
             ( sep = abap_true )
             ( icon = `sap-icon://navigation-left-arrow` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Previous Object - { c_na }| )
@@ -418,7 +449,9 @@ CLASS zcl_se37_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` t = lv_wid ).
+          )->a( n = `width` t = lv_wid
+          )->a( n = `sortProperty`   v = lv_fld
+          )->a( n = `filterProperty` v = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table`

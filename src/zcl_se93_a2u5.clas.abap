@@ -115,6 +115,12 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
 
   METHOD z2ui5_if_app~main.
 
+    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
+    " so the app is protected even when it is started directly by URL
+    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
+      RETURN.
+    ENDIF.
+
     me->client = client.
 
     IF client->check_on_init( ).
@@ -157,6 +163,33 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
 
       WHEN 'BACK_TO_LIST'.
         mv_mode = `LIST`.
+
+      WHEN 'TEST_TCODE'.
+        " SE93 Test: start the transaction itself - the router answers for
+        " transactions this environment does not implement
+        IF ms_detail-tcode IS NOT INITIAL.
+          DATA(ls_test) = zcl_zlk05_tcode_router=>run( iv_command = ms_detail-tcode
+                                                       io_client  = client ).
+          IF ls_test-outcome = zcl_zlk05_tcode_router=>c_nav.
+            RETURN.
+          ENDIF.
+          mv_message = ls_test-message.
+          mv_msgtype = ls_test-msg_type.
+        ENDIF.
+
+      WHEN 'GOTO_PROGRAM'.
+        IF ms_detail-pgmna IS NOT INITIAL.
+          DATA(ls_run) = zcl_zlk05_tcode_router=>run(
+              iv_command = `SE38`
+              io_client  = client
+              it_params  = VALUE #( ( name  = zif_zlk05_start_params=>c_program
+                                      value = ms_detail-pgmna ) ) ).
+          IF ls_run-outcome = zcl_zlk05_tcode_router=>c_nav.
+            RETURN.
+          ENDIF.
+          mv_message = ls_run-message.
+          mv_msgtype = ls_run-msg_type.
+        ENDIF.
 
       WHEN OTHERS.
     ENDCASE.
@@ -203,6 +236,14 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
         ( text = `Back` icon = `sap-icon://nav-back`
           tooltip = `Back to the entry screen (F3)`
           press = client->_event( `BACK_TO_LIST` ) )
+        ( sep = abap_true )
+        ( text = `Test` icon = `sap-icon://begin`
+          tooltip = `Test - start the transaction`
+          press = client->_event( `TEST_TCODE` ) )
+        ( text = `Display Program` icon = `sap-icon://source-code`
+          tooltip = `Display the program of the transaction in the ABAP Editor`
+          press = client->_event( `GOTO_PROGRAM` )
+          disabled = xsdbool( ms_detail-pgmna IS INITIAL ) )
         ( sep = abap_true )
         ( icon = `sap-icon://navigation-left-arrow`
           color = zcl_zlk05_gui_frame=>c_grey
@@ -335,18 +376,18 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
                                           iv_msg_type = mv_msgtype ).
 
     " band 1 - menu bar
-    zcl_zlk05_gui_frame=>build_menu_bar( io_parent  = page
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client io_parent  = page
                                         it_entries = menu_entries( abap_true ) ).
 
     " band 2 - system function bar
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
         iv_back_event = client->_event_nav_app_leave( ) ).
 
     " band 3 - title bar
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = `Maintain Transaction` ).
 
@@ -422,7 +463,9 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
     LOOP AT lt_col INTO DATA(lv_col).
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
-          )->a( n = `width` t = lv_wid ).
+          )->a( n = `width` t = lv_wid
+          )->a( n = `sortProperty`   v = lv_fld
+          )->a( n = `filterProperty` v = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
 
@@ -461,11 +504,11 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
                                           iv_msg_type = mv_msgtype ).
 
     " band 1 - menu bar of the display statuses
-    zcl_zlk05_gui_frame=>build_menu_bar( io_parent  = page
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client io_parent  = page
                                         it_entries = menu_entries( ) ).
 
     " band 2 - system function bar, Back returns to the entry screen
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent     = page
         iv_cmd_value  = client->_bind( mv_command )
         iv_cmd_event  = client->_event( zcl_zlk05_gui_frame=>c_ev_command )
@@ -473,7 +516,7 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
 
     " band 3 - title bar. Title TSH is 'Display $' and the original fills
     " the placeholder with the transaction type.
-    zcl_zlk05_gui_frame=>build_title_bar(
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client
         io_parent = page
         iv_title  = |Display { ms_detail-tc_type }| ).
 
@@ -547,7 +590,9 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
                                   ( `Value|VALUE|16rem` ) ) INTO DATA(lv_ac).
         SPLIT lv_ac AT `|` INTO DATA(lv_ah) DATA(lv_af) DATA(lv_aw).
         DATA(acol) = acols->ele( n = `Column` ns = `table`
-            )->a( n = `width` t = lv_aw ).
+            )->a( n = `width` t = lv_aw
+          )->a( n = `sortProperty`   v = lv_af
+          )->a( n = `filterProperty` v = lv_af ).
         acol->ele( n = `label` ns = `table`
             )->tag( `Label` )->a( n = `text` t = lv_ah )->end( )->end( ).
         acol->ele( n = `template` ns = `table`
@@ -690,7 +735,9 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
                                     ( `Value|VALUE|28rem` ) ) INTO DATA(lv_pc).
           SPLIT lv_pc AT `|` INTO DATA(lv_ph) DATA(lv_pf) DATA(lv_pw).
           DATA(pcol) = pcols->ele( n = `Column` ns = `table`
-              )->a( n = `width` t = lv_pw ).
+              )->a( n = `width` t = lv_pw
+          )->a( n = `sortProperty`   v = lv_pf
+          )->a( n = `filterProperty` v = lv_pf ).
           pcol->ele( n = `label` ns = `table`
               )->tag( `Label` )->a( n = `text` t = lv_ph )->end( )->end( ).
           pcol->ele( n = `template` ns = `table`

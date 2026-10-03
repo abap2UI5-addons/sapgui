@@ -36,6 +36,13 @@ CLASS ltcl_su01_a2u5 DEFINITION FINAL FOR TESTING
     METHODS roles_back_to_list    FOR TESTING.
     METHODS roles_f3_stays_inside FOR TESTING.
     METHODS roles_has_gui_frame   FOR TESTING.
+    METHODS roles_open_pfcg       FOR TESTING.
+    METHODS role_jumps_to_pfcg    FOR TESTING.
+
+    " --- started from another transaction (SM04) ---
+    METHODS start_user_shown         FOR TESTING.
+    METHODS start_back_leaves        FOR TESTING.
+
 ENDCLASS.
 
 
@@ -315,7 +322,7 @@ CLASS ltcl_su01_a2u5 IMPLEMENTATION.
     given_role_list( ).
     mo_cut->view_detail( ).
 
-    LOOP AT VALUE string_table( ( `F3` ) ( `Shift+F3` ) ( `F12` ) )
+    LOOP AT VALUE string_table( ( `F3` ) ( `F12` ) )
          INTO DATA(lv_key).
       cl_abap_unit_assert=>assert_true(
           act = mo_dbl->has_shortcut( iv_keys  = lv_key
@@ -326,6 +333,12 @@ CLASS ltcl_su01_a2u5 IMPLEMENTATION.
                                       iv_event = zcl_zlk05_gui_frame=>c_ev_back )
           msg = |{ lv_key } leaves the transaction instead of the screen| ).
     ENDLOOP.
+    " Shift+F3 is Exit in the SAP GUI - it leaves the transaction from
+    " every one of its screens, not only one screen back
+    cl_abap_unit_assert=>assert_true(
+        act = mo_dbl->has_shortcut( iv_keys  = `Shift+F3`
+                                    iv_event = zcl_zlk05_gui_frame=>c_ev_exit )
+        msg = 'Shift+F3 must leave the transaction' ).
   ENDMETHOD.
 
   METHOD roles_has_gui_frame.
@@ -340,6 +353,55 @@ CLASS ltcl_su01_a2u5 IMPLEMENTATION.
           act = xsdbool( find( val = mo_dbl->mv_view sub = lv_text ) >= 0 )
           msg = |the SAP GUI frame does not show "{ lv_text }"| ).
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD start_user_shown.
+    CAST zif_zlk05_start_params( mo_cut )->set_start_params(
+        VALUE #( ( name = zif_zlk05_start_params=>c_user value = to_lower( sy-uname ) ) ) ).
+    mo_dbl->mv_on_init = abap_true.
+    CAST z2ui5_if_app( mo_cut )->main( mo_dbl ).
+    IF mo_dbl->mv_view CS `No Authorization`.
+      RETURN.
+    ENDIF.
+    cl_abap_unit_assert=>assert_true( mo_cut->mv_called ).
+    IF mo_cut->mv_msgtype = `Error`.
+      " no S_USER_GRP for the own group - then the user is NOT shown
+      cl_abap_unit_assert=>assert_equals( exp = `LIST` act = mo_cut->mv_mode ).
+    ELSE.
+      cl_abap_unit_assert=>assert_equals( exp = `DETAIL` act = mo_cut->mv_mode ).
+      cl_abap_unit_assert=>assert_equals( exp = CONV string( sy-uname ) act = mo_cut->mv_current ).
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD start_back_leaves.
+    mo_cut->mv_called = abap_true.
+    mo_cut->mv_mode   = `DETAIL`.
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `BACK_TO_LIST`.
+    mo_cut->on_event( ).
+    cl_abap_unit_assert=>assert_true( mo_dbl->mv_nav_leave ).
+  ENDMETHOD.
+
+  METHOD roles_open_pfcg.
+    given_role_list( ).
+    mo_cut->view_detail( ).
+    cl_abap_unit_assert=>assert_true(
+        act = xsdbool( line_exists( mo_dbl->mt_events[ table_line = `DISPLAY_ROLE|${AGR_NAME}` ] ) )
+        msg = 'a role of the user must open the role maintenance' ).
+  ENDMETHOD.
+
+  METHOD role_jumps_to_pfcg.
+    given_role_list( ).
+    mo_dbl->mv_on_event  = abap_true.
+    mo_dbl->ms_get-event = `DISPLAY_ROLE`.
+    mo_dbl->ms_get-t_event_arg = VALUE #( ( `SAP_BC_BASIS_ADMIN` ) ).
+    mo_cut->on_event( ).
+    IF mo_dbl->mv_nav_call IS INITIAL.
+      cl_abap_unit_assert=>assert_not_initial( mo_cut->mv_message ).
+    ELSE.
+      cl_abap_unit_assert=>assert_equals( exp = `ZCL_PFCG_A2U5` act = mo_dbl->mv_nav_call ).
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.

@@ -115,6 +115,13 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
       init_menu( ).
       " Favorites and SAP Menu start expanded, like the SAP GUI does
       mt_expanded = VALUE #( ( c_key_fav ) ( c_key_menu ) ).
+      " a new session (/oSE80, System > Create Session) carries the
+      " transaction it starts with in its address - checked like a code
+      " typed into the command field
+      DATA(lv_url_tcode) = zcl_zlk05_gui_frame=>start_tcode_of_url( client ).
+      IF lv_url_tcode IS NOT INITIAL AND start_transaction( lv_url_tcode ) = abap_true.
+        RETURN.
+      ENDIF.
       view_display( ).
     ELSEIF client->check_on_navigated( ).
       " A transaction was left with F3 / the Back arrow and handed control
@@ -178,10 +185,31 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
     DATA(lt_arg)   = client->get( )-t_event_arg.
     CLEAR: mv_message, mv_msg_type.
 
+    " the functions of the SAP GUI itself - menus, find, /o, /nend ... -
+    " are the frame's. A transaction code is started here, on top of the
+    " entry screen, which stays the root of the session.
+    DATA(ls_cmd) = zcl_zlk05_tcode_router=>parse_command( mv_command ).
+    IF lv_event <> zcl_zlk05_gui_frame=>c_ev_command
+       OR ( ls_cmd-kind <> zcl_zlk05_tcode_router=>c_cmd_tcode
+        AND ls_cmd-kind <> zcl_zlk05_tcode_router=>c_cmd_new ).
+      DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
+          io_client  = client
+          iv_event   = lv_event
+          iv_command = mv_command
+          iv_root    = abap_true ).
+      IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
+        RETURN.
+      ENDIF.
+      mv_message  = ls_frame-message.
+      mv_msg_type = ls_frame-msg_type.
+    ENDIF.
+
     CASE lv_event.
       WHEN zcl_zlk05_gui_frame=>c_ev_command.
         " command field - Enter in the field or the green tick
-        IF start_transaction( mv_command ) = abap_true.
+        IF ( ls_cmd-kind = zcl_zlk05_tcode_router=>c_cmd_tcode
+          OR ls_cmd-kind = zcl_zlk05_tcode_router=>c_cmd_new )
+           AND start_transaction( ls_cmd-tcode ) = abap_true.
           RETURN.
         ENDIF.
 
@@ -239,20 +267,20 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
                                            iv_host     = mv_host ).
 
     " band 1 - menu bar
-    zcl_zlk05_gui_frame=>build_menu_bar(
+    zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
         it_entries = VALUE string_table(
             ( `Menu` ) ( `Edit` ) ( `Favorites` ) ( `Extras` ) ( `System` ) ( `Help` ) ) ).
 
     " band 2 - system function bar. The command field is active here, Back
     " is not - the SAP Easy Access screen is the root of the session.
-    zcl_zlk05_gui_frame=>build_system_bar(
+    zcl_zlk05_gui_frame=>build_system_bar( io_client = client
         io_parent    = page
         iv_cmd_value = client->_bind( mv_command )
         iv_cmd_event = client->_event( zcl_zlk05_gui_frame=>c_ev_command ) ).
 
     " band 3 - title bar
-    zcl_zlk05_gui_frame=>build_title_bar( io_parent = page
+    zcl_zlk05_gui_frame=>build_title_bar( io_client = client io_parent = page
                                           iv_title  = `SAP Easy Access` ).
 
     " band 4 - application function bar. Maintaining favorites needs write
