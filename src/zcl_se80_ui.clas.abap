@@ -1,4 +1,5 @@
-CLASS zcl_se80_ui DEFINITION PUBLIC.
+CLASS zcl_se80_ui DEFINITION PUBLIC
+  INHERITING FROM zcl_zlk05_screen.
 
 * ---------------------------------------------------------------------
 *  SE80 - Object Navigator
@@ -17,10 +18,6 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
 * ---------------------------------------------------------------------
 
   PUBLIC SECTION.
-    INTERFACES z2ui5_if_app.
-
-    "! Content of the command field of the system function bar
-    DATA mv_command      TYPE string.
 
     DATA mt_tree         TYPE zif_se80_api=>ty_t_tree.
     DATA mv_cur_package  TYPE devclass VALUE '$ZLK'.
@@ -74,8 +71,6 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
     DATA mv_cur_obj_name TYPE sobj_name.
     DATA mv_cur_obj_type TYPE zif_se80_api=>ty_objtype.
     DATA mv_object_title TYPE string.
-    DATA mv_message      TYPE string.
-    DATA mv_msg_type     TYPE string.
     DATA mv_show_whereu  TYPE abap_bool.
     DATA mv_popup_title  TYPE string.
     DATA mv_syntax_mode  TYPE string VALUE 'abap'.
@@ -88,14 +83,19 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
     DATA mv_lock_info  TYPE string.
     DATA mt_recent TYPE STANDARD TABLE OF ty_s_recent WITH EMPTY KEY.
 
-    DATA client TYPE REF TO z2ui5_if_client.
     "! The repository API; a unit test sets its own before main( )
     DATA mo_api TYPE REF TO zif_se80_api.
     "! Created by name, so that this screen does not depend on the class
     "! that reads and writes the repository (README, Development)
     CONSTANTS c_api_class TYPE string VALUE `ZCL_SE80_API`.
+
+    "! The repository API - created on first use, a test sets its own
+    METHODS api
+      RETURNING VALUE(result) TYPE REF TO zif_se80_api.
     METHODS view_display.
-    METHODS on_event.
+    METHODS on_event REDEFINITION.
+    METHODS on_init REDEFINITION.
+    METHODS render REDEFINITION.
     METHODS load_object.
     "! Repository Browser (left column)
     METHODS build_browser
@@ -121,31 +121,24 @@ ENDCLASS.
 
 CLASS zcl_se80_ui IMPLEMENTATION.
 
-  METHOD z2ui5_if_app~main.
-
-    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
-    " so the app is protected even when it is started directly by URL
-    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
-      RETURN.
-    ENDIF.
-    me->client = client.
+  METHOD api.
     IF mo_api IS NOT BOUND.
       CREATE OBJECT mo_api TYPE (c_api_class).
     ENDIF.
-    IF client->check_on_init( ).
-      mt_tree = mo_api->get_package_tree( mv_cur_package ).
-      view_display( ).
-    ELSEIF client->check_on_navigated( ).
-      " Another transaction was left with F3 / the Back arrow and handed
-      " control back to this one. The framework supplies an EMPTY event here
-      " and check_on_init is already false, so without this branch nothing
-      " would be rendered: the response would carry no view and the browser
-      " would keep showing the screen of the transaction that was just left.
-      " That is what made Back look dead and F3 only work on the second try.
-      view_display( ).
-    ELSEIF client->check_on_event( ).
-      on_event( ).
-    ENDIF.
+    result = mo_api.
+  ENDMETHOD.
+
+
+  METHOD on_init.
+
+    mt_tree = api( )->get_package_tree( mv_cur_package ).
+    view_display( ).
+
+  ENDMETHOD.
+
+
+  METHOD render.
+    view_display( ).
   ENDMETHOD.
 
 
@@ -153,27 +146,15 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     DATA(lv_event) = client->get_event( ).
     DATA(lv_arg)   = client->get_event_arg( ).
     DATA(lv_arg2)  = client->get_event_arg( 2 ).
-    CLEAR: mv_message, mv_msg_type, mt_log.
-
-    " the command field and Back belong to the frame - they work the
-    " same way on every screen of every transaction
-    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
-        io_client  = client
-        iv_event   = lv_event
-        iv_command = mv_command ).
-    mv_message = ls_frame-message.
-    mv_msg_type = ls_frame-msg_type.
-    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
-      RETURN.
-    ENDIF.
+    CLEAR mt_log.
 
     CASE lv_event.
       WHEN 'TREE_CLICK'.
         IF lv_arg2 IS NOT INITIAL.
           IF lv_arg2 = 'DEVC'.
             mv_cur_package = lv_arg.
-            mt_tree = mo_api->get_package_tree( mv_cur_package ).
-            mt_props = mo_api->get_package_info( mv_cur_package ).
+            mt_tree = api( )->get_package_tree( mv_cur_package ).
+            mt_props = api( )->get_package_info( mv_cur_package ).
             mv_object_title = |Package { mv_cur_package }|.
             mv_active_tab = 'INFO'.
             CLEAR: mv_source, mv_source_local, mv_source_test, mv_cur_obj_name, mt_methods, mt_fields.
@@ -185,7 +166,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
             mv_cur_obj_type = 'CLAS'.
             load_object( ).
             " Get method signature and show in fields
-            mt_fields = mo_api->get_method_signature(
+            mt_fields = api( )->get_method_signature(
               iv_classname = mv_cur_obj_name iv_methodname = lv_mtd ).
             " Find method line in source
             DATA(lv_search) = |method { to_lower( lv_mtd ) }|.
@@ -203,7 +184,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
             ELSE.
               mv_message = |Method { lv_mtd } - signature displayed under Properties|.
             ENDIF.
-            mv_msg_type = `Information`.
+            mv_msgtype = `Information`.
             mv_active_tab = 'INFO'.
           ELSE.
             mv_cur_obj_name = lv_arg.
@@ -226,14 +207,14 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           load_object( ).
         ENDIF.
       WHEN 'NAV_UP'.
-        DATA(lv_p) = mo_api->get_parent_package( CONV #( mv_cur_package ) ).
+        DATA(lv_p) = api( )->get_parent_package( CONV #( mv_cur_package ) ).
         IF lv_p IS NOT INITIAL.
           mv_cur_package = lv_p.
-          mt_tree = mo_api->get_package_tree( mv_cur_package ).
+          mt_tree = api( )->get_package_tree( mv_cur_package ).
           CLEAR: mv_source, mv_source_local, mv_source_test, mv_cur_obj_name, mv_object_title, mt_methods, mt_fields, mt_props.
         ELSE.
           mv_message = |Package { mv_cur_package } has no superpackage.|.
-          mv_msg_type = `Information`.
+          mv_msgtype = `Information`.
         ENDIF.
       WHEN 'SEARCH'.
         IF mv_search IS NOT INITIAL.
@@ -241,38 +222,38 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           IF mv_search_type IS NOT INITIAL AND mv_search_type <> 'ALL'.
             lv_tf = mv_search_type.
           ENDIF.
-          mt_tree = mo_api->search_objects( iv_pattern = mv_search iv_type = lv_tf ).
+          mt_tree = api( )->search_objects( iv_pattern = mv_search iv_type = lv_tf ).
           mv_object_title = |Object list: { lines( mt_tree ) } hits|.
           CLEAR: mv_source, mv_source_local, mv_source_test.
         ELSE.
           mv_message = `Enter an object name.`.
-          mv_msg_type = `Warning`.
+          mv_msgtype = `Warning`.
         ENDIF.
       WHEN 'TOGGLE_EDIT'.
         IF zif_se80_api=>c_write_enabled = abap_false.
           mv_edit_mode = abap_false.
           mv_message   = `Display only - the Object Navigator of this environment does not change repository objects.`.
-          mv_msg_type  = `Warning`.
+          mv_msgtype  = `Warning`.
         ELSE.
           mv_edit_mode = xsdbool( mv_edit_mode = abap_false ).
         ENDIF.
       WHEN 'SAVE'.
         IF mv_source IS INITIAL.
           mv_message = `Source code is empty.`.
-          mv_msg_type = `Error`.
+          mv_msgtype = `Error`.
         ELSE.
-          DATA(ls_s) = mo_api->save_source( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
+          DATA(ls_s) = api( )->save_source( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
           mv_message = ls_s-message.
-          mv_msg_type = COND #( WHEN ls_s-success = abap_true THEN `Success` ELSE `Error` ).
+          mv_msgtype = COND #( WHEN ls_s-success = abap_true THEN `Success` ELSE `Error` ).
           APPEND VALUE ty_s_log(
             icon = COND #( WHEN ls_s-success = abap_true THEN `sap-icon://sys-enter-2` ELSE `sap-icon://error` )
             type = COND #( WHEN ls_s-success = abap_true THEN `Success` ELSE `Error` )
             message = ls_s-message ) TO mt_log.
         ENDIF.
       WHEN 'ACTIVATE'.
-        DATA(ls_a) = mo_api->activate_object( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
+        DATA(ls_a) = api( )->activate_object( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
         mv_message = ls_a-message.
-        mv_msg_type = COND #( WHEN ls_a-success = abap_true THEN `Success` ELSE `Error` ).
+        mv_msgtype = COND #( WHEN ls_a-success = abap_true THEN `Success` ELSE `Error` ).
         APPEND VALUE ty_s_log(
           icon = COND #( WHEN ls_a-success = abap_true THEN `sap-icon://sys-enter-2` ELSE `sap-icon://error` )
           type = COND #( WHEN ls_a-success = abap_true THEN `Success` ELSE `Error` )
@@ -281,10 +262,10 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           load_object( ).
         ENDIF.
       WHEN 'CHECK'.
-        DATA(lt_c) = mo_api->check_syntax( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
+        DATA(lt_c) = api( )->check_syntax( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
         IF lt_c IS NOT INITIAL.
           mv_message = lt_c[ 1 ]-message.
-          mv_msg_type = COND #( WHEN lt_c[ 1 ]-type = 'E' THEN `Error` ELSE `Warning` ).
+          mv_msgtype = COND #( WHEN lt_c[ 1 ]-type = 'E' THEN `Error` ELSE `Warning` ).
           " Fill log panel
           LOOP AT lt_c ASSIGNING FIELD-SYMBOL(<chk>).
             APPEND VALUE ty_s_log(
@@ -297,15 +278,15 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           ENDLOOP.
         ELSE.
           mv_message = `No syntax errors found.`.
-          mv_msg_type = `Success`.
+          mv_msgtype = `Success`.
           APPEND VALUE ty_s_log( icon = `sap-icon://sys-enter-2` type = `Success` message = `No syntax errors found.` ) TO mt_log.
         ENDIF.
       WHEN 'PRETTY_PRINT'.
-        mv_source = mo_api->pretty_print( mv_source ).
+        mv_source = api( )->pretty_print( mv_source ).
         mv_message = `Pretty Printer executed.`.
-        mv_msg_type = `Success`.
+        mv_msgtype = `Success`.
       WHEN 'WHERE_USED'.
-        mt_usages = mo_api->get_where_used( mv_cur_obj_name ).
+        mt_usages = api( )->get_where_used( mv_cur_obj_name ).
         mv_popup_title = |Where-Used List: { mv_cur_obj_name }|.
         mv_show_whereu = abap_true.
       WHEN 'CLOSE_WHEREU'.
@@ -325,57 +306,57 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           DATA(lv_new_name) = CONV sobj_name( to_upper( mv_search ) ).
           DATA ls_cr TYPE zif_se80_api=>ty_s_result.
           IF mv_search_type = 'CLAS'.
-            ls_cr = mo_api->create_class( iv_name = lv_new_name iv_package = mv_cur_package ).
+            ls_cr = api( )->create_class( iv_name = lv_new_name iv_package = mv_cur_package ).
             IF ls_cr-success = abap_true.
               mv_cur_obj_type = 'CLAS'.
             ENDIF.
           ELSEIF mv_search_type = 'INTF'.
-            ls_cr = mo_api->create_interface( iv_name = lv_new_name iv_package = mv_cur_package ).
+            ls_cr = api( )->create_interface( iv_name = lv_new_name iv_package = mv_cur_package ).
             IF ls_cr-success = abap_true.
               mv_cur_obj_type = 'INTF'.
             ENDIF.
           ELSE.
-            ls_cr = mo_api->create_program( iv_name = lv_new_name iv_package = mv_cur_package ).
+            ls_cr = api( )->create_program( iv_name = lv_new_name iv_package = mv_cur_package ).
             IF ls_cr-success = abap_true.
               mv_cur_obj_type = 'PROG'.
             ENDIF.
           ENDIF.
           mv_message = ls_cr-message.
-          mv_msg_type = COND #( WHEN ls_cr-success = abap_true THEN `Success` ELSE `Error` ).
+          mv_msgtype = COND #( WHEN ls_cr-success = abap_true THEN `Success` ELSE `Error` ).
           IF ls_cr-success = abap_true.
-            mt_tree = mo_api->get_package_tree( mv_cur_package ).
+            mt_tree = api( )->get_package_tree( mv_cur_package ).
             mv_cur_obj_name = lv_new_name.
             load_object( ).
           ENDIF.
         ELSE.
           mv_message = `Enter the object name in the search field and choose the object type.`.
-          mv_msg_type = `Warning`.
+          mv_msgtype = `Warning`.
         ENDIF.
       WHEN 'CONFIRM_DELETE'.
         " Actually delete after confirmation
-        DATA(ls_del) = mo_api->delete_object( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
+        DATA(ls_del) = api( )->delete_object( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
         mv_message = ls_del-message.
-        mv_msg_type = COND #( WHEN ls_del-success = abap_true THEN `Success` ELSE `Error` ).
+        mv_msgtype = COND #( WHEN ls_del-success = abap_true THEN `Success` ELSE `Error` ).
         APPEND VALUE ty_s_log(
           icon = COND #( WHEN ls_del-success = abap_true THEN `sap-icon://sys-enter-2` ELSE `sap-icon://error` )
           type = COND #( WHEN ls_del-success = abap_true THEN `Success` ELSE `Error` )
           message = ls_del-message ) TO mt_log.
         IF ls_del-success = abap_true.
           CLEAR: mv_source, mv_source_local, mv_source_test, mv_cur_obj_name, mv_object_title, mt_methods, mt_fields, mt_props, mv_status.
-          mt_tree = mo_api->get_package_tree( mv_cur_package ).
+          mt_tree = api( )->get_package_tree( mv_cur_package ).
         ENDIF.
       WHEN 'QUICK_NAV'.
         IF mv_quick_nav IS NOT INITIAL.
           " Try to load object directly by name
           DATA(lv_qn) = to_upper( mv_quick_nav ).
-          DATA(ls_qn) = mo_api->find_object( lv_qn ).
+          DATA(ls_qn) = api( )->find_object( lv_qn ).
           IF ls_qn IS NOT INITIAL.
             mv_cur_obj_name = ls_qn-obj_name.
             mv_cur_obj_type = ls_qn-object.
             load_object( ).
           ELSE.
             mv_message = |Object { mv_quick_nav } does not exist.|.
-            mv_msg_type = `Warning`.
+            mv_msgtype = `Warning`.
           ENDIF.
         ENDIF.
       WHEN 'TOGGLE_THEME'.
@@ -383,32 +364,32 @@ CLASS zcl_se80_ui IMPLEMENTATION.
       WHEN 'GOTO_LINE'.
         IF mv_goto_line IS NOT INITIAL.
           mv_message = |Position on line { mv_goto_line } (use Ctrl+G inside the editor).|.
-          mv_msg_type = `Information`.
+          mv_msgtype = `Information`.
         ENDIF.
       WHEN 'FULLSCREEN'.
         mv_fullscreen = xsdbool( mv_fullscreen = abap_false ).
       WHEN 'REPLACE_ALL'.
         IF mv_find IS NOT INITIAL AND mv_edit_mode = abap_true.
           DATA lv_rep_count TYPE i.
-          mo_api->search_replace_source(
+          api( )->search_replace_source(
             EXPORTING iv_source = mv_source iv_search = mv_find iv_replace = mv_replace
             IMPORTING ev_source = mv_source ev_count = lv_rep_count ).
           mv_message = |{ lv_rep_count } replacement(s) carried out.|.
-          mv_msg_type = COND #( WHEN lv_rep_count > 0 THEN `Success` ELSE `Warning` ).
+          mv_msgtype = COND #( WHEN lv_rep_count > 0 THEN `Success` ELSE `Warning` ).
         ELSEIF mv_edit_mode = abap_false.
           mv_message = `Switch to change mode first.`.
-          mv_msg_type = `Warning`.
+          mv_msgtype = `Warning`.
         ENDIF.
       WHEN 'COMPARE'.
-        DATA(lv_diff) = mo_api->compare_versions( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
+        DATA(lv_diff) = api( )->compare_versions( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
         IF lv_diff IS NOT INITIAL.
           mv_source = lv_diff.
           mv_active_tab = 'SRC'.
           mv_message = `Version comparison displayed.`.
-          mv_msg_type = `Information`.
+          mv_msgtype = `Information`.
         ELSE.
           mv_message = `No other version found.`.
-          mv_msg_type = `Warning`.
+          mv_msgtype = `Warning`.
         ENDIF.
       WHEN 'FIND_IN_SOURCE'.
         IF mv_find IS NOT INITIAL AND mv_source IS NOT INITIAL.
@@ -431,7 +412,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
             lv_o = lv_mo + 1.
           ENDDO.
           mv_message = COND #( WHEN lv_cnt2 > 0 THEN |{ lv_cnt2 } hit(s), first one in line { lv_fline }| ELSE |{ mv_find } not found.| ).
-          mv_msg_type = COND #( WHEN lv_cnt2 > 0 THEN `Success` ELSE `Warning` ).
+          mv_msgtype = COND #( WHEN lv_cnt2 > 0 THEN `Success` ELSE `Warning` ).
         ENDIF.
       WHEN 'RECENT_CLICK'.
         " Object selected from the "recent objects" dropdown. The selected key is
@@ -447,14 +428,14 @@ CLASS zcl_se80_ui IMPLEMENTATION.
       WHEN 'DELETE_OBJ'.
         " Show confirmation - just set flag, actual delete in CONFIRM_DELETE
         mv_message = |Delete object { mv_cur_obj_name }? Choose Delete again to confirm.|.
-        mv_msg_type = `Warning`.
+        mv_msgtype = `Warning`.
       WHEN 'SHOW_DEPS'.
         " Show object dependencies
-        mt_usages = mo_api->get_object_dependencies( mv_cur_obj_name ).
+        mt_usages = api( )->get_object_dependencies( mv_cur_obj_name ).
         mv_popup_title = |Used Objects: { mv_cur_obj_name }|.
         mv_show_whereu = abap_true.
       WHEN 'REFRESH'.
-        mt_tree = mo_api->get_package_tree( mv_cur_package ).
+        mt_tree = api( )->get_package_tree( mv_cur_package ).
       WHEN OTHERS.
     ENDCASE.
     view_display( ).
@@ -484,26 +465,26 @@ CLASS zcl_se80_ui IMPLEMENTATION.
       APPEND VALUE ty_s_history( obj_name = mv_cur_obj_name obj_type = mv_cur_obj_type ) TO mt_history.
       mv_hist_pos = lines( mt_history ).
     ENDIF.
-    DATA(ls) = mo_api->load_source( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
+    DATA(ls) = api( )->load_source( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
     mv_source = ls-source.
     mv_source_local = ls-source_local.
     mv_source_test = ls-source_test.
     mv_syntax_mode = ls-syntax_mode.
     IF ls-success = abap_false AND ls-message IS NOT INITIAL.
       mv_message = ls-message.
-      mv_msg_type = `Warning`.
+      mv_msgtype = `Warning`.
     ENDIF.
-    mo_api->get_metadata( EXPORTING iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type
+    api( )->get_metadata( EXPORTING iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type
                           IMPORTING et_methods = mt_methods et_fields = mt_fields ).
-    mt_props = mo_api->get_properties( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
+    mt_props = api( )->get_properties( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type iv_source = mv_source ).
     " Add program attributes for PROG
     IF mv_cur_obj_type = 'PROG' OR mv_cur_obj_type = 'FUGR'.
-      DATA(lt_pattr) = mo_api->get_program_attributes( mv_cur_obj_name ).
+      DATA(lt_pattr) = api( )->get_program_attributes( mv_cur_obj_name ).
       LOOP AT lt_pattr ASSIGNING FIELD-SYMBOL(<pa>).
         APPEND VALUE zif_se80_api=>ty_s_field( name = <pa>-name type = <pa>-type ) TO mt_fields.
       ENDLOOP.
       " Variants
-      DATA(lt_vars) = mo_api->get_variants( mv_cur_obj_name ).
+      DATA(lt_vars) = api( )->get_variants( mv_cur_obj_name ).
       LOOP AT lt_vars ASSIGNING FIELD-SYMBOL(<var>).
         APPEND VALUE zif_se80_api=>ty_s_field(
           name = <var>-name keyflag = `VAR` type = <var>-type ) TO mt_fields.
@@ -511,12 +492,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     ENDIF.
     " Add events + constants for classes
     IF mv_cur_obj_type = 'CLAS' OR mv_cur_obj_type = 'INTF'.
-      DATA(lt_events) = mo_api->get_class_events( mv_cur_obj_name ).
+      DATA(lt_events) = api( )->get_class_events( mv_cur_obj_name ).
       LOOP AT lt_events ASSIGNING FIELD-SYMBOL(<evt>).
         APPEND VALUE zif_se80_api=>ty_s_field(
           name = <evt>-name keyflag = <evt>-keyflag type = <evt>-type ) TO mt_fields.
       ENDLOOP.
-      DATA(lt_const) = mo_api->get_class_constants( mv_cur_obj_name ).
+      DATA(lt_const) = api( )->get_class_constants( mv_cur_obj_name ).
       LOOP AT lt_const ASSIGNING FIELD-SYMBOL(<co2>).
         APPEND VALUE zif_se80_api=>ty_s_field(
           name = <co2>-name keyflag = <co2>-keyflag
@@ -525,7 +506,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     ENDIF.
     " FM exceptions
     IF mv_cur_obj_type = 'FUNC'.
-      DATA(lt_exc) = mo_api->get_fm_exceptions( mv_cur_obj_name ).
+      DATA(lt_exc) = api( )->get_fm_exceptions( mv_cur_obj_name ).
       LOOP AT lt_exc ASSIGNING FIELD-SYMBOL(<exc>).
         APPEND VALUE zif_se80_api=>ty_s_field(
           name = <exc>-name keyflag = <exc>-keyflag type = <exc>-type ) TO mt_fields.
@@ -533,12 +514,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     ENDIF.
     " Table foreign keys + append structures
     IF mv_cur_obj_type = 'TABL'.
-      DATA(lt_fk) = mo_api->get_table_foreign_keys( mv_cur_obj_name ).
+      DATA(lt_fk) = api( )->get_table_foreign_keys( mv_cur_obj_name ).
       LOOP AT lt_fk ASSIGNING FIELD-SYMBOL(<fk2>).
         APPEND VALUE zif_se80_api=>ty_s_field(
           name = <fk2>-name keyflag = <fk2>-keyflag type = <fk2>-type ) TO mt_fields.
       ENDLOOP.
-      DATA(lt_app) = mo_api->get_table_append_structures( mv_cur_obj_name ).
+      DATA(lt_app) = api( )->get_table_append_structures( mv_cur_obj_name ).
       LOOP AT lt_app ASSIGNING FIELD-SYMBOL(<app2>).
         APPEND VALUE zif_se80_api=>ty_s_field(
           name = <app2>-name keyflag = <app2>-keyflag type = <app2>-type ) TO mt_fields.
@@ -546,12 +527,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     ENDIF.
     " Class friends + redefined methods
     IF mv_cur_obj_type = 'CLAS'.
-      DATA(lt_fr) = mo_api->get_class_friends( mv_cur_obj_name ).
+      DATA(lt_fr) = api( )->get_class_friends( mv_cur_obj_name ).
       LOOP AT lt_fr ASSIGNING FIELD-SYMBOL(<fr2>).
         APPEND VALUE zif_se80_api=>ty_s_field(
           name = <fr2>-name type = <fr2>-type ) TO mt_fields.
       ENDLOOP.
-      DATA(lt_red) = mo_api->get_redefined_methods( mv_cur_obj_name ).
+      DATA(lt_red) = api( )->get_redefined_methods( mv_cur_obj_name ).
       LOOP AT lt_red ASSIGNING FIELD-SYMBOL(<red>).
         APPEND VALUE zif_se80_api=>ty_s_field(
           name = <red>-name keyflag = <red>-keyflag type = <red>-type ) TO mt_fields.
@@ -559,7 +540,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     ENDIF.
     " Class types
     IF mv_cur_obj_type = 'CLAS' OR mv_cur_obj_type = 'INTF'.
-      DATA(lt_types) = mo_api->get_class_types( mv_cur_obj_name ).
+      DATA(lt_types) = api( )->get_class_types( mv_cur_obj_name ).
       LOOP AT lt_types ASSIGNING FIELD-SYMBOL(<tp>).
         APPEND VALUE zif_se80_api=>ty_s_field(
           name = <tp>-name keyflag = <tp>-keyflag type = <tp>-type ) TO mt_fields.
@@ -567,21 +548,21 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     ENDIF.
     " Table content preview
     IF mv_cur_obj_type = 'TABL' AND mv_source IS INITIAL.
-      mv_source = mo_api->get_table_content( iv_name = mv_cur_obj_name iv_maxrows = 10 ).
+      mv_source = api( )->get_table_content( iv_name = mv_cur_obj_name iv_maxrows = 10 ).
       mv_syntax_mode = `text`.
     ENDIF.
     " Source statistics
     IF mv_source IS NOT INITIAL.
-      DATA(lt_stats) = mo_api->get_source_statistics( mv_source ).
+      DATA(lt_stats) = api( )->get_source_statistics( mv_source ).
       LOOP AT lt_stats ASSIGNING FIELD-SYMBOL(<st>).
         APPEND VALUE zif_se80_api=>ty_s_field( name = <st>-name type = <st>-type ) TO mt_fields.
       ENDLOOP.
     ENDIF.
-    mv_text_elem = mo_api->get_text_elements( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
-    mv_docu = mo_api->get_documentation( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
-    mv_status = mo_api->get_object_status( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
-    mv_lock_info = mo_api->get_lock_info( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
-    mv_breadcrumb = mo_api->get_package_path( mv_cur_package ).
+    mv_text_elem = api( )->get_text_elements( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
+    mv_docu = api( )->get_documentation( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
+    mv_status = api( )->get_object_status( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
+    mv_lock_info = api( )->get_lock_info( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).
+    mv_breadcrumb = api( )->get_package_path( mv_cur_package ).
     mv_active_tab = 'SRC'.
   ENDMETHOD.
 
@@ -637,7 +618,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           press    = client->_event( `CREATE_OBJ` ) )
         ( icon     = `sap-icon://delete`   color = zcl_zlk05_gui_frame=>c_red
           tooltip  = `Delete`
-          press    = COND string( WHEN mv_msg_type = `Warning` AND mv_message CS `Delete`
+          press    = COND string( WHEN mv_msgtype = `Warning` AND mv_message CS `Delete`
                                   THEN client->_event( `CONFIRM_DELETE` )
                                   ELSE client->_event( `DELETE_OBJ` ) )
           disabled = lv_has )
@@ -664,7 +645,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     " band 6 - status bar
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
                                           iv_message  = mv_message
-                                          iv_msg_type = mv_msg_type ).
+                                          iv_msg_type = mv_msgtype ).
 
     " band 1 - menu bar
     zcl_zlk05_gui_frame=>build_menu_bar( io_client = client io_parent  = page
@@ -891,7 +872,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     IF mv_message IS NOT INITIAL.
       col->tag( `MessageStrip`
           )->a( n = `text`            t = mv_message
-          )->a( n = `type`            v = mv_msg_type
+          )->a( n = `type`            v = mv_msgtype
           )->a( n = `showCloseButton` v = `true` ).
     ENDIF.
 

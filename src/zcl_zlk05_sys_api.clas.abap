@@ -635,7 +635,6 @@ CLASS zcl_zlk05_sys_api DEFINITION PUBLIC FINAL CREATE PUBLIC
       IMPORTING iv_time       TYPE t
       RETURNING VALUE(result) TYPE string.
 
-
     "! Kernel parameter type number -> the text RSPFLDOC shows
     CLASS-METHODS param_type_text
       IMPORTING iv_type       TYPE spfl_parameter_type

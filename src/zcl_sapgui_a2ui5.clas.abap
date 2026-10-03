@@ -1,4 +1,5 @@
-CLASS zcl_sapgui_a2ui5 DEFINITION PUBLIC.
+CLASS zcl_sapgui_a2ui5 DEFINITION PUBLIC
+  INHERITING FROM zcl_zlk05_screen.
 
 * ---------------------------------------------------------------------
 *  SAP Easy Access - the entry screen of the SAP GUI look-alike apps.
@@ -14,7 +15,6 @@ CLASS zcl_sapgui_a2ui5 DEFINITION PUBLIC.
 * ---------------------------------------------------------------------
 
   PUBLIC SECTION.
-    INTERFACES z2ui5_if_app.
 
     TYPES:
       BEGIN OF ty_s_tcode,
@@ -25,21 +25,16 @@ CLASS zcl_sapgui_a2ui5 DEFINITION PUBLIC.
       END OF ty_s_tcode.
     TYPES ty_t_tcode TYPE STANDARD TABLE OF ty_s_tcode WITH EMPTY KEY.
 
-    DATA mv_command    TYPE string.
 
   PROTECTED SECTION.
     DATA mt_favorites  TYPE ty_t_tcode.
     DATA mt_all_tcodes TYPE ty_t_tcode.
-    DATA mv_message    TYPE string.
-    DATA mv_msg_type   TYPE string.
     DATA mv_username   TYPE string.
     DATA mv_sysid      TYPE string.
     DATA mv_client     TYPE string.
     DATA mv_host       TYPE string.
     "! Keys of the expanded tree folders
     DATA mt_expanded   TYPE string_table.
-
-    DATA client TYPE REF TO z2ui5_if_client.
 
     CONSTANTS c_key_fav   TYPE string VALUE `#FAVORITES`.
     CONSTANTS c_key_menu  TYPE string VALUE `#SAPMENU`.
@@ -52,7 +47,10 @@ CLASS zcl_sapgui_a2ui5 DEFINITION PUBLIC.
     CONSTANTS c_col_gold   TYPE string VALUE `#e9a800`.
 
     METHODS view_display.
-    METHODS on_event.
+    METHODS on_event REDEFINITION.
+    METHODS on_init REDEFINITION.
+    METHODS on_frame_event REDEFINITION.
+    METHODS render REDEFINITION.
     METHODS init_menu.
     METHODS normalize_command
       IMPORTING iv_command    TYPE string
@@ -103,38 +101,29 @@ ENDCLASS.
 
 CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
 
-  METHOD z2ui5_if_app~main.
+  METHOD on_init.
 
-    me->client = client.
-
-    IF client->check_on_init( ).
-      mv_username = CONV string( sy-uname ).
-      mv_sysid    = CONV string( sy-sysid ).
-      mv_client   = CONV string( sy-mandt ).
-      mv_host     = CONV string( sy-host ).
-      init_menu( ).
-      " Favorites and SAP Menu start expanded, like the SAP GUI does
-      mt_expanded = VALUE #( ( c_key_fav ) ( c_key_menu ) ).
-      " a new session (/oSE80, System > Create Session) carries the
-      " transaction it starts with in its address - checked like a code
-      " typed into the command field
-      DATA(lv_url_tcode) = zcl_zlk05_gui_frame=>start_tcode_of_url( client ).
-      IF lv_url_tcode IS NOT INITIAL AND start_transaction( lv_url_tcode ) = abap_true.
-        RETURN.
-      ENDIF.
-      view_display( ).
-    ELSEIF client->check_on_navigated( ).
-      " A transaction was left with F3 / the Back arrow and handed control
-      " back to the entry screen. The framework supplies an EMPTY event here
-      " and check_on_init is already false, so without this branch nothing
-      " would be rendered: the response would carry no view and the browser
-      " would keep showing the screen of the transaction that was just left.
-      " That is what made Back look dead and F3 only work on the second try.
-      view_display( ).
-    ELSEIF client->check_on_event( ).
-      on_event( ).
+    mv_username = CONV string( sy-uname ).
+    mv_sysid    = CONV string( sy-sysid ).
+    mv_client   = CONV string( sy-mandt ).
+    mv_host     = CONV string( sy-host ).
+    init_menu( ).
+    " Favorites and SAP Menu start expanded, like the SAP GUI does
+    mt_expanded = VALUE #( ( c_key_fav ) ( c_key_menu ) ).
+    " a new session (/oSE80, System > Create Session) carries the
+    " transaction it starts with in its address - checked like a code
+    " typed into the command field
+    DATA(lv_url_tcode) = zcl_zlk05_gui_frame=>start_tcode_of_url( client ).
+    IF lv_url_tcode IS NOT INITIAL AND start_transaction( lv_url_tcode ) = abap_true.
+      RETURN.
     ENDIF.
+    view_display( ).
 
+  ENDMETHOD.
+
+
+  METHOD render.
+    view_display( ).
   ENDMETHOD.
 
 
@@ -179,30 +168,38 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD on_event.
+  METHOD on_frame_event.
 
-    DATA(lv_event) = client->get_event( ).
-    DATA(lv_arg)   = client->get_event_arg( ).
-    CLEAR: mv_message, mv_msg_type.
+    CLEAR: mv_message, mv_msgtype.
 
     " the functions of the SAP GUI itself - menus, find, /o, /nend ... -
     " are the frame's. A transaction code is started here, on top of the
     " entry screen, which stays the root of the session.
+    DATA(lv_event) = client->get_event( ).
     DATA(ls_cmd) = zcl_zlk05_tcode_router=>parse_command( mv_command ).
-    IF lv_event <> zcl_zlk05_gui_frame=>c_ev_command
-       OR ( ls_cmd-kind <> zcl_zlk05_tcode_router=>c_cmd_tcode
-        AND ls_cmd-kind <> zcl_zlk05_tcode_router=>c_cmd_new ).
-      DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
-          io_client  = client
-          iv_event   = lv_event
-          iv_command = mv_command
-          iv_root    = abap_true ).
-      IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
-        RETURN.
-      ENDIF.
-      mv_message  = ls_frame-message.
-      mv_msg_type = ls_frame-msg_type.
+    IF lv_event = zcl_zlk05_gui_frame=>c_ev_command
+       AND ( ls_cmd-kind = zcl_zlk05_tcode_router=>c_cmd_tcode
+          OR ls_cmd-kind = zcl_zlk05_tcode_router=>c_cmd_new ).
+      RETURN.
     ENDIF.
+
+    ms_frame = zcl_zlk05_gui_frame=>handle_frame_event(
+        io_client  = client
+        iv_event   = lv_event
+        iv_command = mv_command
+        iv_root    = abap_true ).
+    mv_message = ms_frame-message.
+    mv_msgtype = ms_frame-msg_type.
+    result = xsdbool( ms_frame-outcome = zcl_zlk05_gui_frame=>c_navigated ).
+
+  ENDMETHOD.
+
+
+  METHOD on_event.
+
+    DATA(lv_event) = client->get_event( ).
+    DATA(lv_arg)   = client->get_event_arg( ).
+    DATA(ls_cmd)   = zcl_zlk05_tcode_router=>parse_command( mv_command ).
 
     CASE lv_event.
       WHEN zcl_zlk05_gui_frame=>c_ev_command.
@@ -240,7 +237,7 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
     DATA(ls_run) = zcl_zlk05_tcode_router=>run( iv_command = iv_tcode
                                                 io_client  = client ).
     mv_message  = ls_run-message.
-    mv_msg_type = ls_run-msg_type.
+    mv_msgtype = ls_run-msg_type.
 
     result = xsdbool( ls_run-outcome = zcl_zlk05_tcode_router=>c_nav ).
     IF result = abap_true.
@@ -260,7 +257,7 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
     " band 6 first - the status bar lives in the footer aggregation
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
                                            iv_message  = mv_message
-                                           iv_msg_type = mv_msg_type
+                                           iv_msg_type = mv_msgtype
                                            iv_sysid    = mv_sysid
                                            iv_client   = mv_client
                                            iv_user     = mv_username

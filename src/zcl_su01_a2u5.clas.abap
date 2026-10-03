@@ -1,4 +1,5 @@
-CLASS zcl_su01_a2u5 DEFINITION PUBLIC.
+CLASS zcl_su01_a2u5 DEFINITION PUBLIC
+  INHERITING FROM zcl_zlk05_screen.
 
 * ---------------------------------------------------------------------
 *  SU01 - User Maintenance
@@ -22,13 +23,9 @@ CLASS zcl_su01_a2u5 DEFINITION PUBLIC.
 * ---------------------------------------------------------------------
 
   PUBLIC SECTION.
-    INTERFACES z2ui5_if_app.
     INTERFACES zif_zlk05_start_params.
 
     CONSTANTS c_na TYPE string VALUE `not available in this environment`.
-
-    "! Content of the command field of the system function bar
-    DATA mv_command TYPE string.
 
     DATA mv_pattern TYPE string.
     DATA mt_users   TYPE zcl_zlk05_sys_api=>ty_t_user.
@@ -37,19 +34,12 @@ CLASS zcl_su01_a2u5 DEFINITION PUBLIC.
   PROTECTED SECTION.
     DATA mv_mode    TYPE string.
     DATA mv_current TYPE string.
-    DATA mv_message TYPE string.
-    DATA mv_msgtype TYPE string.
-
-    DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
     METHODS view_detail.
-    METHODS on_event.
-    "! Renders the screen the app is currently standing on. Needed twice:
-    "! after an event that only changed the mode, and - most importantly -
-    "! when the transaction is navigated back to from another one, where the
-    "! framework supplies no event at all.
-    METHODS render.
+    METHODS on_event REDEFINITION.
+    METHODS on_init REDEFINITION.
+    METHODS render REDEFINITION.
     METHODS do_search.
     METHODS do_open
       IMPORTING iv_bname TYPE string.
@@ -74,35 +64,15 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD z2ui5_if_app~main.
+  METHOD on_init.
 
-    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
-    " so the app is protected even when it is started directly by URL
-    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
-      RETURN.
+    mv_mode = `LIST`.
+    IF mv_start_user IS NOT INITIAL.
+      mv_pattern = mv_start_user.
+      mv_called  = abap_true.
+      do_open( mv_start_user ).
     ENDIF.
-
-    me->client = client.
-
-    IF client->check_on_init( ).
-      mv_mode = `LIST`.
-      IF mv_start_user IS NOT INITIAL.
-        mv_pattern = mv_start_user.
-        mv_called  = abap_true.
-        do_open( mv_start_user ).
-      ENDIF.
-      render( ).
-    ELSEIF client->check_on_navigated( ).
-      " Another transaction was left with F3 / the Back arrow and handed
-      " control back to this one. The framework supplies an EMPTY event here
-      " and check_on_init is already false, so without this branch nothing
-      " would be rendered: the response would carry no view and the browser
-      " would keep showing the screen of the transaction that was just left.
-      " That is what made Back look dead and F3 only work on the second try.
-      render( ).
-    ELSEIF client->check_on_event( ).
-      on_event( ).
-    ENDIF.
+    render( ).
 
   ENDMETHOD.
 
@@ -111,20 +81,6 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
 
     DATA(lv_event) = client->get_event( ).
     DATA(lv_arg)   = client->get_event_arg( ).
-    CLEAR: mv_message, mv_msgtype.
-
-    " the command field and Back belong to the frame - they work the
-    " same way on every screen of every transaction
-    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
-        io_client  = client
-        iv_event   = lv_event
-        iv_command = mv_command ).
-    mv_message = ls_frame-message.
-    mv_msgtype = ls_frame-msg_type.
-    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
-      RETURN.
-    ENDIF.
-
     CASE lv_event.
       WHEN 'EXECUTE'.
         do_search( ).

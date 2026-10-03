@@ -1,7 +1,7 @@
-CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
+CLASS zcl_se16n_a2u5 DEFINITION PUBLIC
+  INHERITING FROM zcl_zlk05_screen.
 
   PUBLIC SECTION.
-    INTERFACES z2ui5_if_app.
     INTERFACES zif_zlk05_start_params.
 
     CONSTANTS c_max_cols    TYPE i VALUE 50.
@@ -57,7 +57,6 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
     DATA mt_rows       TYPE ty_t_row.
 
     " --- Status message ---
-    DATA mv_command      TYPE string.
 
     " --- Value help suggestions ---
     TYPES: BEGIN OF ty_s_suggest,
@@ -92,12 +91,8 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
     DATA mv_step       TYPE i VALUE 1.
     DATA mt_crit TYPE ty_t_crit.
     DATA mv_total_rows TYPE i.
-    DATA mv_message      TYPE string.
-    DATA mv_message_type TYPE string VALUE `Information`.
     DATA mv_show_shell TYPE abap_bool VALUE abap_true.
     DATA mt_variant_list TYPE ty_t_variant_list.
-
-    DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_step_1.
     METHODS view_step_2.
@@ -109,12 +104,10 @@ CLASS zcl_se16n_a2u5 DEFINITION PUBLIC.
     "! Derives the selection criteria from the values entered in the field
     "! lines of the selection screen. Called before every database read.
     METHODS crit_from_fields.
-    METHODS on_event.
-    "! Renders the screen the app is currently standing on. Needed in three
-    "! places: after an unknown event, after a command-field message and -
-    "! most importantly - when the transaction is navigated back to from
-    "! another one, where the framework supplies no event at all.
-    METHODS render.
+    METHODS on_event REDEFINITION.
+    METHODS on_init REDEFINITION.
+    METHODS on_frame_event REDEFINITION.
+    METHODS render REDEFINITION.
     METHODS load_metadata.
     METHODS execute_query.
     METHODS search_tables
@@ -163,58 +156,35 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD z2ui5_if_app~main.
+  METHOD on_init.
 
-    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
-    " so the app is protected even when it is started directly by URL
-    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
-      RETURN.
-    ENDIF.
-
-    me->client = client.
-    IF client->check_on_init( ).
-      IF mv_start_table IS NOT INITIAL.
-        mv_called     = abap_true.
-        mv_table_name = mv_start_table.
-        load_metadata( ).
-        IF mv_step = 2.
-          variant_list_refresh( ).
-        ENDIF.
+    mv_msgtype = `Information`.
+    IF mv_start_table IS NOT INITIAL.
+      mv_called     = abap_true.
+      mv_table_name = mv_start_table.
+      load_metadata( ).
+      IF mv_step = 2.
+        variant_list_refresh( ).
       ENDIF.
+    ENDIF.
+    render( ).
+
+  ENDMETHOD.
+
+
+  METHOD on_frame_event.
+
+    result = super->on_frame_event( ).
+    IF result = abap_false AND ms_frame-outcome = zcl_zlk05_gui_frame=>c_message.
+      " the message of the command field belongs on the current screen
       render( ).
-    ELSEIF client->check_on_navigated( ).
-      " Another transaction was left with F3 and handed control back to this
-      " one. The framework supplies an EMPTY event here and check_on_init is
-      " already false, so without this branch nothing would be rendered: the
-      " response would carry no view and the browser would keep showing the
-      " screen of the transaction that was just left - Back and F3 look dead.
-      render( ).
-    ELSEIF client->check_on_event( ).
-      on_event( ).
+      result = abap_true.
     ENDIF.
 
   ENDMETHOD.
 
 
   METHOD on_event.
-
-    " the command field and Back belong to the frame - they work the same
-    " way on every screen of every transaction
-    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
-        io_client  = client
-        iv_event   = client->get_event( )
-        iv_command = mv_command ).
-    mv_message = ls_frame-message.
-    mv_message_type = ls_frame-msg_type.
-
-    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
-      RETURN.
-    ENDIF.
-    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_message.
-      " the message of the command field belongs on the current screen
-      render( ).
-      RETURN.
-    ENDIF.
 
     CASE client->get_event( ).
 
@@ -288,7 +258,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
           mt_rows       = lt_keep.
           mv_total_rows = lines( mt_rows ).
           mv_message      = |{ mv_total_rows } entries contain { lv_search }.|.
-          mv_message_type = COND #( WHEN mv_total_rows = 0 THEN `Warning` ELSE `Success` ).
+          mv_msgtype = COND #( WHEN mv_total_rows = 0 THEN `Warning` ELSE `Success` ).
         ENDIF.
         view_step_3( ).
 
@@ -315,7 +285,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
           RETURN.
         ENDIF.
         CLEAR: mt_fields, mt_crit, mt_rows, mv_message, mv_total_rows, mv_search.
-        mv_message_type = `Information`.
+        mv_msgtype = `Information`.
         mv_step         = 1.
         view_step_1( ).
 
@@ -388,7 +358,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
                                           iv_message  = mv_message
-                                          iv_msg_type = mv_message_type ).
+                                          iv_msg_type = mv_msgtype ).
 
     zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
@@ -670,7 +640,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
     zcl_zlk05_gui_frame=>build_status_bar( io_parent   = page
                                           iv_message  = mv_message
-                                          iv_msg_type = mv_message_type ).
+                                          iv_msg_type = mv_msgtype ).
 
     zcl_zlk05_gui_frame=>build_menu_bar( io_client = client
         io_parent  = page
@@ -848,7 +818,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
     IF mv_table_name IS INITIAL.
       mv_message      = `Enter a table name.`.
-      mv_message_type = `Error`.
+      mv_msgtype = `Error`.
       RETURN.
     ENDIF.
 
@@ -862,12 +832,12 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
             lo_struct ?= lo_typedescr.
           WHEN OTHERS.
             mv_message      = |{ mv_table_name } is not a table or a structure.|.
-            mv_message_type = `Error`.
+            mv_msgtype = `Error`.
             RETURN.
         ENDCASE.
       CATCH cx_root INTO DATA(lx).
         mv_message      = |Table { mv_table_name } does not exist: { lx->get_text( ) }|.
-        mv_message_type = `Error`.
+        mv_msgtype = `Error`.
         RETURN.
     ENDTRY.
 
@@ -948,12 +918,12 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
     IF mt_fields IS INITIAL.
       mv_message      = |No fields found for { mv_table_name }.|.
-      mv_message_type = `Error`.
+      mv_msgtype = `Error`.
       RETURN.
     ENDIF.
 
     mv_message = |{ lines( mt_fields ) } fields read. Maintain the selection criteria and choose Execute.|.
-    mv_message_type = `Success`.
+    mv_msgtype = `Success`.
     mv_step         = 2.
 
   ENDMETHOD.
@@ -993,7 +963,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
     result = ls_auth-allowed.
     IF result = abap_false.
       mv_message      = ls_auth-message.
-      mv_message_type = `Error`.
+      mv_msgtype = `Error`.
     ENDIF.
 
   ENDMETHOD.
@@ -1094,7 +1064,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
     IF mv_table_name IS INITIAL.
       mv_message      = `Enter a table name.`.
-      mv_message_type = `Error`.
+      mv_msgtype = `Error`.
       RETURN.
     ENDIF.
 
@@ -1111,10 +1081,10 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
     TRY.
         SELECT COUNT(*) FROM (mv_table_name) WHERE (lv_where) INTO @lv_count.
         mv_message      = |Number of entries: { lv_count }|.
-        mv_message_type = `Success`.
+        mv_msgtype = `Success`.
       CATCH cx_root INTO DATA(lx).
         mv_message      = |Number of entries could not be determined: { lx->get_text( ) }|.
-        mv_message_type = `Error`.
+        mv_msgtype = `Error`.
     ENDTRY.
 
   ENDMETHOD.
@@ -1171,7 +1141,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
         ENDIF.
       CATCH cx_root INTO DATA(lx).
         mv_message      = |Selection could not be executed: { lx->get_text( ) }|.
-        mv_message_type = `Error`.
+        mv_msgtype = `Error`.
         RETURN.
     ENDTRY.
 
@@ -1194,7 +1164,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
     mv_step         = 3.
     mv_message      = |{ mv_total_rows } entries read (maximum { lv_max }).|.
-    mv_message_type = COND #( WHEN mv_total_rows = 0 THEN `Warning` ELSE `Success` ).
+    mv_msgtype = COND #( WHEN mv_total_rows = 0 THEN `Warning` ELSE `Success` ).
 
   ENDMETHOD.
 
@@ -1237,12 +1207,12 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
     IF mv_variant_name IS INITIAL.
       mv_message      = `Enter a variant name.`.
-      mv_message_type = `Error`.
+      mv_msgtype = `Error`.
       RETURN.
     ENDIF.
     IF mv_table_name IS INITIAL.
       mv_message      = `No table selected.`.
-      mv_message_type = `Error`.
+      mv_msgtype = `Error`.
       RETURN.
     ENDIF.
 
@@ -1262,7 +1232,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
         lv_json = z2ui5_cl_util=>json_stringify( ls_payload ).
       CATCH cx_root INTO DATA(lx_json).
         mv_message      = |Variant could not be serialized: { lx_json->get_text( ) }|.
-        mv_message_type = `Error`.
+        mv_msgtype = `Error`.
         RETURN.
     ENDTRY.
 
@@ -1299,11 +1269,11 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
       COMMIT WORK AND WAIT.
       mv_variant_sel  = CONV string( ls_db-variant_id ).
       mv_message      = |Variant { mv_variant_name } saved.|.
-      mv_message_type = `Success`.
+      mv_msgtype = `Success`.
     ELSE.
       ROLLBACK WORK.
       mv_message      = |Variant { mv_variant_name } could not be saved.|.
-      mv_message_type = `Error`.
+      mv_msgtype = `Error`.
     ENDIF.
 
     variant_list_refresh( ).
@@ -1326,7 +1296,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
       INTO @DATA(ls_db).
     IF sy-subrc <> 0.
       mv_message      = `Variant does not exist.`.
-      mv_message_type = `Error`.
+      mv_msgtype = `Error`.
       RETURN.
     ENDIF.
 
@@ -1337,13 +1307,13 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
           CHANGING  data = ls_payload ).
       CATCH cx_root INTO DATA(lx).
         mv_message      = |Variant could not be read: { lx->get_text( ) }|.
-        mv_message_type = `Error`.
+        mv_msgtype = `Error`.
         RETURN.
     ENDTRY.
 
     IF ls_payload-table_name IS INITIAL.
       mv_message      = `Variant contains no data.`.
-      mv_message_type = `Warning`.
+      mv_msgtype = `Warning`.
       RETURN.
     ENDIF.
 
@@ -1367,7 +1337,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
     CLEAR: mt_rows, mv_total_rows.
     mv_step         = 2.
     mv_message      = |Variant { mv_variant_name } loaded.|.
-    mv_message_type = `Success`.
+    mv_msgtype = `Success`.
 
   ENDMETHOD.
 
@@ -1376,7 +1346,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
 
     IF iv_id IS INITIAL.
       mv_message      = `Choose a variant first.`.
-      mv_message_type = `Warning`.
+      mv_msgtype = `Warning`.
       RETURN.
     ENDIF.
 
@@ -1389,12 +1359,12 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
     IF sy-subrc = 0.
       COMMIT WORK AND WAIT.
       mv_message      = `Variant deleted.`.
-      mv_message_type = `Success`.
+      mv_msgtype = `Success`.
       CLEAR mv_variant_sel.
     ELSE.
       ROLLBACK WORK.
       mv_message      = `Variant does not exist.`.
-      mv_message_type = `Error`.
+      mv_msgtype = `Error`.
     ENDIF.
 
     variant_list_refresh( ).

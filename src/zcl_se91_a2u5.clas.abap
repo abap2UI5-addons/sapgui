@@ -1,4 +1,5 @@
-CLASS zcl_se91_a2u5 DEFINITION PUBLIC.
+CLASS zcl_se91_a2u5 DEFINITION PUBLIC
+  INHERITING FROM zcl_zlk05_screen.
 
 * ---------------------------------------------------------------------
 *  SE91 - Message Maintenance (display)
@@ -14,12 +15,10 @@ CLASS zcl_se91_a2u5 DEFINITION PUBLIC.
 * ---------------------------------------------------------------------
 
   PUBLIC SECTION.
-    INTERFACES z2ui5_if_app.
     INTERFACES zif_zlk05_start_params.
 
     CONSTANTS c_na TYPE string VALUE `not available in this environment`.
 
-    DATA mv_command  TYPE string.
     DATA mv_pattern  TYPE string.
     DATA mt_classes  TYPE zcl_zlk05_sys_api=>ty_t_msgclass.
     DATA mt_head     TYPE zcl_zlk05_sys_api=>ty_t_kv.
@@ -31,16 +30,13 @@ CLASS zcl_se91_a2u5 DEFINITION PUBLIC.
     DATA mv_mode    TYPE string.
     DATA mv_current TYPE string.
     DATA mv_msgnr   TYPE string.
-    DATA mv_message TYPE string.
-    DATA mv_msgtype TYPE string.
 
     DATA mv_start_class TYPE string.
     DATA mv_called      TYPE abap_bool.
 
-    DATA client TYPE REF TO z2ui5_if_client.
-
-    METHODS on_event.
-    METHODS render.
+    METHODS on_event REDEFINITION.
+    METHODS on_init REDEFINITION.
+    METHODS render REDEFINITION.
     METHODS view_list.
     METHODS view_detail.
     METHODS view_longtext.
@@ -68,7 +64,6 @@ CLASS zcl_se91_a2u5 DEFINITION PUBLIC.
 ENDCLASS.
 
 
-
 CLASS zcl_se91_a2u5 IMPLEMENTATION.
 
 
@@ -78,46 +73,20 @@ CLASS zcl_se91_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD z2ui5_if_app~main.
+  METHOD on_init.
 
-    " S_TCODE + S_DEVELOP display - on EVERY roundtrip, so the app is
-    " protected even when it is started directly by URL
-    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
-      RETURN.
+    mv_mode = `LIST`.
+    IF mv_start_class IS NOT INITIAL.
+      mv_pattern = mv_start_class.
+      mv_called  = abap_true.
+      do_open( mv_start_class ).
     ENDIF.
-
-    me->client = client.
-
-    IF client->check_on_init( ).
-      mv_mode = `LIST`.
-      IF mv_start_class IS NOT INITIAL.
-        mv_pattern = mv_start_class.
-        mv_called  = abap_true.
-        do_open( mv_start_class ).
-      ENDIF.
-      render( ).
-    ELSEIF client->check_on_navigated( ).
-      render( ).
-    ELSEIF client->check_on_event( ).
-      on_event( ).
-    ENDIF.
+    render( ).
 
   ENDMETHOD.
 
 
   METHOD on_event.
-
-    CLEAR: mv_message, mv_msgtype.
-
-    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
-        io_client  = client
-        iv_event   = client->get_event( )
-        iv_command = mv_command ).
-    mv_message = ls_frame-message.
-    mv_msgtype = ls_frame-msg_type.
-    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
-      RETURN.
-    ENDIF.
 
     CASE client->get_event( ).
       WHEN 'EXECUTE'.

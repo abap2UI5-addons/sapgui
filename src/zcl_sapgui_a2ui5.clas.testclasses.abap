@@ -134,7 +134,7 @@ CLASS ltcl_launcher IMPLEMENTATION.
         exp = abap_false
         act = mo_cut->start_transaction( `ZZUNKNOWN` ) ).
     cl_abap_unit_assert=>assert_equals(
-        exp = `Error` act = mo_cut->mv_msg_type ).
+        exp = `Error` act = mo_cut->mv_msgtype ).
     cl_abap_unit_assert=>assert_initial(
         act = mo_dbl->mv_nav_call
         msg = 'an unknown transaction must not navigate anywhere' ).
@@ -155,7 +155,7 @@ CLASS ltcl_launcher IMPLEMENTATION.
           msg = |listed transaction { ls_tc-tcode } must not start| ).
       cl_abap_unit_assert=>assert_equals(
           exp = `Warning`
-          act = mo_cut->mv_msg_type
+          act = mo_cut->mv_msgtype
           msg = |listed transaction { ls_tc-tcode } must be answered with a warning| ).
       cl_abap_unit_assert=>assert_initial(
           act = mo_dbl->mv_nav_call
@@ -182,7 +182,7 @@ CLASS ltcl_launcher IMPLEMENTATION.
           msg = |{ lv_tcode } is not part of this environment and must not start| ).
       cl_abap_unit_assert=>assert_equals(
           exp = `Warning`
-          act = mo_cut->mv_msg_type
+          act = mo_cut->mv_msgtype
           msg = |{ lv_tcode } exists in the system - that is a warning, not an error| ).
       cl_abap_unit_assert=>assert_initial(
           act = mo_dbl->mv_nav_call

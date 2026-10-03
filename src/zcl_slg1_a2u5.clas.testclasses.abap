@@ -125,7 +125,8 @@ CLASS ltcl_slg1_a2u5 IMPLEMENTATION.
     mo_cut->mv_mode = `DETAIL`.
     mo_dbl->mv_on_event = abap_true.
     mo_dbl->ms_get-event = zcl_zlk05_gui_frame=>c_ev_back.
-    mo_cut->on_event( ).
+    " through main( ): F3 is the frame's event, SLG1 takes it over before
+    CAST z2ui5_if_app( mo_cut )->main( mo_dbl ).
     cl_abap_unit_assert=>assert_equals( exp = `LIST` act = mo_cut->mv_mode ).
     cl_abap_unit_assert=>assert_false( mo_dbl->mv_nav_leave ).
   ENDMETHOD.

@@ -1,4 +1,5 @@
-CLASS zcl_se09_a2u5 DEFINITION PUBLIC.
+CLASS zcl_se09_a2u5 DEFINITION PUBLIC
+  INHERITING FROM zcl_zlk05_screen.
 
 * ---------------------------------------------------------------------
 *  SE09 / SE10 - Transport Organizer
@@ -25,12 +26,7 @@ CLASS zcl_se09_a2u5 DEFINITION PUBLIC.
 * ---------------------------------------------------------------------
 
   PUBLIC SECTION.
-    INTERFACES z2ui5_if_app.
-
     CONSTANTS c_na TYPE string VALUE `not available in this environment`.
-
-    "! Content of the command field of the system function bar
-    DATA mv_command TYPE string.
 
     " selection criteria
     DATA mv_user     TYPE string.
@@ -49,15 +45,12 @@ CLASS zcl_se09_a2u5 DEFINITION PUBLIC.
     " current view
     DATA mv_mode     TYPE string.
     DATA mv_current  TYPE string.
-    DATA mv_message  TYPE string.
-    DATA mv_msgtype  TYPE string.
-
-    DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
     METHODS view_detail.
-    METHODS on_event.
-    METHODS render.
+    METHODS on_event REDEFINITION.
+    METHODS on_init REDEFINITION.
+    METHODS render REDEFINITION.
     METHODS do_search.
     METHODS do_open
       IMPORTING iv_trkorr TYPE string.
@@ -81,31 +74,17 @@ ENDCLASS.
 
 CLASS zcl_se09_a2u5 IMPLEMENTATION.
 
-  METHOD z2ui5_if_app~main.
+  METHOD on_init.
 
-    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
-    " so the app is protected even when it is started directly by URL
-    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
-      RETURN.
-    ENDIF.
-
-    me->client = client.
-
-    IF client->check_on_init( ).
-      mv_user     = to_upper( sy-uname ).
-      mv_mod      = abap_true.
-      mv_rel      = abap_false.
-      mv_typ_wb   = abap_true.
-      mv_typ_cust = abap_true.
-      mv_typ_cop  = abap_false.
-      mv_typ_move = abap_false.
-      mv_mode     = `LIST`.
-      view_display( ).
-    ELSEIF client->check_on_navigated( ).
-      render( ).
-    ELSEIF client->check_on_event( ).
-      on_event( ).
-    ENDIF.
+    mv_user     = to_upper( sy-uname ).
+    mv_mod      = abap_true.
+    mv_rel      = abap_false.
+    mv_typ_wb   = abap_true.
+    mv_typ_cust = abap_true.
+    mv_typ_cop  = abap_false.
+    mv_typ_move = abap_false.
+    mv_mode     = `LIST`.
+    view_display( ).
 
   ENDMETHOD.
 
@@ -114,18 +93,6 @@ CLASS zcl_se09_a2u5 IMPLEMENTATION.
 
     DATA(lv_event) = client->get_event( ).
     DATA(lv_arg)   = client->get_event_arg( ).
-    CLEAR: mv_message, mv_msgtype.
-
-    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
-        io_client  = client
-        iv_event   = lv_event
-        iv_command = mv_command ).
-    mv_message = ls_frame-message.
-    mv_msgtype = ls_frame-msg_type.
-    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
-      RETURN.
-    ENDIF.
-
     CASE lv_event.
 
       WHEN 'EXECUTE'.

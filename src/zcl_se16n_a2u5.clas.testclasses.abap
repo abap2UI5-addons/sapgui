@@ -269,7 +269,7 @@ CLASS ltcl_se16n IMPLEMENTATION.
     " the error of a failed SELECT has to reach the rendered view
     given_two_columns( ).
     mo_cut->mv_message      = `Table ZZZ does not exist`.
-    mo_cut->mv_message_type = `Error`.
+    mo_cut->mv_msgtype = `Error`.
     mo_cut->view_step_2( ).
 
     cl_abap_unit_assert=>assert_true(

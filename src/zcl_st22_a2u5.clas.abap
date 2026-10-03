@@ -1,4 +1,5 @@
-CLASS zcl_st22_a2u5 DEFINITION PUBLIC.
+CLASS zcl_st22_a2u5 DEFINITION PUBLIC
+  INHERITING FROM zcl_zlk05_screen.
 
 * ---------------------------------------------------------------------
 *  ST22 - ABAP Runtime Errors
@@ -17,7 +18,6 @@ CLASS zcl_st22_a2u5 DEFINITION PUBLIC.
 * ---------------------------------------------------------------------
 
   PUBLIC SECTION.
-    INTERFACES z2ui5_if_app.
     INTERFACES zif_zlk05_start_params.
 
     CONSTANTS c_na TYPE string VALUE `not available in this environment`.
@@ -26,26 +26,22 @@ CLASS zcl_st22_a2u5 DEFINITION PUBLIC.
     DATA mv_date_from TYPE string.
     DATA mv_date_to   TYPE string.
     DATA mv_user      TYPE string.
-    DATA mv_command    TYPE string.
     DATA mt_dumps     TYPE zcl_zlk05_sys_api=>ty_t_dump.
     DATA mt_detail    TYPE zcl_zlk05_sys_api=>ty_t_kv.
 
   PROTECTED SECTION.
     DATA mv_mode      TYPE string.
     DATA mv_current   TYPE string.
-    DATA mv_message    TYPE string.
-    DATA mv_msgtype   TYPE string.
-
-    DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
     METHODS view_list.
     METHODS view_detail.
-    METHODS on_event.
+    METHODS on_event REDEFINITION.
+    METHODS on_init REDEFINITION.
     METHODS do_search.
     METHODS do_open
       IMPORTING iv_key TYPE string.
-    METHODS render.
+    METHODS render REDEFINITION.
 
     "! Started from another transaction (SM21) with date and user: the
     "! selection runs at once, and Back from the list returns there
@@ -69,40 +65,20 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD z2ui5_if_app~main.
+  METHOD on_init.
 
-    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
-    " so the app is protected even when it is started directly by URL
-    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
-      RETURN.
-    ENDIF.
-
-    me->client = client.
-
-    IF client->check_on_init( ).
-      mv_mode      = `SEL`.
-      mv_date_from = |{ sy-datum - 7 }|.
-      mv_date_to   = |{ sy-datum }|.
-      IF mv_start_date IS NOT INITIAL OR mv_start_user IS NOT INITIAL.
-        mv_called = abap_true.
-        IF mv_start_date IS NOT INITIAL.
-          mv_date_from = mv_start_date.
-        ENDIF.
-        mv_user = mv_start_user.
-        do_search( ).
+    mv_mode      = `SEL`.
+    mv_date_from = |{ sy-datum - 7 }|.
+    mv_date_to   = |{ sy-datum }|.
+    IF mv_start_date IS NOT INITIAL OR mv_start_user IS NOT INITIAL.
+      mv_called = abap_true.
+      IF mv_start_date IS NOT INITIAL.
+        mv_date_from = mv_start_date.
       ENDIF.
-      render( ).
-    ELSEIF client->check_on_navigated( ).
-      " Another transaction was left with F3 / the Back arrow and handed
-      " control back to this one. The framework supplies an EMPTY event here
-      " and check_on_init is already false, so without this branch nothing
-      " would be rendered: the response would carry no view and the browser
-      " would keep showing the screen of the transaction that was just left.
-      " That is what made Back look dead and F3 only work on the second try.
-      render( ).
-    ELSEIF client->check_on_event( ).
-      on_event( ).
+      mv_user = mv_start_user.
+      do_search( ).
     ENDIF.
+    render( ).
 
   ENDMETHOD.
 
@@ -111,20 +87,6 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
 
     DATA(lv_event) = client->get_event( ).
     DATA(lv_arg)   = client->get_event_arg( ).
-    CLEAR: mv_message, mv_msgtype.
-
-    " the command field and Back belong to the frame - they work the
-    " same way on every screen of every transaction
-    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
-        io_client  = client
-        iv_event   = lv_event
-        iv_command = mv_command ).
-    mv_message = ls_frame-message.
-    mv_msgtype = ls_frame-msg_type.
-    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
-      RETURN.
-    ENDIF.
-
     CASE lv_event.
       WHEN 'EXECUTE'.
         do_search( ).

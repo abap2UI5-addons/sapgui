@@ -1,4 +1,5 @@
-CLASS zcl_pfcg_a2u5 DEFINITION PUBLIC.
+CLASS zcl_pfcg_a2u5 DEFINITION PUBLIC
+  INHERITING FROM zcl_zlk05_screen.
 
 * ---------------------------------------------------------------------
 *  PFCG - Role Maintenance (display)
@@ -16,12 +17,10 @@ CLASS zcl_pfcg_a2u5 DEFINITION PUBLIC.
 * ---------------------------------------------------------------------
 
   PUBLIC SECTION.
-    INTERFACES z2ui5_if_app.
     INTERFACES zif_zlk05_start_params.
 
     CONSTANTS c_na TYPE string VALUE `not available in this environment`.
 
-    DATA mv_command TYPE string.
     DATA mv_pattern TYPE string.
     DATA mt_roles   TYPE zcl_zlk05_sys_api=>ty_t_agr.
 
@@ -36,18 +35,15 @@ CLASS zcl_pfcg_a2u5 DEFINITION PUBLIC.
   PROTECTED SECTION.
     DATA mv_mode    TYPE string.
     DATA mv_current TYPE string.
-    DATA mv_message TYPE string.
-    DATA mv_msgtype TYPE string.
 
     "! Role handed over by another transaction (SU01 ...): shown directly,
     "! and Back returns to the calling transaction
     DATA mv_start_role TYPE string.
     DATA mv_called     TYPE abap_bool.
 
-    DATA client TYPE REF TO z2ui5_if_client.
-
-    METHODS on_event.
-    METHODS render.
+    METHODS on_event REDEFINITION.
+    METHODS on_init REDEFINITION.
+    METHODS render REDEFINITION.
     METHODS view_list.
     METHODS view_detail.
     METHODS do_search.
@@ -67,7 +63,6 @@ CLASS zcl_pfcg_a2u5 DEFINITION PUBLIC.
 ENDCLASS.
 
 
-
 CLASS zcl_pfcg_a2u5 IMPLEMENTATION.
 
 
@@ -77,46 +72,20 @@ CLASS zcl_pfcg_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD z2ui5_if_app~main.
+  METHOD on_init.
 
-    " S_TCODE + S_USER_AGR - on EVERY roundtrip, so the app is protected
-    " even when it is started directly by URL
-    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
-      RETURN.
+    mv_mode = `LIST`.
+    IF mv_start_role IS NOT INITIAL.
+      mv_pattern = mv_start_role.
+      mv_called  = abap_true.
+      do_open( mv_start_role ).
     ENDIF.
-
-    me->client = client.
-
-    IF client->check_on_init( ).
-      mv_mode = `LIST`.
-      IF mv_start_role IS NOT INITIAL.
-        mv_pattern = mv_start_role.
-        mv_called  = abap_true.
-        do_open( mv_start_role ).
-      ENDIF.
-      render( ).
-    ELSEIF client->check_on_navigated( ).
-      render( ).
-    ELSEIF client->check_on_event( ).
-      on_event( ).
-    ENDIF.
+    render( ).
 
   ENDMETHOD.
 
 
   METHOD on_event.
-
-    CLEAR: mv_message, mv_msgtype.
-
-    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
-        io_client  = client
-        iv_event   = client->get_event( )
-        iv_command = mv_command ).
-    mv_message = ls_frame-message.
-    mv_msgtype = ls_frame-msg_type.
-    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
-      RETURN.
-    ENDIF.
 
     DATA(lv_arg) = client->get_event_arg( ).
 

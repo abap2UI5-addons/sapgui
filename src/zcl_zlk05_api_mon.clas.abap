@@ -22,7 +22,6 @@ CLASS zcl_zlk05_api_mon DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 iv_jobcount   TYPE string
       RETURNING VALUE(result) TYPE zcl_zlk05_sys_api=>ty_t_jobstep.
 
-
     CLASS-METHODS get_dumps
       IMPORTING iv_date_from  TYPE d OPTIONAL
                 iv_user       TYPE string OPTIONAL

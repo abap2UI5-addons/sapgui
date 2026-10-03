@@ -1,4 +1,5 @@
-CLASS zcl_st05_a2u5 DEFINITION PUBLIC.
+CLASS zcl_st05_a2u5 DEFINITION PUBLIC
+  INHERITING FROM zcl_zlk05_screen.
 
 * ---------------------------------------------------------------------
 *  ST05 - Performance Trace
@@ -37,29 +38,24 @@ CLASS zcl_st05_a2u5 DEFINITION PUBLIC.
 * ---------------------------------------------------------------------
 
   PUBLIC SECTION.
-    INTERFACES z2ui5_if_app.
-
     CONSTANTS c_na TYPE string VALUE `not available in this environment`.
 
     CONSTANTS c_ro TYPE string VALUE
       `status display - this app never switches a trace on or off`.
 
-    DATA mv_command     TYPE string.
     DATA ms_state      TYPE zcl_zlk05_sys_api=>ty_s_trace_state.
     DATA mt_param      TYPE zcl_zlk05_sys_api=>ty_t_kv.
 
   PROTECTED SECTION.
     DATA mv_screen     TYPE string.
-    DATA mv_message     TYPE string.
-    DATA mv_msgtype    TYPE string.
     DATA mv_show_param TYPE abap_bool.
-
-    DATA client TYPE REF TO z2ui5_if_client.
 
     METHODS view_display.
     METHODS view_initial.
     METHODS view_filter.
-    METHODS on_event.
+    METHODS on_event REDEFINITION.
+    METHODS on_init REDEFINITION.
+    METHODS render REDEFINITION.
     METHODS do_refresh.
 
     METHODS add_check
@@ -86,50 +82,21 @@ ENDCLASS.
 
 CLASS zcl_st05_a2u5 IMPLEMENTATION.
 
-  METHOD z2ui5_if_app~main.
+  METHOD on_init.
 
-    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
-    " so the app is protected even when it is started directly by URL
-    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
-      RETURN.
-    ENDIF.
-
-    me->client = client.
-
-    IF client->check_on_init( ).
-      mv_screen = `0010`.
-      do_refresh( ).
-      view_display( ).
-    ELSEIF client->check_on_navigated( ).
-      " Another transaction was left with F3 / the Back arrow and handed
-      " control back to this one. The framework supplies an EMPTY event here
-      " and check_on_init is already false, so without this branch nothing
-      " would be rendered: the response would carry no view and the browser
-      " would keep showing the screen of the transaction that was just left.
-      " That is what made Back look dead and F3 only work on the second try.
-      view_display( ).
-    ELSEIF client->check_on_event( ).
-      on_event( ).
-    ENDIF.
+    mv_screen = `0010`.
+    do_refresh( ).
+    view_display( ).
 
   ENDMETHOD.
 
 
+  METHOD render.
+    view_display( ).
+  ENDMETHOD.
+
+
   METHOD on_event.
-
-    CLEAR: mv_message, mv_msgtype.
-
-    " the command field and Back belong to the frame - they work the
-    " same way on every screen of every transaction
-    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
-        io_client  = client
-        iv_event   = client->get_event( )
-        iv_command = mv_command ).
-    mv_message = ls_frame-message.
-    mv_msgtype = ls_frame-msg_type.
-    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
-      RETURN.
-    ENDIF.
 
     CASE client->get_event( ).
 

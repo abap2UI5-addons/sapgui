@@ -198,7 +198,7 @@ CLASS ltcl_se80_ui IMPLEMENTATION.
   METHOD message_reaches_bar.
     given_object_loaded( ).
     mo_cut->mv_message  = `Object ZCL_X is locked by DEVELOPER.`.
-    mo_cut->mv_msg_type = `Error`.
+    mo_cut->mv_msgtype = `Error`.
     mo_cut->view_display( ).
 
     cl_abap_unit_assert=>assert_true(

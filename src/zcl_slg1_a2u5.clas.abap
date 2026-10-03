@@ -1,4 +1,5 @@
-CLASS zcl_slg1_a2u5 DEFINITION PUBLIC.
+CLASS zcl_slg1_a2u5 DEFINITION PUBLIC
+  INHERITING FROM zcl_zlk05_screen.
 
 * ---------------------------------------------------------------------
 *  SLG1 - Analyze Application Log
@@ -15,11 +16,8 @@ CLASS zcl_slg1_a2u5 DEFINITION PUBLIC.
 * ---------------------------------------------------------------------
 
   PUBLIC SECTION.
-    INTERFACES z2ui5_if_app.
-
     CONSTANTS c_na TYPE string VALUE `not available in this environment`.
 
-    DATA mv_command   TYPE string.
     DATA mv_object    TYPE string.
     DATA mv_subobject TYPE string.
     DATA mv_user      TYPE string.
@@ -33,16 +31,14 @@ CLASS zcl_slg1_a2u5 DEFINITION PUBLIC.
     DATA mv_cur_log  TYPE string.
     DATA mv_cur_text TYPE string.
 
-    DATA mv_message TYPE string.
-    DATA mv_msgtype TYPE string.
     DATA mv_mode    TYPE string.
 
-    DATA client TYPE REF TO z2ui5_if_client.
-
-    METHODS render.
+    METHODS render REDEFINITION.
     METHODS view_display.
     METHODS view_detail.
-    METHODS on_event.
+    METHODS on_event REDEFINITION.
+    METHODS on_init REDEFINITION.
+    METHODS on_frame_event REDEFINITION.
     METHODS do_search.
     METHODS do_open
       IMPORTING iv_lognumber TYPE string.
@@ -56,32 +52,33 @@ CLASS zcl_slg1_a2u5 DEFINITION PUBLIC.
 ENDCLASS.
 
 
-
 CLASS zcl_slg1_a2u5 IMPLEMENTATION.
 
 
-  METHOD z2ui5_if_app~main.
+  METHOD on_init.
 
-    " S_TCODE + basic authorization of the transaction - on EVERY roundtrip,
-    " so the app is protected even when it is started directly by URL
-    IF zcl_zlk05_auth=>guard_app( io_client = client io_app = me ) = abap_false.
+    " SLG1 starts with the logs of today
+    mv_date_from = sy-datum.
+    mv_date_to   = sy-datum.
+    mv_mode      = `LIST`.
+    do_search( ).
+    view_display( ).
+
+  ENDMETHOD.
+
+
+  METHOD on_frame_event.
+
+    " F3 on the message screen goes back to the list, not out of SLG1
+    IF client->get_event( ) = zcl_zlk05_gui_frame=>c_ev_back AND mv_mode = `DETAIL`.
+      CLEAR: mv_message, mv_msgtype.
+      mv_mode = `LIST`.
+      render( ).
+      result = abap_true.
       RETURN.
     ENDIF.
 
-    me->client = client.
-
-    IF client->check_on_init( ).
-      " SLG1 starts with the logs of today
-      mv_date_from = sy-datum.
-      mv_date_to   = sy-datum.
-      mv_mode      = `LIST`.
-      do_search( ).
-      view_display( ).
-    ELSEIF client->check_on_navigated( ).
-      render( ).
-    ELSEIF client->check_on_event( ).
-      on_event( ).
-    ENDIF.
+    result = super->on_frame_event( ).
 
   ENDMETHOD.
 
@@ -90,24 +87,6 @@ CLASS zcl_slg1_a2u5 IMPLEMENTATION.
 
     DATA(lv_event) = client->get_event( ).
     DATA(lv_arg)   = client->get_event_arg( ).
-    CLEAR: mv_message, mv_msgtype.
-
-    " F3 on the message screen goes back to the list, not out of SLG1
-    IF lv_event = zcl_zlk05_gui_frame=>c_ev_back AND mv_mode = `DETAIL`.
-      mv_mode = `LIST`.
-      render( ).
-      RETURN.
-    ENDIF.
-
-    DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
-        io_client  = client
-        iv_event   = lv_event
-        iv_command = mv_command ).
-    mv_message = ls_frame-message.
-    mv_msgtype = ls_frame-msg_type.
-    IF ls_frame-outcome = zcl_zlk05_gui_frame=>c_navigated.
-      RETURN.
-    ENDIF.
 
     CASE lv_event.
       WHEN 'EXECUTE'.
