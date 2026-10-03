@@ -83,7 +83,7 @@ CLASS zcl_zlk05_api_mon DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 iv_max        TYPE i DEFAULT 200
       RETURNING VALUE(result) TYPE zcl_zlk05_sys_api=>ty_t_applog.
 
-    "! Messages of one log via the released API CL_BALI_LOG_DB
+    "! Messages of one log (BAL_DB_LOAD, BAL_LOG_MSG_READ)
     CLASS-METHODS get_app_log_messages
       IMPORTING iv_lognumber  TYPE string
       EXPORTING et_messages   TYPE zcl_zlk05_sys_api=>ty_t_applog_msg
@@ -749,23 +749,72 @@ CLASS zcl_zlk05_api_mon IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    TRY.
-        DATA(lo_log) = cl_bali_log_db=>get_instance( )->load_log( handle = ls_hdr-log_handle ).
-        LOOP AT lo_log->get_all_items( ) INTO DATA(ls_item).
-          severity_text( EXPORTING iv_severity = ls_item-item->severity
-                         IMPORTING ev_text     = DATA(lv_sevtext)
-                                   ev_state    = DATA(lv_state) ).
-          APPEND VALUE #(
-            msgno    = condense( CONV string( ls_item-log_item_number ) )
-            severity = ls_item-item->severity
-            sevtext  = lv_sevtext
-            state    = lv_state
-            text     = ls_item-item->get_message_text( )
-            tstamp   = |{ ls_item-item->timestamp TIMESTAMP = SPACE }| ) TO et_messages.
-        ENDLOOP.
-      CATCH cx_bali_runtime INTO DATA(lx).
-        ev_message = lx->get_text( ).
-    ENDTRY.
+    " the classic BAL API, available on every release this addon runs on -
+    " the released CL_BALI_LOG_DB is not there on every 7.50 system
+    DATA lt_handle     TYPE bal_t_logh.
+    DATA lt_msg_handle TYPE bal_t_msgh.
+    DATA ls_msg        TYPE bal_s_msg.
+    DATA lv_text       TYPE c LENGTH 200.
+
+    INSERT ls_hdr-log_handle INTO TABLE lt_handle.
+    CALL FUNCTION 'BAL_DB_LOAD'
+      EXPORTING
+        i_t_log_handle     = lt_handle
+      EXCEPTIONS
+        no_logs_specified  = 1
+        log_not_found      = 2
+        log_already_loaded = 3
+        OTHERS             = 4.
+    IF sy-subrc <> 0 AND sy-subrc <> 3.
+      ev_message = |Log { iv_lognumber } cannot be loaded (BAL_DB_LOAD { sy-subrc }).|.
+      RETURN.
+    ENDIF.
+
+    CALL FUNCTION 'BAL_GLB_SEARCH_MSG'
+      EXPORTING
+        i_t_log_handle = lt_handle
+      IMPORTING
+        e_t_msg_handle = lt_msg_handle
+      EXCEPTIONS
+        msg_not_found  = 1
+        OTHERS         = 2.
+    IF sy-subrc <> 0.
+      CLEAR lt_msg_handle.
+    ENDIF.
+
+    LOOP AT lt_msg_handle INTO DATA(ls_msg_handle).
+      CALL FUNCTION 'BAL_LOG_MSG_READ'
+        EXPORTING
+          i_s_msg_handle = ls_msg_handle
+        IMPORTING
+          e_s_msg        = ls_msg
+          e_txt_msg      = lv_text
+        EXCEPTIONS
+          log_not_found  = 1
+          msg_not_found  = 2
+          OTHERS         = 3.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+      severity_text( EXPORTING iv_severity = ls_msg-msgty
+                     IMPORTING ev_text     = DATA(lv_sevtext)
+                               ev_state    = DATA(lv_state) ).
+      APPEND VALUE #(
+        msgno    = condense( CONV string( ls_msg_handle-msgnumber ) )
+        severity = ls_msg-msgty
+        sevtext  = lv_sevtext
+        state    = lv_state
+        text     = condense( lv_text )
+        tstamp   = |{ ls_msg-time_stmp TIMESTAMP = SPACE }| ) TO et_messages.
+    ENDLOOP.
+
+    " the log stays loaded in this session otherwise
+    CALL FUNCTION 'BAL_LOG_REFRESH'
+      EXPORTING
+        i_log_handle  = ls_hdr-log_handle
+      EXCEPTIONS
+        log_not_found = 1
+        OTHERS        = 2.
 
   ENDMETHOD.
 

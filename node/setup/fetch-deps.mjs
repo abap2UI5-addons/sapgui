@@ -35,6 +35,9 @@ const git = (args, cwd) =>
 
 const pin = execFileSync(process.execPath, [path.join(ROOT, "scripts", "core-pin.mjs"), "get"])
   .toString().trim();
+// the downported tag: abap2UI5 transpiles its own downport, the plain
+// release tag does not go through the transpiler (tried with 1.146.0).
+// This is the framework's build, not a 7.02 target of this repository.
 const coreRef = pin === "main" ? "702" : `${pin}-702`;
 
 function ensure(name, url, ref, isSha) {

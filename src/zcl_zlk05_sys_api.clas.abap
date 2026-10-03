@@ -826,7 +826,7 @@ CLASS zcl_zlk05_sys_api DEFINITION PUBLIC FINAL CREATE PUBLIC
                 iv_max        TYPE i DEFAULT 200
       RETURNING VALUE(result) TYPE ty_t_applog.
 
-    "! Messages of one log, read with the released API CL_BALI_LOG_DB
+    "! Messages of one log, read with BAL_DB_LOAD / BAL_LOG_MSG_READ
     CLASS-METHODS get_app_log_messages
       IMPORTING iv_lognumber  TYPE string
       EXPORTING et_messages   TYPE ty_t_applog_msg

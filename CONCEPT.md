@@ -21,7 +21,6 @@ by what is most fun.
     but rebuilds no control, because the view is opened in
     `ZCL_ZLK05_GUI_FRAME` and not in the app class - now covered by
     `npm run views` (section 2), but only for the first screen of each app,
-  - the 7.02 downport - it aborts on its first blocker.
 - About 300 buttons and fields are shown but disabled ("not available in this
   environment"). That is the honest SAP GUI look, and also the size of the
   functional backlog.
@@ -161,6 +160,12 @@ abap2UI5/linter, not worth waiting for).
   (kernel, no dependency) needs a one-time conversion of `ZSE16N_A2U5_VAR`.
 
 ## 5. Downport to 7.02
+
+**Decided 2026-10-03: not a goal.** SAP_BASIS 7.50 is the floor, said so in
+the README; the 702 configuration, `auto_downport`, `ABAP_702` and the
+`-702` handling of `core-pin.mjs` are gone. SLG1 reads its messages with the
+classic BAL function modules instead of `CL_BALI_LOG_DB`, which is not there
+on every 7.50 system. What the analysis said before:
 
 Decide first whether 7.02 is a goal at all. If it is:
 

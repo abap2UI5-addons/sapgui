@@ -151,7 +151,8 @@ system, has no method that changes anything. Two exceptions:
 - SAP_BASIS 7.50 or higher, standard ABAP (on-premise, private cloud or a
   developer trial). Not ABAP Cloud - the screens read system tables (`TADIR`,
   `TRDIR`, `SNAP`, `DD03L`, ...) and use classic Workbench APIs that are not
-  released for the ABAP Cloud language version.
+  released for the ABAP Cloud language version. There is no 7.02 version
+  ([Release floor](#release-floor)).
 - [abap2UI5](https://github.com/abap2UI5/abap2UI5) - the only dependency.
 
 ## For contributors
@@ -244,23 +245,21 @@ npm test        # the three lint profiles, the transpiled unit tests, the views
 | ----------------------- | --------------------------------------------------- |
 | `npm run lint`          | style and correctness profile (`abaplint.jsonc`)     |
 | `npm run lint_standard` | syntax check against SAP_BASIS 7.50                  |
-| `npm run lint_702`      | syntax check against SAP_BASIS 7.02                  |
 | `npm run lint_abap2ui5` | the abap2UI5 linter (`abap2ui5lint.jsonc`)           |
 | `npm run transpile`     | ABAP to JavaScript into `node/output`                |
 | `npm run unit`          | run the transpiled unit tests, report every failure  |
 | `npm run views`         | write the view of every screen, lint those files     |
 | `npm run deps`          | abap2UI5 and open-abap-core at their pins (`node/deps`) |
 | `npm run auto_fix`      | apply the quick fixes abaplint can apply on its own  |
-| `npm run auto_downport` | rewrite `src/` to 7.02 syntax                        |
 
 abaplint resolves the dependencies by cloning abap2UI5 and the Steampunk API
 intersect, so the first run needs network access. abap2UI5 is **pinned to a
 release tag** (the `"branch"` key of the dependency, abap2UI5 CONVENTIONS §9):
 users install a release next to this addon, so the checks run against that
-release and not against the framework's `main`. Four configs carry the pin
-(`abaplint.jsonc`, `.github/abaplint/abap_standard.jsonc`,
-`.github/abaplint/auto_fix.jsonc`, and the downported `<tag>-702` form in
-`.github/abaplint/abap_702.jsonc`); read and move them only with
+release and not against the framework's `main`. Three configs carry the pin
+(`abaplint.jsonc`, `.github/abaplint/abap_standard.jsonc` and
+`.github/abaplint/auto_fix.jsonc`, and `node/setup/fetch-deps.mjs` follows
+it); read and move them only with
 `scripts/core-pin.mjs` (`get` fails when they disagree). The `bump-core`
 workflow moves the pin weekly to the newest release after `npm run lint`,
 `npm run lint_standard` and the transpiled unit tests passed on it. Do not drop the key: abaplint then
@@ -276,8 +275,6 @@ CI, in `.github/workflows`:
 | `ABAP_STANDARD` | push to main, pull request    |
 | `auto_fix`      | weekly, opens a pull request  |
 | `bump-core`     | weekly, opens a pull request  |
-| `auto_downport` | manual                        |
-| `ABAP_702`      | push to 702, after a downport |
 
 The [abap2UI5 linter](https://github.com/abap2UI5/linter) checks what abaplint
 cannot know about abap2UI5: bindings, events, frontend actions, icons against
@@ -326,30 +323,17 @@ in `abaplint.jsonc`. This repository is a rebuild of the ABAP Workbench, so
 table browser that selects from a table name known only at runtime cannot have
 a static column list or `ORDER BY`.
 
-### Downport
+### Release floor
 
-`npm run auto_downport` rewrites the sources to 7.02 syntax with abaplint, and
-the `auto_downport` workflow pushes the result to a `702` branch that
-`ABAP_702` then checks.
+SAP_BASIS 7.50 is the floor, and the only one: `npm run lint_standard` checks
+the sources against it on every pull request. There is no 7.02 version and
+no downport pipeline - the screens use strict Open SQL with joins, ABAP 7.40
+expressions throughout and Workbench APIs that 7.02 does not have, and a
+downport would cost more than the systems it would reach are worth.
 
-**The downport is not green yet**, which is why the workflow is manual and does
-not run on every push - it must not force push a broken branch. What abaplint
-cannot rewrite today:
-
-- `SELECT` with a `LEFT OUTER JOIN`: the statement keeps its strict SQL form,
-  the comma separated column list and the `@` escaped host variables, none of
-  which parse on 7.02. Selects without a join are rewritten correctly. The
-  joins are in the `ZCL_ZLK05_API_*` classes behind `ZCL_ZLK05_SYS_API`.
-- `COND` nested inside a `VALUE` constructor: the outer constructor is expanded
-  but the inner `COND` is left as it is, mostly in `ZCL_SE16N_A2U5`.
-- `DATA(x) = <call on a class abaplint cannot resolve>`: without the type the
-  inline declaration cannot be split, so it stays. All 55 findings in
-  `ZCL_SE80_API` come from the `CL_OO_CLIF_SOURCE` calls.
-
-Making the sources downportable means hoisting those expressions and writing
-the joins as separate selects. Until then `npm run lint_702` reports what is
-left, and the sources stay on the 7.50 syntax the main branch is checked
-against.
+(The transpiled unit tests read abap2UI5 in its downported `<tag>-702` form
+- that is the framework's own build for the transpiler, not a target of this
+repository.)
 
 ## License
 

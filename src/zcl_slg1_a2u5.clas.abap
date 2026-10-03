@@ -5,8 +5,8 @@ CLASS zcl_slg1_a2u5 DEFINITION PUBLIC.
 *
 *  Screen 1: selection (object, subobject, user, date) and the list of
 *            logs found in BALHDR, with the traffic light of SLG1.
-*  Screen 2: the messages of one log, read with the released API
-*            CL_BALI_LOG_DB (Clean Core level A).
+*  Screen 2: the messages of one log, read with BAL_DB_LOAD and
+*            BAL_LOG_MSG_READ like the original.
 *
 *  Deleting or archiving logs is not possible here.
 *

@@ -16,29 +16,23 @@
  *   node scripts/core-pin.mjs set <ref>     pin a tag (or `main` for the canary)
  *   node scripts/core-pin.mjs latest        print the newest release tag
  *
- * The 7.02 configs carry the downported tag of the same release (`1.146.0`
- * there is `1.146.0-702`, `main` there is `702`), so one repository stays on
- * one framework version. `set main` is what a weekly canary run does in its
- * own checkout - it is never committed. bump-core moves the pin to `latest`
- * after the gates passed on it.
+ * The transpiled unit tests follow the same pin (node/setup/fetch-deps.mjs),
+ * so one repository stays on one framework version. `set main` is what a
+ * weekly canary run does in its own checkout - it is never committed.
+ * bump-core moves the pin to `latest` after the gates passed on it.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 const CORE = 'https://github.com/abap2UI5/abap2UI5';
-// every abaplint config that resolves the core, and whether it takes the
-// downported (-702) form of the tag
+// every abaplint config that resolves the core
 const FILES = [
-  { file: 'abaplint.jsonc', downport: false },
-  { file: '.github/abaplint/abap_standard.jsonc', downport: false },
-  { file: '.github/abaplint/auto_fix.jsonc', downport: false },
-  { file: '.github/abaplint/abap_702.jsonc', downport: true },
+  { file: 'abaplint.jsonc' },
+  { file: '.github/abaplint/abap_standard.jsonc' },
+  { file: '.github/abaplint/auto_fix.jsonc' },
 ];
 // the one line the pin lives on - kept on its own line next to the core URL
 const PIN = /("branch":\s*")([^"]+)(")/;
-
-const to702 = (ref) => (ref === 'main' ? '702' : `${ref}-702`);
-const from702 = (ref) => (ref === '702' ? 'main' : ref.replace(/-702$/, ''));
 
 function read(entry) {
   const file = new URL(`../${entry.file}`, import.meta.url);
@@ -48,8 +42,7 @@ function read(entry) {
   const block = text.slice(at, text.indexOf('}', at));
   const m = block.match(PIN);
   if (!m) throw new Error(`${entry.file}: the core dependency has no "branch" key`);
-  const ref = entry.downport ? from702(m[2]) : m[2];
-  return { file, text, at, block, ref };
+  return { file, text, at, block, ref: m[2] };
 }
 
 const [cmd, arg] = process.argv.slice(2);
@@ -66,10 +59,9 @@ if (cmd === 'get') {
   if (!arg) throw new Error('usage: core-pin.mjs set <ref>');
   for (const entry of FILES) {
     const { file, text, at, block } = read(entry);
-    const ref = entry.downport ? to702(arg) : arg;
-    const next = block.replace(PIN, `$1${ref}$3`);
+    const next = block.replace(PIN, `$1${arg}$3`);
     writeFileSync(file, text.slice(0, at) + next + text.slice(at + block.length));
-    console.log(`${entry.file}: core pinned to ${ref}`);
+    console.log(`${entry.file}: core pinned to ${arg}`);
   }
 } else if (cmd === 'latest') {
   // plain release tags only - `1.146.0`, not the downported `1.146.0-702`
