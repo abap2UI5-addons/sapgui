@@ -2,13 +2,13 @@
 /*
  * snapshot-views - the view of every screen, as the browser gets it.
  *
- * Every app hands its view to ZCL_ZLK05_GUI_FRAME, which opens the
+ * Every app hands its view to ZCL_SAPGUI_FRAME, which opens the
  * mvc:View and the window bands in another class - so the abap2UI5 linter,
  * reading one class at a time, rebuilds no control of any screen. This
  * script runs the transpiled apps instead (npm run transpile first): it
  * installs the doubles of the system API and the authorization checks,
  * starts every app the command field knows plus SAP Easy Access against
- * ZCL_ZLK05_CLIENT_DBL (SE80 with ZCL_SE80_API_DBL), and writes the view each one displays to
+ * ZCL_SAPGUI_CLIENT_DBL (SE80 with ZCL_SAPGUI_SE80_API_DBL), and writes the view each one displays to
  * node/views/<class>.view.xml. The linter then checks those files - every
  * control, property, aggregation and binding, against UI5 1.71.
  *
@@ -30,15 +30,15 @@ if (!fs.existsSync(path.join(OUT, "init.mjs"))) {
 const load = async (name) => (await import(pathToFileURL(path.join(OUT, `${name}.clas.mjs`)).href))[name];
 await import(pathToFileURL(path.join(OUT, "init.mjs")).href);
 
-const sysDbl = await load("zcl_zlk05_sys_api_dbl");
-const authDbl = await load("zcl_zlk05_auth_sys_dbl");
-const clientDbl = await load("zcl_zlk05_client_dbl");
-const router = await load("zcl_zlk05_tcode_router");
-const se80Dbl = await load("zcl_se80_api_dbl");
+const sysDbl = await load("zcl_sapgui_sys_api_dbl");
+const authDbl = await load("zcl_sapgui_auth_sys_dbl");
+const clientDbl = await load("zcl_sapgui_client_dbl");
+const router = await load("zcl_sapgui_router");
+const se80Dbl = await load("zcl_sapgui_se80_api_dbl");
 
 // the router reads the transaction texts through the system API too
 await sysDbl.install();
-const classes = new Set(["ZCL_SAPGUI_A2UI5"]);
+const classes = new Set(["ZCL_SAPGUI_START"]);
 for (const row of (await router.get_apps()).array()) {
   const cls = row.get().class.get().trim();
   if (cls) classes.add(cls);
@@ -55,7 +55,7 @@ for (const cls of [...classes].sort()) {
     await authDbl.install();
     const AppClass = await load(name);
     const app = await new AppClass().constructor_();
-    if (name === "zcl_se80_ui") {
+    if (name === "zcl_sapgui_se80") {
       // the Object Navigator takes its repository API as an instance
       const api = new abap.types.ABAPObject();
       api.set(await new se80Dbl().constructor_());

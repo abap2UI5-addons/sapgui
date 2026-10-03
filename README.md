@@ -47,7 +47,7 @@ Good for:
 ## Authorizations
 
 The apps ask for the authorizations the original transactions ask for, in
-`ZCL_ZLK05_AUTH`:
+`ZCL_SAPGUI_AUTH`:
 
 - **Every roundtrip of every app** starts with S_TCODE for the transaction
   behind the app and the basic object check the original makes right after
@@ -86,10 +86,18 @@ The apps ask for the authorizations the original transactions ask for, in
    handler, for example:
 
    ```
-   /sap/bc/http/sap/z2ui5?app_start=ZCL_SAPGUI_A2UI5
+   /sap/bc/http/sap/z2ui5?app_start=ZCL_SAPGUI_START
    ```
 
 From there, the command field and the menu tree reach every transaction below.
+
+> [!NOTE]
+> **Upgrading from a version before October 2026:** every object was renamed
+> to one prefix (`ZCL_SAPGUI_*`, `ZIF_SAPGUI_*`, message class `ZSAPGUI`);
+> the entry screen is now `ZCL_SAPGUI_START`. abapGit shows the old objects as
+> deleted and the new ones as new - pull, and let it delete the old ones. The
+> SE16N variants table `ZSE16N_A2U5_VAR` kept its name, so the saved variants
+> stay.
 The command field understands the usual syntax: `SE80`, `/nSE80` (same
 window), `/oSE80` (new window).
 
@@ -133,10 +141,10 @@ screen, and a transaction that does not exist at all is reported as such.
 
 ### What changes the system
 
-Almost nothing. `ZCL_ZLK05_SYS_API`, which every screen uses to read the
+Almost nothing. `ZCL_SAPGUI_SYS_API`, which every screen uses to read the
 system, has no method that changes anything. Two exceptions:
 
-- **SE80** (`ZCL_SE80_API`) can save source with `INSERT REPORT`, activate
+- **SE80** (`ZCL_SAPGUI_SE80_API`) can save source with `INSERT REPORT`, activate
   objects, create and delete classes, interfaces and programs, and record
   objects in transport requests - but only when the constant
   `c_write_enabled` in that class is switched to `abap_true`, which is a
@@ -161,21 +169,21 @@ Which class implements which transaction:
 
 | Transaction | Class | Transaction | Class |
 | --- | --- | --- | --- |
-| SAP Easy Access | `ZCL_SAPGUI_A2UI5` | SM04 | `ZCL_SM04_A2U5` |
-| SE80 | `ZCL_SE80_UI` | SM12 | `ZCL_SM12_A2U5` |
-| SE38 | `ZCL_SE38_A2U5` | SM21 | `ZCL_SM21_A2U5` |
-| SE11 | `ZCL_SE11_A2U5` | SM30 | `ZCL_SM30_A2U5` |
-| SE24 | `ZCL_SE24_A2U5` | SM37 | `ZCL_SM37_A2U5` |
-| SE37 | `ZCL_SE37_A2U5` | SM50, SM66 | `ZCL_SM50_A2U5` |
-| SE91 | `ZCL_SE91_A2U5` | SM59 | `ZCL_SM59_A2U5` |
-| SE93 | `ZCL_SE93_A2U5` | SLG1 | `ZCL_SLG1_A2U5` |
-| SE09, SE10 | `ZCL_SE09_A2U5` | SP01 | `ZCL_SP01_A2U5` |
-| SE16N, SE16 | `ZCL_SE16N_A2U5` | ST02 | `ZCL_ST02_A2U5` |
-| RZ10, RZ11 | `ZCL_RZ11_A2U5` | ST05 | `ZCL_ST05_A2U5` |
-| SU01 | `ZCL_SU01_A2U5` | ST22 | `ZCL_ST22_A2U5` |
-| SU53 | `ZCL_SU53_A2U5` | STMS | `ZCL_STMS_A2U5` |
-| PFCG | `ZCL_PFCG_A2U5` | WE02, WE05 | `ZCL_WE02_A2U5` |
-| SCC4 | `ZCL_SCC4_A2U5` | | |
+| SAP Easy Access | `ZCL_SAPGUI_START` | SM04 | `ZCL_SAPGUI_SM04` |
+| SE80 | `ZCL_SAPGUI_SE80` | SM12 | `ZCL_SAPGUI_SM12` |
+| SE38 | `ZCL_SAPGUI_SE38` | SM21 | `ZCL_SAPGUI_SM21` |
+| SE11 | `ZCL_SAPGUI_SE11` | SM30 | `ZCL_SAPGUI_SM30` |
+| SE24 | `ZCL_SAPGUI_SE24` | SM37 | `ZCL_SAPGUI_SM37` |
+| SE37 | `ZCL_SAPGUI_SE37` | SM50, SM66 | `ZCL_SAPGUI_SM50` |
+| SE91 | `ZCL_SAPGUI_SE91` | SM59 | `ZCL_SAPGUI_SM59` |
+| SE93 | `ZCL_SAPGUI_SE93` | SLG1 | `ZCL_SAPGUI_SLG1` |
+| SE09, SE10 | `ZCL_SAPGUI_SE09` | SP01 | `ZCL_SAPGUI_SP01` |
+| SE16N, SE16 | `ZCL_SAPGUI_SE16N` | ST02 | `ZCL_SAPGUI_ST02` |
+| RZ10, RZ11 | `ZCL_SAPGUI_RZ11` | ST05 | `ZCL_SAPGUI_ST05` |
+| SU01 | `ZCL_SAPGUI_SU01` | ST22 | `ZCL_SAPGUI_ST22` |
+| SU53 | `ZCL_SAPGUI_SU53` | STMS | `ZCL_SAPGUI_STMS` |
+| PFCG | `ZCL_SAPGUI_PFCG` | WE02, WE05 | `ZCL_SAPGUI_WE02` |
+| SCC4 | `ZCL_SAPGUI_SCC4` | | |
 
 What is planned next, and what is still missing, is in [CONCEPT.md](CONCEPT.md).
 
@@ -183,53 +191,60 @@ What is planned next, and what is still missing, is in [CONCEPT.md](CONCEPT.md).
 
 ```
 src/
-  zcl_sapgui_a2ui5.clas.abap     SAP Easy Access, the entry screen
-  zcl_<tcode>_a2u5.clas.abap     one class per transaction
-  zcl_se80_ui.clas.abap          SE80
-  zcl_se80_api.clas.abap         SE80 repository API, the only writing class
-  zcl_zlk05_sys_api.clas.abap    shared read only system API, the single entry point
-  zif_zlk05_sys_api.intf.abap    what it reads from the system, as an interface
-  zcl_zlk05_sys_api_db.clas.abap   ... on a system, through ZCL_ZLK05_API_*
-  zcl_zlk05_api_*.clas.abap      one class per area (dev, adm, mon, ops, repo, trn)
-  zcl_zlk05_sys_api_dbl.clas.abap  ... in the unit tests (FOR TESTING)
-  zif_se80_api.intf.abap         the SE80 repository API, as an interface
-  zcl_zlk05_auth.clas.abap       every authorization check
-  zif_zlk05_auth_sys.intf.abap   its AUTHORITY-CHECK statements, as an interface
-  zcl_zlk05_auth_sys.clas.abap     ... on a system
-  zcl_zlk05_auth_sys_dbl.clas.abap ... in the unit tests (FOR TESTING)
-  zcl_zlk05_gui_frame.clas.abap  the six bands of a SAP GUI window
-  zcl_zlk05_tcode_router.clas.abap  the command field: which class a code starts
-  zif_zlk05_start_params.intf.abap  start values for an app (like SPA/GPA)
-  zcl_zlk05_client_dbl.clas.abap test double for z2ui5_if_client
-  zlk05.msag.xml                 the messages of the status bar
-  zse16n_a2u5_var.tabl.xml       SE16N display variants
+  zcl_sapgui_start.clas.abap         SAP Easy Access, the entry screen
+  zcl_sapgui_<tcode>.clas.abap       one class per transaction (SE80, SM37, ...)
+  zcl_sapgui_screen.clas.abap        their abstract base: main( ), the frame events
+  zcl_sapgui_frame.clas.abap         the six bands of a SAP GUI window
+  zcl_sapgui_router.clas.abap        the command field: which class a code starts
+  zif_sapgui_start_params.intf.abap  start values for an app (like SPA/GPA)
+
+  zcl_sapgui_sys_api.clas.abap       read only system API, the single entry point
+  zif_sapgui_sys_api.intf.abap       what it reads from the system, as an interface
+  zcl_sapgui_sys_api_db.clas.abap      ... on a system, through ZCL_SAPGUI_API_*
+  zcl_sapgui_api_*.clas.abap         one class per area (dev, adm, mon, ops, repo, trn)
+  zcl_sapgui_sys_api_dbl.clas.abap     ... in the unit tests (FOR TESTING)
+
+  zif_sapgui_se80_api.intf.abap      the SE80 repository API, as an interface
+  zcl_sapgui_se80_api.clas.abap        ... on a system, the only writing class
+  zcl_sapgui_se80_api_dbl.clas.abap    ... in the unit tests (FOR TESTING)
+
+  zcl_sapgui_auth.clas.abap          every authorization check
+  zif_sapgui_auth_sys.intf.abap      its AUTHORITY-CHECK statements, as an interface
+  zcl_sapgui_auth_sys.clas.abap        ... on a system
+  zcl_sapgui_auth_sys_dbl.clas.abap    ... in the unit tests (FOR TESTING)
+
+  zcl_sapgui_client_dbl.clas.abap    test double for z2ui5_if_client
+  zsapgui.msag.xml                   the messages of the status bar
+  zse16n_a2u5_var.tabl.xml           SE16N display variants (its name kept, it holds data)
 ```
 
 The apps build views and dispatch events, they never read the system directly -
-that is what `ZCL_ZLK05_SYS_API` and `ZCL_SE80_API` are for. The window frame
-lives in `ZCL_ZLK05_GUI_FRAME`, so all screens look the same. Every app calls
-`ZCL_ZLK05_AUTH=>guard_app( )` first in `main( )`, and the API classes check
-the concrete object before they read or write it.
+that is what `ZCL_SAPGUI_SYS_API` and `ZCL_SAPGUI_SE80_API` are for. The window frame
+lives in `ZCL_SAPGUI_FRAME`, so all screens look the same. Every app inherits
+from `ZCL_SAPGUI_SCREEN`, whose `main( )` calls `ZCL_SAPGUI_AUTH=>guard_app( )`
+first and then the app's `on_init( )`, `render( )` or `on_event( )`; the API
+classes check the concrete object before they read or write it. A new screen
+is a subclass with those three methods and its views.
 
-There are 618 ABAP Unit tests. They run against `ZCL_ZLK05_CLIENT_DBL` instead
+There are 618 ABAP Unit tests. They run against `ZCL_SAPGUI_CLIENT_DBL` instead
 of a live client, so the view and the event wiring can be asserted without a
 browser - and against two more doubles instead of the system:
 
-- `ZCL_ZLK05_SYS_API_DBL` stands in for everything the apps read
-  (`ZIF_ZLK05_SYS_API`). A test says what the system answers with
+- `ZCL_SAPGUI_SYS_API_DBL` stands in for everything the apps read
+  (`ZIF_SAPGUI_SYS_API`). A test says what the system answers with
   `answer( )` - a result, an EXPORTING parameter, for one key or for every
   call.
-- `ZCL_ZLK05_AUTH_SYS_DBL` stands in for the AUTHORITY-CHECK statements
-  (`ZIF_ZLK05_AUTH_SYS`): every check passes until a test calls `deny( )`
+- `ZCL_SAPGUI_AUTH_SYS_DBL` stands in for the AUTHORITY-CHECK statements
+  (`ZIF_SAPGUI_AUTH_SYS`): every check passes until a test calls `deny( )`
   for it, so no test depends on the roles of the user who runs it.
 
 Every test class installs both in `setup( )` and removes them in
-`teardown( )`. They are global friends of `ZCL_ZLK05_SYS_API` and
-`ZCL_ZLK05_AUTH` and `FOR TESTING`, so productive code cannot use them.
-`ZCL_ZLK05_SYS_API`, `ZCL_ZLK05_AUTH` and `ZCL_SE80_UI` create their real
+`teardown( )`. They are global friends of `ZCL_SAPGUI_SYS_API` and
+`ZCL_SAPGUI_AUTH` and `FOR TESTING`, so productive code cannot use them.
+`ZCL_SAPGUI_SYS_API`, `ZCL_SAPGUI_AUTH` and `ZCL_SAPGUI_SE80` create their real
 implementation by name, which keeps the apps free of any static dependency
 on the classes that touch the database. The tests of those classes
-(`ZCL_ZLK05_SYS_API_DB`, `ZCL_SE80_API`) read the real system and run on a
+(`ZCL_SAPGUI_SYS_API_DB`, `ZCL_SAPGUI_SE80_API`) read the real system and run on a
 system only.
 
 ### Development
@@ -280,7 +295,7 @@ The [abap2UI5 linter](https://github.com/abap2UI5/linter) checks what abaplint
 cannot know about abap2UI5: bindings, events, frontend actions, icons against
 the UI5 1.71 floor, the lifecycle of `main( )`, obsolete framework calls. One
 limit to know about: it rebuilds a view from the builder chain in the class it
-reads, and every screen here hands its view to `ZCL_ZLK05_GUI_FRAME`, which
+reads, and every screen here hands its view to `ZCL_SAPGUI_FRAME`, which
 opens the `mvc:View` and the window bands in another class. So on `src/` the
 run summary says `judged 1 controls` - the ABAP side of every app is checked
 there, the views are not. `npm run views` closes that gap: it starts every app
@@ -296,7 +311,7 @@ The findings silenced in the source, each with its reason next to it:
   variants in `ZSE16N_A2U5_VAR` are in that JSON format, and a different
   serializer would make the existing ones unreadable.
 - `unescaped-text-in-attribute` on the `value` and `submit` of the command
-  field in `ZCL_ZLK05_GUI_FRAME`: the app hands in a `_bind( )` and an
+  field in `ZCL_SAPGUI_FRAME`: the app hands in a `_bind( )` and an
   `_event( )`, which the linter cannot see from inside the frame.
 - `popup-without-close-wire` on the dialog of `popup_open( )`: its Close
   button is added by `popup_show( )`.
@@ -306,8 +321,8 @@ JavaScript with [@abaplint/transpiler](https://github.com/abaplint/transpiler),
 against the downported abap2UI5 release of the pin and
 [open-abap-core](https://github.com/open-abap/open-abap-core) for the kernel
 classes (`node/setup/fetch-deps.mjs` pins both). The classes that read the
-database - `ZCL_ZLK05_SYS_API_DB`, `ZCL_ZLK05_API_*`, `ZCL_SE80_API`,
-`ZCL_ZLK05_AUTH_SYS` - are left out (`exclude_filter` in
+database - `ZCL_SAPGUI_SYS_API_DB`, `ZCL_SAPGUI_API_*`, `ZCL_SAPGUI_SE80_API`,
+`ZCL_SAPGUI_AUTH_SYS` - are left out (`exclude_filter` in
 `node/setup/abap_transpile.json`): their tables, function modules and BAdIs
 do not exist in Node, and nothing depends on them statically. Two tests are
 skipped there, each with its reason (DDIC structures open-abap-core does not

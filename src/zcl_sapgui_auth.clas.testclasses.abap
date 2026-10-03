@@ -1,0 +1,335 @@
+*"* use this source file for your ABAP unit test classes
+
+" ZCL_SAPGUI_AUTH_SYS_DBL stands in for the AUTHORITY-CHECK statements:
+" every check passes until a test denies it, so the tests do not depend
+" on the roles of the user who runs them.
+
+CLASS ltcl_auth DEFINITION FINAL FOR TESTING
+  DURATION SHORT
+  RISK LEVEL HARMLESS.
+
+  PRIVATE SECTION.
+
+    DATA mo_dbl  TYPE REF TO zcl_sapgui_client_dbl.
+    DATA mo_auth TYPE REF TO zcl_sapgui_auth_sys_dbl.
+
+    METHODS setup.
+    METHODS teardown.
+
+    " ----- S_TCODE -----
+    METHODS tcode_allowed          FOR TESTING.
+    METHODS tcode_denied           FOR TESTING.
+    METHODS tcode_empty_denied     FOR TESTING.
+
+    " ----- basic checks -----
+    METHODS workbench_needs_develop FOR TESTING.
+    METHODS sm21_needs_admi_fcd     FOR TESTING.
+    METHODS tcode_denied_skips_base FOR TESTING.
+
+    " ----- app level -----
+    METHODS app_entry_always_ok     FOR TESTING.
+    METHODS app_unknown_denied      FOR TESTING.
+    METHODS app_maps_to_tcodes      FOR TESTING.
+    METHODS every_app_is_mapped     FOR TESTING.
+
+    " ----- table level -----
+    METHODS table_by_group          FOR TESTING.
+    METHODS table_by_name           FOR TESTING.
+    METHODS table_denied            FOR TESTING.
+
+    " ----- guard -----
+    METHODS guard_allows            FOR TESTING.
+    METHODS guard_renders_denied    FOR TESTING.
+    METHODS guard_back_leaves       FOR TESTING.
+
+    METHODS class_name_strips_prefix FOR TESTING.
+    METHODS user_group_denied        FOR TESTING.
+    METHODS appl_log_denied          FOR TESTING.
+    METHODS rfc_dest_denied          FOR TESTING.
+    METHODS new_tcodes_need_base     FOR TESTING.
+    METHODS program_of_class_pool    FOR TESTING.
+    METHODS program_of_function_grp  FOR TESTING.
+    METHODS program_plain            FOR TESTING.
+    METHODS job_log_own_always       FOR TESTING.
+    METHODS job_log_foreign_denied   FOR TESTING.
+    METHODS pfcg_idoc_need_base      FOR TESTING.
+    METHODS se91_needs_develop       FOR TESTING.
+    METHODS role_denied              FOR TESTING.
+    METHODS idoc_denied              FOR TESTING.
+    METHODS spool_denied             FOR TESTING.
+    METHODS message_class_denied     FOR TESTING.
+
+ENDCLASS.
+
+
+CLASS ltcl_auth IMPLEMENTATION.
+
+  METHOD setup.
+    zcl_sapgui_sys_api_dbl=>install( ).
+    mo_dbl  = NEW #( ).
+    mo_auth = zcl_sapgui_auth_sys_dbl=>install( ).
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_sapgui_sys_api_dbl=>uninstall( ).
+    zcl_sapgui_auth_sys_dbl=>uninstall( ).
+  ENDMETHOD.
+
+  METHOD tcode_allowed.
+
+    cl_abap_unit_assert=>assert_true(
+        zcl_sapgui_auth=>check_tcode( `SE38` )-allowed ).
+  ENDMETHOD.
+
+  METHOD tcode_denied.
+    mo_auth->deny( `S_TCODE` ).
+
+    DATA(ls) = zcl_sapgui_auth=>check_tcode( `se38` ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*SE38*` ).
+  ENDMETHOD.
+
+  METHOD tcode_empty_denied.
+    cl_abap_unit_assert=>assert_false(
+        zcl_sapgui_auth=>check_tcode( `  ` )-allowed ).
+  ENDMETHOD.
+
+  METHOD workbench_needs_develop.
+    mo_auth->deny( `S_DEVELOP_ANY` ).
+
+    LOOP AT VALUE string_table( ( `SE80` ) ( `SE38` ) ( `SE11` ) ( `SE24` ) ( `SE37` ) ( `SE93` ) )
+         INTO DATA(lv_tcode).
+      DATA(ls) = zcl_sapgui_auth=>check_tcode_base( lv_tcode ).
+      cl_abap_unit_assert=>assert_false( act = ls-allowed
+                                         msg = |{ lv_tcode } must ask for S_DEVELOP| ).
+      cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*S_DEVELOP*` ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD sm21_needs_admi_fcd.
+    mo_auth->deny( `S_ADMI_FCD` ).
+
+    DATA(ls) = zcl_sapgui_auth=>check_tcode_base( `SM21` ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*S_ADMI_FCD*` ).
+  ENDMETHOD.
+
+  METHOD tcode_denied_skips_base.
+    mo_auth->deny( `S_TCODE` ).
+
+    DATA(ls) = zcl_sapgui_auth=>check_transaction( `SE38` ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*transaction SE38*` ).
+  ENDMETHOD.
+
+  METHOD app_entry_always_ok.
+    mo_auth->deny( `S_TCODE` ).
+
+    cl_abap_unit_assert=>assert_true(
+        zcl_sapgui_auth=>check_app( zcl_sapgui_auth=>c_entry_class )-allowed ).
+  ENDMETHOD.
+
+  METHOD app_unknown_denied.
+
+    DATA(ls) = zcl_sapgui_auth=>check_app( `ZCL_NOT_AN_APP_OF_SAPGUI` ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*not registered*` ).
+  ENDMETHOD.
+
+  METHOD app_maps_to_tcodes.
+    " SE09 and SE10 both run ZCL_SAPGUI_SE09
+    DATA(lt) = zcl_sapgui_auth=>get_tcodes_of_class( `zcl_sapgui_se09` ).
+    cl_abap_unit_assert=>assert_true( xsdbool( line_exists( lt[ table_line = `SE09` ] ) ) ).
+    cl_abap_unit_assert=>assert_true( xsdbool( line_exists( lt[ table_line = `SE10` ] ) ) ).
+  ENDMETHOD.
+
+  METHOD every_app_is_mapped.
+    " every app the router can start must be reachable through check_app,
+    " otherwise its own guard would lock everybody out
+    LOOP AT zcl_sapgui_router=>get_apps( ) INTO DATA(ls_app) WHERE class IS NOT INITIAL.
+      cl_abap_unit_assert=>assert_true(
+          act = zcl_sapgui_auth=>check_app( ls_app-class )-allowed
+          msg = |{ ls_app-class } is refused although all checks pass| ).
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD table_by_group.
+    mo_auth->deny( `S_TABU_NAM` ).
+
+    cl_abap_unit_assert=>assert_true(
+        zcl_sapgui_auth=>check_table_display( `T000` )-allowed ).
+  ENDMETHOD.
+
+  METHOD table_by_name.
+    mo_auth->deny( `S_TABU_DIS` ).
+
+    cl_abap_unit_assert=>assert_true(
+        zcl_sapgui_auth=>check_table_display( `T000` )-allowed ).
+  ENDMETHOD.
+
+  METHOD table_denied.
+    mo_auth->deny( `S_TABU_DIS` ).
+    mo_auth->deny( `S_TABU_NAM` ).
+
+    DATA(ls) = zcl_sapgui_auth=>check_table_display( `usr02` ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*USR02*` ).
+  ENDMETHOD.
+
+  METHOD guard_allows.
+
+    mo_dbl->mv_on_init = abap_true.
+    cl_abap_unit_assert=>assert_true(
+        zcl_sapgui_auth=>guard_app( io_client = mo_dbl io_app = NEW zcl_sapgui_sm21( ) ) ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->mv_view ).
+  ENDMETHOD.
+
+  METHOD guard_renders_denied.
+    mo_auth->deny( `S_TCODE` ).
+
+    mo_dbl->mv_on_init = abap_true.
+    cl_abap_unit_assert=>assert_false(
+        zcl_sapgui_auth=>guard_app( io_client = mo_dbl io_app = NEW zcl_sapgui_sm21( ) ) ).
+    cl_abap_unit_assert=>assert_char_cp( act = mo_dbl->mv_view exp = `*No Authorization*` ).
+    cl_abap_unit_assert=>assert_char_cp( act = mo_dbl->mv_view exp = `*SM21*` ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->get_xml_errors( mo_dbl->mv_view ) ).
+    cl_abap_unit_assert=>assert_false( mo_dbl->mv_nav_leave ).
+  ENDMETHOD.
+
+  METHOD guard_back_leaves.
+    mo_auth->deny( `S_TCODE` ).
+
+    mo_dbl->mv_on_init  = abap_false.
+    mo_dbl->mv_on_event = abap_true.
+    mo_dbl->ms_get-event = zcl_sapgui_frame=>c_ev_back.
+    cl_abap_unit_assert=>assert_false(
+        zcl_sapgui_auth=>guard_app( io_client = mo_dbl io_app = NEW zcl_sapgui_sm21( ) ) ).
+    cl_abap_unit_assert=>assert_true( mo_dbl->mv_nav_leave ).
+  ENDMETHOD.
+
+  METHOD user_group_denied.
+    mo_auth->deny( `S_USER_GRP` ).
+
+    DATA(ls) = zcl_sapgui_auth=>check_user_group( `super` ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*SUPER*` ).
+  ENDMETHOD.
+
+  METHOD appl_log_denied.
+    mo_auth->deny( `S_APPL_LOG` ).
+
+    DATA(ls) = zcl_sapgui_auth=>check_appl_log( iv_object = `bc_test` iv_subobject = `sub` ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*BC_TEST*` ).
+  ENDMETHOD.
+
+  METHOD rfc_dest_denied.
+    mo_auth->deny( `S_RFC_ADM` ).
+
+    DATA(ls) = zcl_sapgui_auth=>check_rfc_dest( iv_rfctype = `3` iv_rfcdest = `none` ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*NONE*` ).
+  ENDMETHOD.
+
+  METHOD new_tcodes_need_base.
+    " SLG1 / SM59 / SM04 ask for the objects of their originals
+    mo_auth->deny( `S_APPL_LOG_ANY` ).
+    mo_auth->deny( `S_RFC_ADM_ANY` ).
+    mo_auth->deny( `S_RZL_ADM` ).
+
+    cl_abap_unit_assert=>assert_char_cp(
+        act = zcl_sapgui_auth=>check_tcode_base( `SLG1` )-message exp = `*S_APPL_LOG*` ).
+    cl_abap_unit_assert=>assert_char_cp(
+        act = zcl_sapgui_auth=>check_tcode_base( `SM59` )-message exp = `*S_RFC_ADM*` ).
+    cl_abap_unit_assert=>assert_char_cp(
+        act = zcl_sapgui_auth=>check_tcode_base( `SM04` )-message exp = `*S_RZL_ADM*` ).
+  ENDMETHOD.
+
+  METHOD program_of_class_pool.
+    " a class pool is checked as the class it belongs to
+    mo_auth->deny( `S_DEVELOP` ).
+    DATA(lv_pool) = `ZCL_SAPGUI_AUTH===============CP`.
+    cl_abap_unit_assert=>assert_char_cp(
+        act = zcl_sapgui_auth=>check_program_display( lv_pool )-message
+        exp = `*CLAS ZCL_SAPGUI_AUTH*` ).
+  ENDMETHOD.
+
+  METHOD program_of_function_grp.
+    mo_auth->deny( `S_DEVELOP` ).
+    cl_abap_unit_assert=>assert_char_cp(
+        act = zcl_sapgui_auth=>check_program_display( `SAPLTHFB` )-message
+        exp = `*FUGR THFB*` ).
+  ENDMETHOD.
+
+  METHOD program_plain.
+    cl_abap_unit_assert=>assert_true(
+        zcl_sapgui_auth=>check_program_display( `RSPARAM` )-allowed ).
+    cl_abap_unit_assert=>assert_false(
+        zcl_sapgui_auth=>check_program_display( `` )-allowed ).
+  ENDMETHOD.
+
+  METHOD job_log_own_always.
+    mo_auth->deny( `S_BTCH_JOB_PROT` ).
+    cl_abap_unit_assert=>assert_true(
+        zcl_sapgui_auth=>check_job_log( CONV string( sy-uname ) )-allowed ).
+  ENDMETHOD.
+
+  METHOD job_log_foreign_denied.
+    mo_auth->deny( `S_BTCH_JOB_PROT` ).
+    DATA(ls) = zcl_sapgui_auth=>check_job_log( `ZZLK05_SOMEBODY` ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*ZZLK05_SOMEBODY*` ).
+  ENDMETHOD.
+
+  METHOD class_name_strips_prefix.
+    cl_abap_unit_assert=>assert_equals(
+        exp = `ZCL_SAPGUI_SM21`
+        act = zcl_sapgui_auth=>class_name_of( NEW zcl_sapgui_sm21( ) ) ).
+  ENDMETHOD.
+
+  METHOD pfcg_idoc_need_base.
+    mo_auth->deny( `S_USER_AGR_ANY` ).
+    mo_auth->deny( `S_IDOCMONI_ANY` ).
+    cl_abap_unit_assert=>assert_char_cp(
+        act = zcl_sapgui_auth=>check_tcode_base( `PFCG` )-message exp = `*S_USER_AGR*` ).
+    cl_abap_unit_assert=>assert_char_cp(
+        act = zcl_sapgui_auth=>check_tcode_base( `WE02` )-message exp = `*S_IDOCMONI*` ).
+    cl_abap_unit_assert=>assert_false( zcl_sapgui_auth=>check_tcode_base( `WE05` )-allowed ).
+  ENDMETHOD.
+
+  METHOD se91_needs_develop.
+    mo_auth->deny( `S_DEVELOP_ANY` ).
+    cl_abap_unit_assert=>assert_false( zcl_sapgui_auth=>check_tcode_base( `SE91` )-allowed ).
+  ENDMETHOD.
+
+  METHOD role_denied.
+    mo_auth->deny( `S_USER_AGR` ).
+    DATA(ls) = zcl_sapgui_auth=>check_role( ` sap_all ` ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*SAP_ALL*` ).
+  ENDMETHOD.
+
+  METHOD idoc_denied.
+    mo_auth->deny( `S_IDOCMONI` ).
+    DATA(ls) = zcl_sapgui_auth=>check_idoc( VALUE #( docnum = '0000000000056036' direct = '2'
+                                                    mestyp = 'SEQJIT' sndprt = 'KU' sndprn = '0017154801' ) ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*SEQJIT*` ).
+  ENDMETHOD.
+
+  METHOD spool_denied.
+    mo_auth->deny( `SPOOL_PERMISSION` ).
+    DATA(ls) = zcl_sapgui_auth=>check_spool( is_tsp01  = VALUE #( rqident = 4711 rqowner = 'SOMEONE' rqclient = sy-mandt )
+                                            iv_access = `DISP` ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*4711*` ).
+  ENDMETHOD.
+
+  METHOD message_class_denied.
+    mo_auth->deny( `S_DEVELOP` ).
+    DATA(ls) = zcl_sapgui_auth=>check_message_class( `zsapgui` ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*MSAG*` ).
+  ENDMETHOD.
+
+ENDCLASS.

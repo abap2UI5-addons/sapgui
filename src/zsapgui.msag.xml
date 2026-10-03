@@ -1,0 +1,182 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_MSAG" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <T100A>
+    <ARBGB>ZSAPGUI</ARBGB>
+    <MASTERLANG>E</MASTERLANG>
+    <STEXT>SAP GUI look-alike apps ($ZLK_05)</STEXT>
+   </T100A>
+   <T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>001</MSGNR>
+     <TEXT>You are not authorized to use transaction &amp;1</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>002</MSGNR>
+     <TEXT>You are not authorized to display the system log (S_ADMI_FCD SM21)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>003</MSGNR>
+     <TEXT>You are not authorized for system administration display (S_RZL_ADM)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>004</MSGNR>
+     <TEXT>You are not authorized to display users (S_USER_GRP)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>005</MSGNR>
+     <TEXT>You are not authorized to display transport requests (S_TRANSPRT)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>006</MSGNR>
+     <TEXT>&amp;1 is not registered as a transaction of this environment</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>007</MSGNR>
+     <TEXT>You are not authorized to display table &amp;1 (S_TABU_DIS &amp;2 / S_TABU_NAM)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>008</MSGNR>
+     <TEXT>You are not authorized for the ABAP Workbench (S_DEVELOP activity &amp;1)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>009</MSGNR>
+     <TEXT>You are not authorized for &amp;1 &amp;2 (S_DEVELOP activity &amp;3)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>010</MSGNR>
+     <TEXT>You are not authorized to display users of group &amp;1 (S_USER_GRP)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>011</MSGNR>
+     <TEXT>No transaction code given</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>012</MSGNR>
+     <TEXT>No table name given</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>013</MSGNR>
+     <TEXT>The Object Navigator is read-only - no repository object is changed</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>014</MSGNR>
+     <TEXT>No package known for &amp;1 &amp;2</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>015</MSGNR>
+     <TEXT>You are not authorized to display application logs (S_APPL_LOG)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>016</MSGNR>
+     <TEXT>You are not authorized to display RFC destinations (S_RFC_ADM)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>017</MSGNR>
+     <TEXT>You are not authorized to display logs of object &amp;1 / &amp;2 (S_APPL_LOG)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>018</MSGNR>
+     <TEXT>You are not authorized to display RFC destination &amp;1 (S_RFC_ADM)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>019</MSGNR>
+     <TEXT>You are not authorized to display job logs of user &amp;1 (S_BTCH_JOB)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>020</MSGNR>
+     <TEXT>Transaction &amp;1 is not available in this environment</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>021</MSGNR>
+     <TEXT>Transaction &amp;1 does not exist</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>022</MSGNR>
+     <TEXT>Enter a transaction code</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>023</MSGNR>
+     <TEXT>Error starting transaction &amp;1: &amp;2</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>024</MSGNR>
+     <TEXT>No authorization for role maintenance display (S_USER_AGR)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>025</MSGNR>
+     <TEXT>No authorization for the IDoc display (S_IDOCMONI)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>026</MSGNR>
+     <TEXT>No authorization to display role &amp;1</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>027</MSGNR>
+     <TEXT>No authorization to display IDoc &amp;1 (message type &amp;2)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>028</MSGNR>
+     <TEXT>No authorization to display spool request &amp;1</TEXT>
+    </T100>
+   </T100>
+  </asx:values>
+ </asx:abap>
+</abapGit>

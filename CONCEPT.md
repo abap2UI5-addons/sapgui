@@ -9,7 +9,7 @@ by what is most fun.
 ## Where it stands
 
 - 28 apps for 33 transaction codes plus SAP Easy Access, 45 classes and 4 interfaces, about
-  35,000 lines, 618 ABAP Unit tests against `ZCL_ZLK05_CLIENT_DBL`.
+  35,000 lines, 618 ABAP Unit tests against `ZCL_SAPGUI_CLIENT_DBL`.
 - Green: abaplint (style profile and SAP_BASIS 7.50), the abap2UI5 linter and
   the unit tests, transpiled to JavaScript (section 2).
   The update from the system arrived red on all three (PCRE, which needs
@@ -19,7 +19,7 @@ by what is most fun.
   - the tests of the database layer - they read the real system,
   - the contents of the views - the linter checks the ABAP side of every app
     but rebuilds no control, because the view is opened in
-    `ZCL_ZLK05_GUI_FRAME` and not in the app class - now covered by
+    `ZCL_SAPGUI_FRAME` and not in the app class - now covered by
     `npm run views` (section 2), but only for the first screen of each app,
 - About 300 buttons and fields are shown but disabled ("not available in this
   environment"). That is the honest SAP GUI look, and also the size of the
@@ -27,13 +27,13 @@ by what is most fun.
 
 ## 1. Authorization checks - done
 
-**Status 2026-10-03:** implemented as proposed below. `ZCL_ZLK05_AUTH` holds
+**Status 2026-10-03:** implemented as proposed below. `ZCL_SAPGUI_AUTH` holds
 every check, `guard_app( )` runs S_TCODE plus the basic object check at the
 start of every roundtrip of every app, the API classes check the concrete
 object, a missing authorization ends in the "No Authorization" screen with the
-message from message class `ZLK05`, and SE80 is read-only unless
-`ZCL_SE80_API=>c_write_enabled` is switched on. The AUTHORITY-CHECK
-statements sit behind `ZIF_ZLK05_AUTH_SYS`, so the unit tests decide each
+message from message class `ZSAPGUI`, and SE80 is read-only unless
+`ZCL_SAPGUI_SE80_API=>c_write_enabled` is switched on. The AUTHORITY-CHECK
+statements sit behind `ZIF_SAPGUI_AUTH_SYS`, so the unit tests decide each
 check with a double instead of TEST-SEAMs (section 2). What is left: compare
 each screen with a restricted user against the original.
 
@@ -50,7 +50,7 @@ The table and the proposal, as written before:
 
 Proposal:
 
-- One class `ZCL_ZLK05_AUTH` (behind an interface, so the double can say "no")
+- One class `ZCL_SAPGUI_AUTH` (behind an interface, so the double can say "no")
   with one method per check above, called by the apps and the two API classes
   before they read or write.
 - A missing authorization ends in the status bar message the original shows
@@ -65,10 +65,10 @@ reachable for users who may use the Workbench anyway.
 ## 2. Tests and views without a system
 
 **Status 2026-10-03: done.** The apps reach the system only through three
-interfaces - `ZIF_ZLK05_SYS_API` (behind the static facade
-`ZCL_ZLK05_SYS_API`, so the call sites stayed), `ZIF_SE80_API` and
-`ZIF_ZLK05_AUTH_SYS` (the AUTHORITY-CHECK statements, which replaced the
-friend-only fake table of `ZCL_ZLK05_AUTH`). Each has a `FOR TESTING` double;
+interfaces - `ZIF_SAPGUI_SYS_API` (behind the static facade
+`ZCL_SAPGUI_SYS_API`, so the call sites stayed), `ZIF_SAPGUI_SE80_API` and
+`ZIF_SAPGUI_AUTH_SYS` (the AUTHORITY-CHECK statements, which replaced the
+friend-only fake table of `ZCL_SAPGUI_AUTH`). Each has a `FOR TESTING` double;
 every test class installs them in `setup( )`. The real implementations are
 created by name, so the transpile leaves the database layer out, and the
 `unit` workflow runs 568 tests in Node on every pull request (2 skipped with a
@@ -80,14 +80,14 @@ had been red on every system since the frame changed its menu tooltip, and
 the SE16N table suggestion used `core:Item`, which has no `additionalText`,
 so the descriptions never showed. Left as hints: every view declares the
 `table` and `editor` namespaces whether it uses them or not
-(`ZCL_ZLK05_GUI_FRAME=>open_window`).
+(`ZCL_SAPGUI_FRAME=>open_window`).
 
 The plan, as written before:
 
 **Make the apps independent of the system.** The apps call
-`ZCL_ZLK05_SYS_API` statically, 37 different methods; SE80 already goes through
-an instance of `ZCL_SE80_API`. Proposal: interfaces `ZIF_ZLK05_SYS_API` and
-`ZIF_SE80_API`, one injection point per app (a factory with a test seam that is
+`ZCL_SAPGUI_SYS_API` statically, 37 different methods; SE80 already goes through
+an instance of `ZCL_SAPGUI_SE80_API`. Proposal: interfaces `ZIF_SAPGUI_SYS_API` and
+`ZIF_SAPGUI_SE80_API`, one injection point per app (a factory with a test seam that is
 not a `TEST-SEAM`), and a double per interface. The unit tests then need no
 database at all - today many of them silently run against whatever the
 development system happens to contain.
@@ -134,21 +134,19 @@ abap2UI5/linter, not worth waiting for).
 
 ## 4. Architecture clean-up
 
-- **Names.** Four schemes side by side: `ZCL_*_A2U5`, `ZCL_SAPGUI_A2UI5`,
-  `ZCL_SE80_UI`/`ZCL_SE80_API`, and the `ZLK05` of the original package. One
-  prefix for everything (for example `ZCL_CSG_<TCODE>`, `ZCL_CSG_FRAME`,
-  `ZIF_CSG_SYS_API`). abapGit turns a rename into delete plus create, so do it
-  once, together with the interfaces of section 2, before more screens exist.
+- **Names** - done: one prefix for everything, `ZCL_SAPGUI_<TCODE>`,
+  `ZCL_SAPGUI_FRAME`, `ZIF_SAPGUI_SYS_API`, message class `ZSAPGUI`; the entry
+  screen is `ZCL_SAPGUI_START`. Only the SE16N variants table kept its name,
+  because it holds the users' data. (Before: `ZCL_*_A2U5`, `ZCL_SAPGUI_A2UI5`,
+  `ZCL_SE80_UI`/`ZCL_SE80_API` and the `ZLK05` of the original package.)
 - **Split the system API** - done: the logic sits in one class per area
-  (`ZCL_ZLK05_API_DEV`, `_ADM`, `_MON`, `_OPS`, `_REPO`, `_TRN`) behind
-  `ZIF_ZLK05_SYS_API` and `ZCL_ZLK05_SYS_API_DB`, and `ZCL_ZLK05_SYS_API`
+  (`ZCL_SAPGUI_API_DEV`, `_ADM`, `_MON`, `_OPS`, `_REPO`, `_TRN`) behind
+  `ZIF_SAPGUI_SYS_API` and `ZCL_SAPGUI_SYS_API_DB`, and `ZCL_SAPGUI_SYS_API`
   stays the single entry point (section 2).
-- **A screen base class.** Every app repeats the same main( ) - init,
-  navigated, event, frame event, render - and the same five frame calls
-  (menu, system bar, title, application bar, status bar). An abstract
-  `ZCL_CSG_SCREEN` owning that flow, with the app implementing only its menu,
-  its buttons, its work area and its events, removes a few hundred duplicated
-  lines and makes the next screen a day's work.
+- **A screen base class** - done: `ZCL_SAPGUI_SCREEN` owns `main( )` - the
+  authorization guard, `on_init( )`, `render( )` when navigated back, the
+  frame event, `on_event( )` - and the command field and status bar
+  attributes. About 840 lines less; three screens redefine `on_frame_event( )`.
 - **The rest of the event API** - done: `client->get_event_arg( n )`
   everywhere, and the builder chains in the house layout, which
   `chain-house-layout` now enforces in `abap2ui5lint.jsonc`.
@@ -170,7 +168,7 @@ on every 7.50 system. What the analysis said before:
 Decide first whether 7.02 is a goal at all. If it is:
 
 - the first blocker aborts the whole downport: a table expression in an ELSEIF
-  (`ZCL_SE80_UI`, `lt_arg[ 2 ] = 'METH'`),
+  (`ZCL_SAPGUI_SE80`, `lt_arg[ 2 ] = 'METH'`),
 - then the list in the README: joins with the strict SQL column list, COND
   inside VALUE, inline declarations from `CL_OO_CLIF_SOURCE`,
 - then let `auto_downport` run on every push to main, as abap2UI5 does.
@@ -208,5 +206,5 @@ SE01, SE03 and SM30 are in the router's list already, without a screen.
    one user.
 2. Section 3, AGENTS.md, branch protection, linter bump.
 3. Section 2, interfaces, transpiled tests, view snapshots - done.
-4. Section 4 names and base class, together, in one migration.
+4. Section 4 names and base class, together, in one migration - done.
 5. Sections 5 and 6 as time allows.

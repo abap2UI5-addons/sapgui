@@ -23,13 +23,13 @@
     "unknownTypes": "runtimeError",
     "skip": [
       {
-        "object": "ZCL_ZLK05_AUTH",
+        "object": "ZCL_SAPGUI_AUTH",
         "class": "ltcl_auth",
         "method": "idoc_denied",
         "note": "the IDoc control record EDIDC is not in the DDIC of open-abap-core; runs on a system"
       },
       {
-        "object": "ZCL_ZLK05_AUTH",
+        "object": "ZCL_SAPGUI_AUTH",
         "class": "ltcl_auth",
         "method": "spool_denied",
         "note": "the spool request record TSP01 is not in the DDIC of open-abap-core; runs on a system"
@@ -37,9 +37,9 @@
     ]
   },
   "exclude_filter": [
-    "zcl_zlk05_sys_api_db\\.",
-    "zcl_zlk05_api_",
-    "zcl_se80_api\\.",
-    "zcl_zlk05_auth_sys\\."
+    "zcl_sapgui_sys_api_db\\.",
+    "zcl_sapgui_api_",
+    "zcl_sapgui_se80_api\\.",
+    "zcl_sapgui_auth_sys\\."
   ]
 }
