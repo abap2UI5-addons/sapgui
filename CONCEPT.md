@@ -211,10 +211,25 @@ SE01, SE03 and SM30 are in the router's list already, without a screen.
 
 ## Order
 
-1. Section 1, authorization - before this is installed anywhere with more than
-   one user.
-2. Section 3, AGENTS.md, branch protection, linter bump - done except the
-   branch protection setting.
+1. Section 1, authorization - done.
+2. Section 3, AGENTS.md and linter bump - done; branch protection is a
+   setting an owner of the repository has to switch on.
 3. Section 2, interfaces, transpiled tests, view snapshots - done.
-4. Section 4 names and base class, together, in one migration - done.
-5. Sections 5 and 6 as time allows.
+4. Section 4 names and base class, event API, SE16N variants - done.
+5. Section 5 - decided: 7.50 is the floor, no 7.02.
+6. Section 6 - SE03 and SE01 done.
+
+What is left, in this order:
+
+- **Check on a system.** Everything since 2026-10-03 was built without one:
+  the global friends with FOR TESTING classes, the abstract base class with
+  the LOCAL FRIENDS tests of its subclasses, the classes created by name,
+  the BAL function modules of SLG1 and the conversion of old SE16N variants
+  want one activation and one run of the unit tests on a real system.
+- **SE16N reads the displayed table and its variants itself** - the one
+  screen that still touches the database directly. Behind
+  `ZIF_SAPGUI_SYS_API` it would be a dynamic read returning a data
+  reference, and the variants a small store interface of their own.
+- **Section 6**: SICF and SM13 (written on a system), SE84, SM30
+  maintenance, and the functions shown disabled in the existing screens.
+- **Texts** (section 4): only if other logon languages matter.
