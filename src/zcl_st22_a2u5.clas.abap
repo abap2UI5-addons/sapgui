@@ -110,7 +110,7 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
   METHOD on_event.
 
     DATA(lv_event) = client->get_event( ).
-    DATA(lt_arg)   = client->get( )-t_event_arg.
+    DATA(lv_arg)   = client->get_event_arg( ).
     CLEAR: mv_message, mv_msgtype.
 
     " the command field and Back belong to the frame - they work the
@@ -129,8 +129,8 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
       WHEN 'EXECUTE'.
         do_search( ).
       WHEN 'DISPLAY'.
-        IF lines( lt_arg ) > 0.
-          do_open( lt_arg[ 1 ] ).
+        IF lv_arg IS NOT INITIAL.
+          do_open( lv_arg ).
         ENDIF.
       WHEN 'BACK_TO_LIST'.
         mv_mode = `LIST`.
@@ -304,10 +304,12 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
         )->a( n = `width`      v = `52rem`
         )->a( n = `class`      v = `sapUiSmallMarginTop`
         )->ele( `content`
-        )->ele( `VBox` )->a( n = `class` v = `sapUiSmallMargin` ).
+            )->ele( `VBox`
+                )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " Runtime error - the API selects on the date, not on the error name
-    DATA(row) = panel->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(row) = panel->ele( `HBox`
+        )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row
                                     iv_text   = `Runtime error`
                                     iv_width  = `11rem` ).
@@ -499,7 +501,10 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -589,20 +594,20 @@ CLASS zcl_st22_a2u5 IMPLEMENTATION.
         )->ele( `Column`
             )->a( n = `width` v = `18rem`
             )->tag( `Text`
-            )->a( n = `text` v = `Attribute`
+                )->a( n = `text` v = `Attribute`
         )->end(
         )->ele( `Column`
             )->tag( `Text`
-            )->a( n = `text` v = `Value`
+                )->a( n = `text` v = `Value`
         )->end(
     )->end(
-    )->ele( `items`
-        )->ele( `ColumnListItem`
-            )->ele( `cells`
-                )->tag( `Text`
-                )->a( n = `text` v = `{LABEL}`
-                )->tag( `Text`
-                )->a( n = `text` v = `{VALUE}` ).
+        )->ele( `items`
+            )->ele( `ColumnListItem`
+                )->ele( `cells`
+                    )->tag( `Text`
+                        )->a( n = `text` v = `{LABEL}`
+                    )->tag( `Text`
+                        )->a( n = `text` v = `{VALUE}` ).
 
     " the app reads the SNAP header, not the complete dump - say so instead
     " of letting the screen look like the full ST22 long text

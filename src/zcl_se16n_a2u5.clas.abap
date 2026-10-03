@@ -447,7 +447,8 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
         )->a( n = `height` v = zcl_zlk05_gui_frame=>c_work_height ).
 
     " Table
-    DATA(row) = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(row) = work->ele( `HBox`
+        )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Table` ).
     DATA(tab_input) = row->ele( `Input`
         )->a( n = `id`              v = `idTableInput`
@@ -478,7 +479,8 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
         )->a( n = `tooltip` v = `Search for a table - type a part of the name in the field` ).
 
     " Text Table / No Texts
-    row = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
+    row = work->ele( `HBox`
+        )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Text Table` ).
     row->tag( `Input`
         )->a( n = `width`   v = `17rem`
@@ -491,7 +493,8 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
         )->a( n = `tooltip` v = `No texts - not available in this environment` ).
 
     " Displ. Variant - here the variants of this app are maintained
-    row = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
+    row = work->ele( `HBox`
+        )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Displ. Variant` ).
     row->tag( `Input`
         )->a( n = `value`       v = client->_bind( mv_variant_name )
@@ -524,7 +527,8 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
         )->a( n = `press`   v = client->_event( `DEL_VARIANT` ) ).
 
     " Max. Number of Hits / Maintain Entries
-    row = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
+    row = work->ele( `HBox`
+        )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `Max. Number of Hits` ).
     row->tag( `Input`
         )->a( n = `value`   v = client->_bind( mv_max_hits )
@@ -564,26 +568,42 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
         )->a( n = `noDataText` v = `Enter a table name and choose Continue` ).
 
     DATA(cols) = crit->ele( `columns` ).
-    cols->ele( `Column` )->a( n = `width` v = `14rem`
-        )->tag( `Text` )->a( n = `text` v = `Fld Name` ).
-    cols->ele( `Column` )->a( n = `width` v = `7rem`
-        )->tag( `Text` )->a( n = `text` v = `O.` ).
-    cols->ele( `Column` )->a( n = `width` v = `11rem`
-        )->tag( `Text` )->a( n = `text` v = `Frm-Val.` ).
-    cols->ele( `Column` )->a( n = `width` v = `11rem`
-        )->tag( `Text` )->a( n = `text` v = `To-Value` ).
-    cols->ele( `Column` )->a( n = `width` v = `4rem`
-        )->tag( `Text` )->a( n = `text` v = `More` ).
-    cols->ele( `Column` )->a( n = `width` v = `5rem`
-        )->tag( `Text` )->a( n = `text` v = `Output` ).
-    cols->ele( `Column` )->a( n = `width` v = `11rem`
-        )->tag( `Text` )->a( n = `text` v = `Technical Name` ).
-    cols->ele( `Column` )->a( n = `width` v = `8rem`
-        )->tag( `Text` )->a( n = `text` v = `Sort` ).
+    cols->ele( `Column`
+        )->a( n = `width` v = `14rem`
+        )->tag( `Text`
+            )->a( n = `text` v = `Fld Name` ).
+    cols->ele( `Column`
+        )->a( n = `width` v = `7rem`
+        )->tag( `Text`
+            )->a( n = `text` v = `O.` ).
+    cols->ele( `Column`
+        )->a( n = `width` v = `11rem`
+        )->tag( `Text`
+            )->a( n = `text` v = `Frm-Val.` ).
+    cols->ele( `Column`
+        )->a( n = `width` v = `11rem`
+        )->tag( `Text`
+            )->a( n = `text` v = `To-Value` ).
+    cols->ele( `Column`
+        )->a( n = `width` v = `4rem`
+        )->tag( `Text`
+            )->a( n = `text` v = `More` ).
+    cols->ele( `Column`
+        )->a( n = `width` v = `5rem`
+        )->tag( `Text`
+            )->a( n = `text` v = `Output` ).
+    cols->ele( `Column`
+        )->a( n = `width` v = `11rem`
+        )->tag( `Text`
+            )->a( n = `text` v = `Technical Name` ).
+    cols->ele( `Column`
+        )->a( n = `width` v = `8rem`
+        )->tag( `Text`
+            )->a( n = `text` v = `Sort` ).
 
     DATA(cells) = crit->ele( `items`
         )->ele( `ColumnListItem`
-        )->ele( `cells` ).
+            )->ele( `cells` ).
 
     cells->tag( `Text` )->a( n = `text` v = `{LABEL}` ).
 
@@ -795,7 +815,8 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = <col>-col_id
           )->a( n = `filterProperty` t = <col>-col_id ).
       grid_col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = <col>-fname ).
+          )->tag( `Label`
+              )->a( n = `text` t = <col>-fname ).
       grid_col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ <col>-col_id }\}|

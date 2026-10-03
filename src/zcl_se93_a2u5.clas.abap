@@ -138,7 +138,7 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
   METHOD on_event.
 
     DATA(lv_event) = client->get_event( ).
-    DATA(lt_arg)   = client->get( )-t_event_arg.
+    DATA(lv_arg)   = client->get_event_arg( ).
     CLEAR: mv_message, mv_msgtype.
 
     DATA(ls_frame) = zcl_zlk05_gui_frame=>handle_frame_event(
@@ -157,8 +157,8 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
         do_search( ).
 
       WHEN 'DISPLAY'.
-        IF lines( lt_arg ) > 0.
-          do_open( lt_arg[ 1 ] ).
+        IF lv_arg IS NOT INITIAL.
+          do_open( lv_arg ).
         ENDIF.
 
       WHEN 'BACK_TO_LIST'.
@@ -467,7 +467,10 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
 
       DATA(tmpl) = col->ele( n = `template` ns = `table` ).
       IF lv_fld = `TCODE`.
@@ -594,9 +597,13 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
             )->a( n = `sortProperty`   t = lv_af
             )->a( n = `filterProperty` t = lv_af ).
         acol->ele( n = `label` ns = `table`
-            )->tag( `Label` )->a( n = `text` t = lv_ah )->end( )->end( ).
+            )->tag( `Label`
+                )->a( n = `text` t = lv_ah
+        )->end(
+        )->end( ).
         acol->ele( n = `template` ns = `table`
-            )->tag( `Text` )->a( n = `text` v = |\{{ lv_af }\}| ).
+            )->tag( `Text`
+                )->a( n = `text` v = |\{{ lv_af }\}| ).
         acol->end( ).
       ENDLOOP.
       auth->end( )->end( ).
@@ -739,9 +746,13 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
               )->a( n = `sortProperty`   t = lv_pf
               )->a( n = `filterProperty` t = lv_pf ).
           pcol->ele( n = `label` ns = `table`
-              )->tag( `Label` )->a( n = `text` t = lv_ph )->end( )->end( ).
+              )->tag( `Label`
+                  )->a( n = `text` t = lv_ph
+          )->end(
+          )->end( ).
           pcol->ele( n = `template` ns = `table`
-              )->tag( `Text` )->a( n = `text` v = |\{{ lv_pf }\}| ).
+              )->tag( `Text`
+                  )->a( n = `text` v = |\{{ lv_pf }\}| ).
           pcol->end( ).
         ENDLOOP.
         par->end( )->end( ).

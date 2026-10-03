@@ -182,7 +182,7 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true`
         )->ele( `VBox`
-        )->a( n = `class` v = `sapUiSmallMargin` ).
+            )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " ===== Buffer statistics =====
     work->tag( `Title`
@@ -217,7 +217,10 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_bfld
           )->a( n = `filterProperty` t = lv_bfld ).
       bcol->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_bhead )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_bhead
+      )->end(
+      )->end( ).
       bcol->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_bfld }\}|
@@ -254,7 +257,10 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_mfld
           )->a( n = `filterProperty` t = lv_mfld ).
       mcol->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_mhead )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_mhead
+      )->end(
+      )->end( ).
       mcol->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_mfld }\}|

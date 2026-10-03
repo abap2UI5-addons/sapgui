@@ -205,7 +205,8 @@ CLASS zcl_sm12_a2u5 IMPLEMENTATION.
         )->a( n = `width`      v = `44rem`
         )->a( n = `class`      v = `sapUiSmallMarginTop`
         )->ele( `content`
-        )->ele( `VBox` )->a( n = `class` v = `sapUiSmallMargin` ).
+            )->ele( `VBox`
+                )->a( n = `class` v = `sapUiSmallMargin` ).
 
     DATA(row) = panel->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row
@@ -353,7 +354,10 @@ CLASS zcl_sm12_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|

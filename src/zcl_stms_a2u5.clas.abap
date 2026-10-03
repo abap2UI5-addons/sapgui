@@ -278,8 +278,8 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
         )->a( n = `headerText` v = `Transport Management System`
         )->a( n = `class`      v = `sapUiTinyMargin`
         )->ele( `content`
-        )->ele( `VBox`
-        )->a( n = `class` v = `sapUiTinyMargin` ).
+            )->ele( `VBox`
+                )->a( n = `class` v = `sapUiTinyMargin` ).
 
     DATA(row1) = box->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row1
@@ -380,7 +380,10 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -471,7 +474,10 @@ CLASS zcl_stms_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|

@@ -89,7 +89,7 @@ CLASS zcl_slg1_a2u5 IMPLEMENTATION.
   METHOD on_event.
 
     DATA(lv_event) = client->get_event( ).
-    DATA(lt_arg)   = client->get( )-t_event_arg.
+    DATA(lv_arg)   = client->get_event_arg( ).
     CLEAR: mv_message, mv_msgtype.
 
     " F3 on the message screen goes back to the list, not out of SLG1
@@ -114,8 +114,8 @@ CLASS zcl_slg1_a2u5 IMPLEMENTATION.
         mv_mode = `LIST`.
         do_search( ).
       WHEN 'DISPLAY'.
-        IF lines( lt_arg ) >= 1.
-          do_open( lt_arg[ 1 ] ).
+        IF lv_arg IS NOT INITIAL.
+          do_open( lv_arg ).
         ENDIF.
       WHEN 'BACK_TO_LIST'.
         mv_mode = `LIST`.
@@ -214,7 +214,10 @@ CLASS zcl_slg1_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
       col->ele( n = `template` ns = `table` ).
       " the traffic light column carries the state of the row
       IF lv_fld = `STATE`.

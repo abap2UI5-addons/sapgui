@@ -165,7 +165,7 @@ CLASS zcl_sm30_a2u5 IMPLEMENTATION.
         )->a( n = `height`   v = zcl_zlk05_gui_frame=>c_work_height
         )->a( n = `vertical` v = `true`
         )->ele( `VBox`
-        )->a( n = `class` v = `sapUiSmallMargin` ).
+            )->a( n = `class` v = `sapUiSmallMargin` ).
 
     DATA(row) = work->ele( `HBox`
         )->a( n = `alignItems` v = `Center` ).

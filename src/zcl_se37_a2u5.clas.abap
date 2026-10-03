@@ -99,7 +99,7 @@ CLASS zcl_se37_a2u5 IMPLEMENTATION.
   METHOD on_event.
 
     DATA(lv_event) = client->get_event( ).
-    DATA(lt_arg)   = client->get( )-t_event_arg.
+    DATA(lv_arg)   = client->get_event_arg( ).
     CLEAR: mv_message, mv_msgtype.
 
     " the command field and Back belong to the frame - they work the
@@ -118,8 +118,8 @@ CLASS zcl_se37_a2u5 IMPLEMENTATION.
       WHEN 'EXECUTE'.
         do_search( ).
       WHEN 'DISPLAY'.
-        IF lines( lt_arg ) > 0.
-          do_open( lt_arg[ 1 ] ).
+        IF lv_arg IS NOT INITIAL.
+          do_open( lv_arg ).
         ENDIF.
       WHEN 'BACK_TO_LIST'.
         mv_mode = `LIST`.
@@ -309,7 +309,10 @@ CLASS zcl_se37_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
 
       DATA(tmpl) = col->ele( n = `template` ns = `table` ).
       IF lv_fld = `FUNCNAME`.
@@ -453,7 +456,10 @@ CLASS zcl_se37_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|

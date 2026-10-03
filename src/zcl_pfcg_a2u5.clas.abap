@@ -254,7 +254,10 @@ CLASS zcl_pfcg_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
       DATA(tmpl) = col->ele( n = `template` ns = `table` ).
       DATA(lv_event) = SWITCH string( lv_fld WHEN `AGR_NAME` THEN `DISPLAY`
                                              WHEN `UNAME`    THEN `DISPLAY_USER`

@@ -290,7 +290,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true`
         )->ele( `VBox`
-        )->a( n = `class` v = `sapUiSmallMargin` ).
+            )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " The trace type boxes mirror the kernel state. When the kernel did not
     " tell it, empty boxes would read as "no trace is running" - say so.
@@ -345,10 +345,10 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
         )->a( n = `enabled`  v = `false`
         )->a( n = `tooltip`  t = |Activate Stack Trace - { c_ro }|
         )->tag( `RadioButton`
-        )->a( n = `text`     v = `Off`
-        )->a( n = `selected` b = xsdbool( ms_state-stack_on = abap_false )
-        )->a( n = `enabled`  v = `false`
-        )->a( n = `tooltip`  t = |Deactivate Stack Trace - { c_ro }| ).
+            )->a( n = `text`     v = `Off`
+            )->a( n = `selected` b = xsdbool( ms_state-stack_on = abap_false )
+            )->a( n = `enabled`  v = `false`
+            )->a( n = `tooltip`  t = |Deactivate Stack Trace - { c_ro }| ).
     srow->end( ).
 
     DATA(prow) = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
@@ -361,10 +361,10 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
         )->a( n = `enabled`  v = `false`
         )->a( n = `tooltip`  t = |Switch Progress Display On - { c_ro }|
         )->tag( `RadioButton`
-        )->a( n = `text`     v = `Off`
-        )->a( n = `selected` b = xsdbool( ms_state-progress_on = abap_false )
-        )->a( n = `enabled`  v = `false`
-        )->a( n = `tooltip`  t = |Switch Progress Display Off - { c_ro }| ).
+            )->a( n = `text`     v = `Off`
+            )->a( n = `selected` b = xsdbool( ms_state-progress_on = abap_false )
+            )->a( n = `enabled`  v = `false`
+            )->a( n = `tooltip`  t = |Switch Progress Display Off - { c_ro }| ).
     prow->end( ).
 
     " ----- SQLTFIELDS-STATE -----
@@ -423,7 +423,10 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
             )->a( n = `sortProperty`   t = lv_fld
             )->a( n = `filterProperty` t = lv_fld ).
         col->ele( n = `label` ns = `table`
-            )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+            )->tag( `Label`
+                )->a( n = `text` t = lv_head
+        )->end(
+        )->end( ).
         col->ele( n = `template` ns = `table`
             )->tag( `Text`
                 )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -499,7 +502,7 @@ CLASS zcl_st05_a2u5 IMPLEMENTATION.
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true`
         )->ele( `VBox`
-        )->a( n = `class` v = `sapUiSmallMargin` ).
+            )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " ----- filter conditions, only one of them can be set -----
     add_block_title( io_parent = work

@@ -91,7 +91,7 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
   METHOD on_event.
 
     DATA(lv_event) = client->get_event( ).
-    DATA(lt_arg)   = client->get( )-t_event_arg.
+    DATA(lv_arg)   = client->get_event_arg( ).
     CLEAR: mv_message, mv_msgtype.
 
     " the command field and Back belong to the frame - they work the
@@ -115,8 +115,8 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
         mv_pattern = `*`.
         do_search( ).
       WHEN 'DISPLAY'.
-        IF lines( lt_arg ) > 0.
-          do_open( lt_arg[ 1 ] ).
+        IF lv_arg IS NOT INITIAL.
+          do_open( lv_arg ).
         ENDIF.
       WHEN 'BACK_TO_LIST'.
         mv_mode = `LIST`.
@@ -231,9 +231,9 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
         )->a( n = `headerText` v = `Profile Parameter Maintenance`
         )->a( n = `class`      v = `sapUiTinyMargin`
         )->ele( `content`
-        )->ele( `HBox`
-        )->a( n = `alignItems` v = `Center`
-        )->a( n = `class`      v = `sapUiTinyMargin` ).
+            )->ele( `HBox`
+                )->a( n = `alignItems` v = `Center`
+                )->a( n = `class`      v = `sapUiTinyMargin` ).
 
     zcl_zlk05_gui_frame=>add_label( io_parent = sel
                                     iv_text   = `Parameter Name`
@@ -276,7 +276,10 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Link`
               )->a( n = `text`     v = |\{{ lv_fld }\}|
@@ -351,29 +354,29 @@ CLASS zcl_rz11_a2u5 IMPLEMENTATION.
         )->a( n = `headerText` v = `Parameter Properties`
         )->a( n = `class`      v = `sapUiTinyMargin`
         )->ele( `content`
-        )->ele( `Table`
-            )->a( n = `items`   v = client->_bind( mt_detail )
-            )->a( n = `growing` v = `true`
-            )->a( n = `class`   v = `sapUiSizeCompact` ).
+            )->ele( `Table`
+                )->a( n = `items`   v = client->_bind( mt_detail )
+                )->a( n = `growing` v = `true`
+                )->a( n = `class`   v = `sapUiSizeCompact` ).
 
     tab->ele( `columns`
         )->ele( `Column`
             )->a( n = `width` v = `18rem`
             )->tag( `Text`
-            )->a( n = `text` v = `Attribute`
+                )->a( n = `text` v = `Attribute`
         )->end(
         )->ele( `Column`
             )->tag( `Text`
-            )->a( n = `text` v = `Value`
+                )->a( n = `text` v = `Value`
         )->end(
     )->end(
-    )->ele( `items`
-        )->ele( `ColumnListItem`
-            )->ele( `cells`
-                )->tag( `Text`
-                )->a( n = `text` v = `{LABEL}`
-                )->tag( `Text`
-                )->a( n = `text` v = `{VALUE}` ).
+        )->ele( `items`
+            )->ele( `ColumnListItem`
+                )->ele( `cells`
+                    )->tag( `Text`
+                        )->a( n = `text` v = `{LABEL}`
+                    )->tag( `Text`
+                        )->a( n = `text` v = `{VALUE}` ).
 
     " function keys of the SAP GUI - F3 / Shift+F3 / F12 and F8
     zcl_zlk05_gui_frame=>register_keys(

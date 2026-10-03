@@ -110,7 +110,7 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
   METHOD on_event.
 
     DATA(lv_event) = client->get_event( ).
-    DATA(lt_arg)   = client->get( )-t_event_arg.
+    DATA(lv_arg)   = client->get_event_arg( ).
     CLEAR: mv_message, mv_msgtype.
 
     " the command field and Back belong to the frame - they work the
@@ -129,17 +129,17 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
       WHEN 'EXECUTE'.
         do_search( ).
       WHEN 'DISPLAY'.
-        IF lines( lt_arg ) > 0.
-          do_open( lt_arg[ 1 ] ).
+        IF lv_arg IS NOT INITIAL.
+          do_open( lv_arg ).
         ENDIF.
       WHEN 'DISPLAY_ROLE'.
         " like the role tab of SU01: a role opens in the role maintenance
-        IF lines( lt_arg ) > 0 AND lt_arg[ 1 ] IS NOT INITIAL.
+        IF lv_arg IS NOT INITIAL.
           DATA(ls_run) = zcl_zlk05_tcode_router=>run(
               iv_command = `PFCG`
               io_client  = client
               it_params  = VALUE #( ( name  = zif_zlk05_start_params=>c_role
-                                      value = lt_arg[ 1 ] ) ) ).
+                                      value = lv_arg ) ) ).
           IF ls_run-outcome = zcl_zlk05_tcode_router=>c_nav.
             RETURN.
           ENDIF.
@@ -325,7 +325,10 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
 
       DATA(tmpl) = col->ele( n = `template` ns = `table` ).
       IF lv_fld = `BNAME`.
@@ -436,7 +439,10 @@ CLASS zcl_su01_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
       DATA(tmpl) = col->ele( n = `template` ns = `table` ).
       IF lv_fld = `AGR_NAME`.
         " the role opens in the role maintenance (PFCG)

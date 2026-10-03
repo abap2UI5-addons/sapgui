@@ -231,10 +231,11 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true`
         )->ele( `VBox`
-        )->a( n = `class` v = `sapUiSmallMargin` ).
+            )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " ----- the selection block of the entry screen -----
-    DATA(row) = work->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
+    DATA(row) = work->ele( `HBox`
+        )->a( n = `alignItems` v = `Center` ).
     zcl_zlk05_gui_frame=>add_label( io_parent = row iv_text = `From Date/Time` ).
     row->tag( `Input`
         )->a( n = `id`          v = `idLogFrom`
@@ -319,7 +320,10 @@ CLASS zcl_sm21_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|

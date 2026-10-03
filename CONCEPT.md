@@ -149,9 +149,9 @@ abap2UI5/linter, not worth waiting for).
   `ZCL_CSG_SCREEN` owning that flow, with the app implementing only its menu,
   its buttons, its work area and its events, removes a few hundred duplicated
   lines and makes the next screen a day's work.
-- **The rest of the event API.** `client->get( )-t_event_arg` into
-  `client->get_event_arg( n )`, and the builder chains into the house layout
-  (the linter's opt-in `chain-house-layout`, which `--fix` applies).
+- **The rest of the event API** - done: `client->get_event_arg( n )`
+  everywhere, and the builder chains in the house layout, which
+  `chain-house-layout` now enforces in `abap2ui5lint.jsonc`.
 - **Texts.** Every text is hard-coded English. If other logon languages
   matter: text symbols or a message class, read the way the originals read
   theirs.

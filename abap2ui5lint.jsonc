@@ -23,5 +23,12 @@
   // have nothing to render. README "Development" says what changes that.
   "render": false,
 
+  // the house layout of abap2UI5 and its sample repositories: one call per
+  // line, four spaces per tree level, end( ) in the column it closes.
+  // `npx abap2ui5lint --fix` applies it.
+  "rules": {
+    "chain-house-layout": "warning"
+  },
+
   "failOn": "warning"
 }

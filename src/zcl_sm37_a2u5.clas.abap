@@ -99,7 +99,7 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
   METHOD on_event.
 
     DATA(lv_event) = client->get_event( ).
-    DATA(lt_arg)   = client->get( )-t_event_arg.
+    DATA(lv_arg)   = client->get_event_arg( ).
     CLEAR: mv_message, mv_msgtype.
 
     " the command field and Back belong to the frame - they work the
@@ -120,8 +120,8 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
       WHEN 'DISPLAY'.
         " the cell click of the grid delivers job name and count in one
         " argument, separated by a pipe
-        IF lines( lt_arg ) >= 1.
-          SPLIT lt_arg[ 1 ] AT `|` INTO DATA(lv_jobname) DATA(lv_jobcount).
+        IF lv_arg IS NOT INITIAL.
+          SPLIT lv_arg AT `|` INTO DATA(lv_jobname) DATA(lv_jobcount).
           do_open( iv_jobname  = lv_jobname
                    iv_jobcount = lv_jobcount ).
         ENDIF.
@@ -254,7 +254,10 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
       col->ele( n = `template` ns = `table` ).
       IF lv_fld = `MSGTYPE`.
         col->tag( `ObjectStatus`
@@ -369,7 +372,7 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true`
         )->ele( `VBox`
-        )->a( n = `class` v = `sapUiSmallMargin` ).
+            )->a( n = `class` v = `sapUiSmallMargin` ).
 
     " ----- T JSL - Simple Job Selection -----
     work->tag( `Title`
@@ -406,11 +409,21 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
     sti->tag( n = `Item` ns = `core`
         )->a( n = `key`  v = ``
         )->a( n = `text` v = `All statuses`
-        )->tag( n = `Item` ns = `core` )->a( n = `key` v = `P` )->a( n = `text` v = `Scheduled`
-        )->tag( n = `Item` ns = `core` )->a( n = `key` v = `S` )->a( n = `text` v = `Released`
-        )->tag( n = `Item` ns = `core` )->a( n = `key` v = `R` )->a( n = `text` v = `Active`
-        )->tag( n = `Item` ns = `core` )->a( n = `key` v = `F` )->a( n = `text` v = `Finished`
-        )->tag( n = `Item` ns = `core` )->a( n = `key` v = `A` )->a( n = `text` v = `Cancelled` ).
+        )->tag( n = `Item` ns = `core`
+            )->a( n = `key` v = `P`
+            )->a( n = `text` v = `Scheduled`
+        )->tag( n = `Item` ns = `core`
+            )->a( n = `key` v = `S`
+            )->a( n = `text` v = `Released`
+        )->tag( n = `Item` ns = `core`
+            )->a( n = `key` v = `R`
+            )->a( n = `text` v = `Active`
+        )->tag( n = `Item` ns = `core`
+            )->a( n = `key` v = `F`
+            )->a( n = `text` v = `Finished`
+        )->tag( n = `Item` ns = `core`
+            )->a( n = `key` v = `A`
+            )->a( n = `text` v = `Cancelled` ).
     st->end( ).
 
     zcl_zlk05_gui_frame=>add_label( io_parent = row2 iv_text = `Job Start Condition` ).
@@ -455,7 +468,10 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
       col->ele( n = `template` ns = `table` ).
       IF lv_fld = `STATUSTXT`.
         col->tag( `ObjectStatus`
@@ -538,7 +554,7 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
         )->a( n = `vertical`   v = `true`
         )->a( n = `horizontal` v = `true`
         )->ele( `VBox`
-        )->a( n = `class` v = `sapUiSmallMargin` ).
+            )->a( n = `class` v = `sapUiSmallMargin` ).
 
     DATA(grid) = work->ele( n = `Table` ns = `table`
         )->a( n = `rows`                v = client->_bind( mt_steps )
@@ -564,7 +580,10 @@ CLASS zcl_sm37_a2u5 IMPLEMENTATION.
           )->a( n = `sortProperty`   t = lv_fld
           )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
-          )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
+          )->tag( `Label`
+              )->a( n = `text` t = lv_head
+      )->end(
+      )->end( ).
       col->ele( n = `template` ns = `table`
           )->tag( `Text`
               )->a( n = `text`     v = |\{{ lv_fld }\}|

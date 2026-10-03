@@ -182,7 +182,7 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
   METHOD on_event.
 
     DATA(lv_event) = client->get_event( ).
-    DATA(lt_arg)   = client->get( )-t_event_arg.
+    DATA(lv_arg)   = client->get_event_arg( ).
     CLEAR: mv_message, mv_msg_type.
 
     " the functions of the SAP GUI itself - menus, find, /o, /nend ... -
@@ -214,15 +214,15 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
         ENDIF.
 
       WHEN 'TCODE_CLICK'.
-        IF lines( lt_arg ) > 0.
-          IF start_transaction( to_upper( lt_arg[ 1 ] ) ) = abap_true.
+        IF lv_arg IS NOT INITIAL.
+          IF start_transaction( to_upper( lv_arg ) ) = abap_true.
             RETURN.
           ENDIF.
         ENDIF.
 
       WHEN 'TREE_TOGGLE'.
-        IF lines( lt_arg ) > 0.
-          toggle_node( lt_arg[ 1 ] ).
+        IF lv_arg IS NOT INITIAL.
+          toggle_node( lv_arg ).
         ENDIF.
 
       WHEN OTHERS.
@@ -343,9 +343,9 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
 
     scroll->ele( `layoutData`
         )->tag( `FlexItemData`
-        )->a( n = `growFactor`   v = `0`
-        )->a( n = `shrinkFactor` v = `0`
-        )->a( n = `baseSize`     v = `30rem` ).
+            )->a( n = `growFactor`   v = `0`
+            )->a( n = `shrinkFactor` v = `0`
+            )->a( n = `baseSize`     v = `30rem` ).
 
     DATA(list) = scroll->ele( `List`
         )->a( n = `showSeparators`   v = `None`
@@ -365,9 +365,9 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
 
     image_area->ele( `layoutData`
         )->tag( `FlexItemData`
-        )->a( n = `growFactor`   v = `1`
-        )->a( n = `shrinkFactor` v = `1`
-        )->a( n = `baseSize`     v = `0%` ).
+            )->a( n = `growFactor`   v = `1`
+            )->a( n = `shrinkFactor` v = `1`
+            )->a( n = `baseSize`     v = `0%` ).
 
     image_area->tag( n = `Icon` ns = `core`
         )->a( n = `src`     v = `sap-icon://SAP-logo-shape`
@@ -540,7 +540,8 @@ CLASS zcl_sapgui_a2ui5 IMPLEMENTATION.
     DATA(row) = item->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
 
     " indentation of the tree level
-    row->tag( `HBox` )->a( n = `width` v = |{ 4 + iv_level * 18 }px| ).
+    row->tag( `HBox`
+        )->a( n = `width` v = |{ 4 + iv_level * 18 }px| ).
 
     " expander
     CASE iv_state.

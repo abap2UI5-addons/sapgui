@@ -371,10 +371,10 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
         )->a( n = `xmlns:editor` v = `sap.ui.codeeditor`
         )->a( n = `height`     v = `100%`
         )->ele( `Shell`
-        )->a( n = `appWidthLimited` v = `false`
-        )->ele( `Page`
-            )->a( n = `showHeader`      v = `false`
-            )->a( n = `enableScrolling` v = `false` ).
+            )->a( n = `appWidthLimited` v = `false`
+            )->ele( `Page`
+                )->a( n = `showHeader`      v = `false`
+                )->a( n = `enableScrolling` v = `false` ).
 
   ENDMETHOD.
 
@@ -427,7 +427,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
         )->a( n = `text` v = `System`
         )->a( n = `type` v = `Transparent`
         )->ele( `menu`
-        )->ele( `Menu` ).
+            )->ele( `Menu` ).
 
     " Create Session opens a new browser tab - a pure frontend action, so
     " the browser accepts it as a reaction to the click
@@ -488,7 +488,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
         )->a( n = `text` v = `Help`
         )->a( n = `type` v = `Transparent`
         )->ele( `menu`
-        )->ele( `Menu` ).
+            )->ele( `Menu` ).
 
     menu_item( io_menu = menu io_client = io_client iv_text = `Application Help`
                iv_code = c_menu-help iv_icon = `sap-icon://sys-help` ).
@@ -714,7 +714,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
 
     DATA(bar) = io_parent->ele( `footer`
         )->ele( `OverflowToolbar`
-        )->a( n = `height` v = `1.95rem` ).
+            )->a( n = `height` v = `1.95rem` ).
 
     IF iv_message IS NOT INITIAL.
       bar->tag( n = `Icon` ns = `core`

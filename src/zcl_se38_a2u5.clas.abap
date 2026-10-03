@@ -81,7 +81,7 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
   METHOD on_event.
 
     DATA(lv_event) = client->get_event( ).
-    DATA(lt_arg)   = client->get( )-t_event_arg.
+    DATA(lv_arg)   = client->get_event_arg( ).
     CLEAR: mv_message, mv_msgtype.
 
     " the command field and Back belong to the frame - they work the
@@ -100,8 +100,8 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
       WHEN 'EXECUTE'.
         do_search( ).
       WHEN 'DISPLAY'.
-        IF lines( lt_arg ) > 0.
-          do_open( lt_arg[ 1 ] ).
+        IF lv_arg IS NOT INITIAL.
+          do_open( lv_arg ).
         ENDIF.
       WHEN 'DISPLAY_DIRECT'.
         IF mv_progname IS NOT INITIAL.
@@ -295,7 +295,8 @@ CLASS zcl_se38_a2u5 IMPLEMENTATION.
         )->a( n = `tooltip` v = `Documentation - not available in this environment` ).
 
     " ----- Display / Change -----
-    DATA(btn) = work->ele( `HBox` )->a( n = `class` v = `sapUiSmallMarginTop` ).
+    DATA(btn) = work->ele( `HBox`
+        )->a( n = `class` v = `sapUiSmallMarginTop` ).
     btn->tag( `Button`
         )->a( n = `text`  v = `Display`
         )->a( n = `icon`  v = `sap-icon://display`

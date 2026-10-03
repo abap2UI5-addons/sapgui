@@ -151,7 +151,8 @@ CLASS zcl_se80_ui IMPLEMENTATION.
 
   METHOD on_event.
     DATA(lv_event) = client->get_event( ).
-    DATA(lt_arg) = client->get( )-t_event_arg.
+    DATA(lv_arg)   = client->get_event_arg( ).
+    DATA(lv_arg2)  = client->get_event_arg( 2 ).
     CLEAR: mv_message, mv_msg_type, mt_log.
 
     " the command field and Back belong to the frame - they work the
@@ -168,17 +169,17 @@ CLASS zcl_se80_ui IMPLEMENTATION.
 
     CASE lv_event.
       WHEN 'TREE_CLICK'.
-        IF lines( lt_arg ) >= 2.
-          IF lt_arg[ 2 ] = 'DEVC'.
-            mv_cur_package = lt_arg[ 1 ].
+        IF lv_arg2 IS NOT INITIAL.
+          IF lv_arg2 = 'DEVC'.
+            mv_cur_package = lv_arg.
             mt_tree = mo_api->get_package_tree( mv_cur_package ).
             mt_props = mo_api->get_package_info( mv_cur_package ).
             mv_object_title = |Package { mv_cur_package }|.
             mv_active_tab = 'INFO'.
             CLEAR: mv_source, mv_source_local, mv_source_test, mv_cur_obj_name, mt_methods, mt_fields.
-          ELSEIF lt_arg[ 2 ] = 'METH'.
+          ELSEIF lv_arg2 = 'METH'.
             " Method clicked - navigate to class and show signature
-            DATA(lv_meth_key) = lt_arg[ 1 ].
+            DATA(lv_meth_key) = lv_arg.
             SPLIT lv_meth_key AT '=>' INTO DATA(lv_cls) DATA(lv_mtd).
             mv_cur_obj_name = lv_cls.
             mv_cur_obj_type = 'CLAS'.
@@ -205,8 +206,8 @@ CLASS zcl_se80_ui IMPLEMENTATION.
             mv_msg_type = `Information`.
             mv_active_tab = 'INFO'.
           ELSE.
-            mv_cur_obj_name = lt_arg[ 1 ].
-            mv_cur_obj_type = lt_arg[ 2 ].
+            mv_cur_obj_name = lv_arg.
+            mv_cur_obj_type = lv_arg2.
             load_object( ).
           ENDIF.
         ENDIF.
@@ -311,9 +312,9 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         mv_show_whereu = abap_false.
         client->popup_destroy( ).
       WHEN 'USAGE_CLICK'.
-        IF lines( lt_arg ) >= 2.
-          mv_cur_obj_name = lt_arg[ 1 ].
-          mv_cur_obj_type = lt_arg[ 2 ].
+        IF lv_arg2 IS NOT INITIAL.
+          mv_cur_obj_name = lv_arg.
+          mv_cur_obj_type = lv_arg2.
           mv_show_whereu = abap_false.
           client->popup_destroy( ).
           load_object( ).
@@ -721,10 +722,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
   METHOD build_browser.
 
     " ===== Repository Browser (left column) =====
-    DATA(col) = io_parent->ele( `VBox` )->a( n = `width` v = `320px` ).
+    DATA(col) = io_parent->ele( `VBox`
+        )->a( n = `width` v = `320px` ).
 
     " --- Package with navigation ---
-    DATA(bar1) = col->ele( `Toolbar` )->a( n = `height` v = `2.5rem` ).
+    DATA(bar1) = col->ele( `Toolbar`
+        )->a( n = `height` v = `2.5rem` ).
     bar1->tag( `Button`
         )->a( n = `icon`    v = `sap-icon://nav-back`
         )->a( n = `tooltip` v = `Superpackage`
@@ -742,7 +745,8 @@ CLASS zcl_se80_ui IMPLEMENTATION.
             )->a( n = `type`    v = `Transparent` ).
 
     " --- Object search ---
-    DATA(bar2) = col->ele( `Toolbar` )->a( n = `height` v = `2.5rem` ).
+    DATA(bar2) = col->ele( `Toolbar`
+        )->a( n = `height` v = `2.5rem` ).
     bar2->tag( `SearchField`
         )->a( n = `placeholder` v = `Object name`
         )->a( n = `value`       v = client->_bind( mv_search )
@@ -762,7 +766,8 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     type_items->tag( n = `Item` ns = `core` )->a( n = `key` v = `DDLS` )->a( n = `text` v = `CDS View` ).
 
     " --- Recent objects + tree expand/collapse ---
-    DATA(bar3) = col->ele( `Toolbar` )->a( n = `height` v = `2rem` ).
+    DATA(bar3) = col->ele( `Toolbar`
+        )->a( n = `height` v = `2rem` ).
     IF mt_recent IS NOT INITIAL.
       DATA(rec_sel) = bar3->ele( `Select`
           )->a( n = `width`       v = `160px`
@@ -822,7 +827,8 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     " editor local bars are left here
 
     " ===== Object entry / package path / lock information =====
-    DATA(bar2) = col->ele( `Toolbar` )->a( n = `height` v = `2rem` ).
+    DATA(bar2) = col->ele( `Toolbar`
+        )->a( n = `height` v = `2rem` ).
     bar2->tag( `Input`
         )->a( n = `value`       v = client->_bind( mv_quick_nav )
         )->a( n = `width`       v = `160px`
@@ -845,7 +851,8 @@ CLASS zcl_se80_ui IMPLEMENTATION.
             )->a( n = `type`    v = `Transparent` ).
 
     " ===== Find / Replace / Goto line =====
-    DATA(bar3) = col->ele( `Toolbar` )->a( n = `height` v = `2rem` ).
+    DATA(bar3) = col->ele( `Toolbar`
+        )->a( n = `height` v = `2rem` ).
     bar3->tag( `Label`
         )->a( n = `text` v = `Find`
         )->tag( `Input`
@@ -1015,9 +1022,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
       meth_tab->ele( `items`
           )->ele( `ColumnListItem`
               )->ele( `cells`
-                  )->tag( `Text` )->a( n = `text` v = `{CMPNAME}`
-                  )->tag( `Text` )->a( n = `text` v = `{EXPOSURE}`
-                  )->tag( `Text` )->a( n = `text` v = `{MTDTYPE}` ).
+                  )->tag( `Text`
+                      )->a( n = `text` v = `{CMPNAME}`
+                  )->tag( `Text`
+                      )->a( n = `text` v = `{EXPOSURE}`
+                  )->tag( `Text`
+                      )->a( n = `text` v = `{MTDTYPE}` ).
     ENDIF.
 
     IF mt_fields IS NOT INITIAL.
@@ -1032,10 +1042,14 @@ CLASS zcl_se80_ui IMPLEMENTATION.
       fld_tab->ele( `items`
           )->ele( `ColumnListItem`
               )->ele( `cells`
-                  )->tag( `Text` )->a( n = `text` v = `{NAME}`
-                  )->tag( `Text` )->a( n = `text` v = `{KEYFLAG}`
-                  )->tag( `Text` )->a( n = `text` v = `{TYPTYPE}`
-                  )->tag( `Text` )->a( n = `text` v = `{TYPE}` ).
+                  )->tag( `Text`
+                      )->a( n = `text` v = `{NAME}`
+                  )->tag( `Text`
+                      )->a( n = `text` v = `{KEYFLAG}`
+                  )->tag( `Text`
+                      )->a( n = `text` v = `{TYPTYPE}`
+                  )->tag( `Text`
+                      )->a( n = `text` v = `{TYPE}` ).
     ENDIF.
 
     " ===== Message list =====
