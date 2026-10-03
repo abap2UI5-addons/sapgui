@@ -1,7 +1,7 @@
 # sapgui
 
-**The SAP GUI in your browser.** Twenty classic transactions - SE80, SE16N,
-SM37, ST22, SU01 and more - rebuilt as [abap2UI5](https://github.com/abap2UI5/abap2UI5)
+**The SAP GUI in your browser.** Thirty classic transactions - SE80, SE16N,
+SM37, ST22, SU01, SLG1, WE02 and more - rebuilt as [abap2UI5](https://github.com/abap2UI5/abap2UI5)
 apps. Pure ABAP, installed with abapGit. No SAP GUI installation, no Fiori
 launchpad, no OData service.
 
@@ -25,10 +25,11 @@ Good for:
 - **Looking into a system without the SAP GUI** - from a Mac, a tablet, a
   locked-down laptop or any machine with a browser: read tables, check jobs,
   dumps, locks, work processes, transports, users.
-- **Browser-based development** - SE80 is a real Workbench: edit, save, check
-  and activate source code.
-- **Learning abap2UI5** - twenty full apps with selection screens, lists,
-  trees, detail screens and a shared window frame, plus 431 unit tests.
+- **Browser-based development** - SE80 browses packages, displays and checks
+  source. Editing, saving and activating are built in and switched off by
+  default (see [What changes the system](#what-changes-the-system)).
+- **Learning abap2UI5** - 28 full apps with selection screens, lists,
+  trees, detail screens and a shared window frame, plus 618 unit tests.
 
 ## What it is not
 
@@ -43,19 +44,32 @@ Good for:
   (selection screen, `WRITE`, ALV). This one is a finished set of *SAP's*
   transactions.
 
-## Before you install: read this
+## Authorizations
 
-> [!WARNING]
-> **There are no authorization checks yet.** Every user who can reach the
-> abap2UI5 HTTP service can read any table (`USR02` included) and change
-> source code through SE80 - regardless of their SAP authorizations.
-> Install it only on systems where every user of that service may use the
-> Workbench and read every table anyway, for example a private sandbox or a
-> developer trial.
+The apps ask for the authorizations the original transactions ask for, in
+`ZCL_ZLK05_AUTH`:
 
-Details: the SAP GUI transactions check S_TCODE, S_TABU_DIS, S_DEVELOP and
-friends; these apps do not. Function modules that check on their own still
-do. Adding the checks is the first item of [CONCEPT.md](CONCEPT.md).
+- **Every roundtrip of every app** starts with S_TCODE for the transaction
+  behind the app and the basic object check the original makes right after
+  it (S_DEVELOP display for the Workbench tools, S_ADMI_FCD for SM21,
+  S_RZL_ADM for RZ10/RZ11/SM04, S_USER_GRP for SU01, S_TRANSPRT for
+  SE09/SE10/STMS, S_APPL_LOG for SLG1, S_RFC_ADM for SM59, S_USER_AGR for
+  PFCG, S_IDOCMONI for WE02/WE05). That also covers an app started directly
+  by URL. Without it the screen shows "No Authorization" and the message,
+  like the status bar of the SAP GUI.
+- **Per object**, where the original checks the concrete object: the table
+  in SE16N and SM30 (S_TABU_DIS for its authorization group, then
+  S_TABU_NAM), the object and package in SE80 and the Workbench tools
+  (S_DEVELOP), the user group in SU01 (S_USER_GRP), the log in SLG1, the
+  destination in SM59, the role in PFCG, the IDoc in WE02 (S_IDOCMONI plus
+  the BAdI `IDOC_AUTHORITY_RESTRICTION`), the spool request in SP01
+  (`RSPO_CHECK_JOB_PERMISSION`) and another user's job log in SM37
+  (S_BTCH_JOB / S_BTCH_ADM).
+
+> [!NOTE]
+> These are rebuilt checks, not the originals. Try the screens with a
+> restricted user on a sandbox before you open the service to more people,
+> and report what an original checks and this one does not.
 
 ## Quick start
 
@@ -84,22 +98,31 @@ window), `/oSE80` (new window).
 | Transaction | Screen | What you can do |
 | --- | --- | --- |
 | SAP Easy Access | Start screen | Browse the SAP menu (the real area menu `S000`) and the Favorites folder, start transactions from the command field |
-| SE80 | Object Navigator | Browse packages and objects; display, **edit, save, check and activate** source; create and delete programs, classes and interfaces; where-used list, version compare, pretty printer, search and replace |
+| SE80 | Object Navigator | Browse packages and objects; display and check source; where-used list, version compare, pretty printer, search. Edit, save, activate, create and delete are built in and switched off (see below) |
 | SE38 | ABAP Editor | Find a program and display its source |
 | SE11 | ABAP Dictionary | Find database tables, views and data elements and display their fields or definition |
 | SE24 | Class Builder | Find a class or interface and display its components |
 | SE37 | Function Builder | Find a function module and display its parameters |
+| SE91 | Message Maintenance | Find a message class and display its messages and their long texts |
 | SE93 | Maintain Transaction | Find a transaction code and display what it starts |
 | SE09, SE10 | Transport Organizer | Select transport requests by user, type and status; display their objects |
 | SE16N, SE16 | General Table Display | Display the content of any table with selection criteria, count entries, save and load display variants |
+| SM30 | Call View Maintenance | Enter a table or view and display it in SE16N (no maintenance) |
+| SM04 | User List | List the sessions of the own application server |
 | SM12 | Display and Delete Locks | List lock entries (display only - nothing is deleted) |
 | SM21 | System Log | Read the system log by time range, user, transaction and problem class |
 | SM37 | Job Overview | Select background jobs by name, user and status; display their steps |
 | SM50, SM66 | Work Process Overview | List the work processes and what they are doing |
+| SM59 | RFC Connections | List the RFC destinations and display their technical settings (no logon data) |
+| SLG1 | Application Log | Select logs by object, subobject, user and date; display their messages |
+| SP01 | Output Controller | Select spool requests and display their content |
+| WE02, WE05 | IDoc List | Select IDocs; display control, status and data records |
 | ST02 | Tune Buffers | Display the buffer statistics |
 | ST05 | Performance Trace | Display the trace state and the trace filters (starting a trace is not implemented) |
 | ST22 | ABAP Dump Analysis | List runtime errors and display a dump in detail |
 | SU01 | User Maintenance | Find users and display their details and roles |
+| SU53 | Authorization Check | Display the failed authorization checks of the last hours |
+| PFCG | Role Maintenance | Find a role and display its description, menu, authorizations and users |
 | SCC4 | Client Administration | List the clients of the system |
 | RZ10, RZ11 | Profile Parameters | Find a profile parameter and display its value, attributes and documentation |
 | STMS | Transport Management System | Display the transport domain, its systems and their import queues |
@@ -113,9 +136,13 @@ screen, and a transaction that does not exist at all is reported as such.
 Almost nothing. `ZCL_ZLK05_SYS_API`, which every screen uses to read the
 system, has no method that changes anything. Two exceptions:
 
-- **SE80** (`ZCL_SE80_API`) saves source with `INSERT REPORT`, activates
-  objects, creates and deletes classes, interfaces and programs, and records
-  objects in transport requests.
+- **SE80** (`ZCL_SE80_API`) can save source with `INSERT REPORT`, activate
+  objects, create and delete classes, interfaces and programs, and record
+  objects in transport requests - but only when the constant
+  `c_write_enabled` in that class is switched to `abap_true`, which is a
+  deliberate code change in the system. As delivered it refuses every
+  write, and even when switched on every write still needs S_DEVELOP for
+  the package and the object.
 - **SE16N** stores its display variants in its own table `ZSE16N_A2U5_VAR`. It
   never changes the data of the table it displays.
 
@@ -133,16 +160,21 @@ Which class implements which transaction:
 
 | Transaction | Class | Transaction | Class |
 | --- | --- | --- | --- |
-| SAP Easy Access | `ZCL_SAPGUI_A2UI5` | SM12 | `ZCL_SM12_A2U5` |
-| SE80 | `ZCL_SE80_UI` | SM21 | `ZCL_SM21_A2U5` |
-| SE38 | `ZCL_SE38_A2U5` | SM37 | `ZCL_SM37_A2U5` |
-| SE11 | `ZCL_SE11_A2U5` | SM50, SM66 | `ZCL_SM50_A2U5` |
-| SE24 | `ZCL_SE24_A2U5` | ST02 | `ZCL_ST02_A2U5` |
-| SE37 | `ZCL_SE37_A2U5` | ST05 | `ZCL_ST05_A2U5` |
-| SE93 | `ZCL_SE93_A2U5` | ST22 | `ZCL_ST22_A2U5` |
-| SE09, SE10 | `ZCL_SE09_A2U5` | SU01 | `ZCL_SU01_A2U5` |
-| SE16N, SE16 | `ZCL_SE16N_A2U5` | SCC4 | `ZCL_SCC4_A2U5` |
-| RZ10, RZ11 | `ZCL_RZ11_A2U5` | STMS | `ZCL_STMS_A2U5` |
+| SAP Easy Access | `ZCL_SAPGUI_A2UI5` | SM04 | `ZCL_SM04_A2U5` |
+| SE80 | `ZCL_SE80_UI` | SM12 | `ZCL_SM12_A2U5` |
+| SE38 | `ZCL_SE38_A2U5` | SM21 | `ZCL_SM21_A2U5` |
+| SE11 | `ZCL_SE11_A2U5` | SM30 | `ZCL_SM30_A2U5` |
+| SE24 | `ZCL_SE24_A2U5` | SM37 | `ZCL_SM37_A2U5` |
+| SE37 | `ZCL_SE37_A2U5` | SM50, SM66 | `ZCL_SM50_A2U5` |
+| SE91 | `ZCL_SE91_A2U5` | SM59 | `ZCL_SM59_A2U5` |
+| SE93 | `ZCL_SE93_A2U5` | SLG1 | `ZCL_SLG1_A2U5` |
+| SE09, SE10 | `ZCL_SE09_A2U5` | SP01 | `ZCL_SP01_A2U5` |
+| SE16N, SE16 | `ZCL_SE16N_A2U5` | ST02 | `ZCL_ST02_A2U5` |
+| RZ10, RZ11 | `ZCL_RZ11_A2U5` | ST05 | `ZCL_ST05_A2U5` |
+| SU01 | `ZCL_SU01_A2U5` | ST22 | `ZCL_ST22_A2U5` |
+| SU53 | `ZCL_SU53_A2U5` | STMS | `ZCL_STMS_A2U5` |
+| PFCG | `ZCL_PFCG_A2U5` | WE02, WE05 | `ZCL_WE02_A2U5` |
+| SCC4 | `ZCL_SCC4_A2U5` | | |
 
 What is planned next, and what is still missing, is in [CONCEPT.md](CONCEPT.md).
 
@@ -151,26 +183,28 @@ What is planned next, and what is still missing, is in [CONCEPT.md](CONCEPT.md).
 ```
 src/
   zcl_sapgui_a2ui5.clas.abap     SAP Easy Access, the entry screen
-  zcl_se*.clas.abap              one class per transaction
-  zcl_sm*.clas.abap
-  zcl_st*.clas.abap
-  zcl_su01_a2u5.clas.abap
-  zcl_scc4_a2u5.clas.abap
-  zcl_rz11_a2u5.clas.abap
-  zcl_stms_a2u5.clas.abap
+  zcl_<tcode>_a2u5.clas.abap     one class per transaction
+  zcl_se80_ui.clas.abap          SE80
   zcl_se80_api.clas.abap         SE80 repository API, the only writing class
-  zcl_zlk05_sys_api.clas.abap    shared read only system API
+  zcl_zlk05_sys_api.clas.abap    shared read only system API, the single entry point
+  zcl_zlk05_api_*.clas.abap      its implementation, one class per area
+                                 (dev, adm, mon, ops, repo, trn)
+  zcl_zlk05_auth.clas.abap       every authorization check
   zcl_zlk05_gui_frame.clas.abap  the six bands of a SAP GUI window
   zcl_zlk05_tcode_router.clas.abap  the command field: which class a code starts
+  zif_zlk05_start_params.intf.abap  start values for an app (like SPA/GPA)
   zcl_zlk05_client_dbl.clas.abap test double for z2ui5_if_client
+  zlk05.msag.xml                 the messages of the status bar
   zse16n_a2u5_var.tabl.xml       SE16N display variants
 ```
 
 The apps build views and dispatch events, they never read the system directly -
 that is what `ZCL_ZLK05_SYS_API` and `ZCL_SE80_API` are for. The window frame
-lives in `ZCL_ZLK05_GUI_FRAME`, so all screens look the same.
+lives in `ZCL_ZLK05_GUI_FRAME`, so all screens look the same. Every app calls
+`ZCL_ZLK05_AUTH=>guard_app( )` first in `main( )`, and the API classes check
+the concrete object before they read or write it.
 
-There are 431 ABAP Unit tests. They run against `ZCL_ZLK05_CLIENT_DBL` instead
+There are 618 ABAP Unit tests. They run against `ZCL_ZLK05_CLIENT_DBL` instead
 of a live client, so the view and the event wiring can be asserted without a
 browser.
 
@@ -223,14 +257,21 @@ the UI5 1.71 floor, the lifecycle of `main( )`, obsolete framework calls. One
 limit to know about: it rebuilds a view from the builder chain in the class it
 reads, and every screen here hands its view to `ZCL_ZLK05_GUI_FRAME`, which
 opens the `mvc:View` and the window bands in another class. So the run summary
-says `judged 0 controls` - the ABAP side of every app is checked, the controls
-and properties of the views are not yet. The render gate is off for the same
-reason.
+says `judged 1 controls` (the message strip of the "No Authorization" screen,
+the one view built in one piece) - the ABAP side of every app is checked, the
+controls and properties of the views are not yet. The render gate is off for
+the same reason.
 
-The one finding silenced in the source is `non-released-api` on
-`z2ui5_cl_util=>json_*` in SE16N: the stored display variants in
-`ZSE16N_A2U5_VAR` are in that JSON format, and a different serializer would
-make the existing ones unreadable.
+The findings silenced in the source, each with its reason next to it:
+
+- `non-released-api` on `z2ui5_cl_util=>json_*` in SE16N: the stored display
+  variants in `ZSE16N_A2U5_VAR` are in that JSON format, and a different
+  serializer would make the existing ones unreadable.
+- `unescaped-text-in-attribute` on the `value` and `submit` of the command
+  field in `ZCL_ZLK05_GUI_FRAME`: the app hands in a `_bind( )` and an
+  `_event( )`, which the linter cannot see from inside the frame.
+- `popup-without-close-wire` on the dialog of `popup_open( )`: its Close
+  button is added by `popup_show( )`.
 
 A few rules are switched off on purpose, with the reason written next to them
 in `abaplint.jsonc`. This repository is a rebuild of the ABAP Workbench, so
@@ -250,8 +291,8 @@ cannot rewrite today:
 
 - `SELECT` with a `LEFT OUTER JOIN`: the statement keeps its strict SQL form,
   the comma separated column list and the `@` escaped host variables, none of
-  which parse on 7.02. Selects without a join are rewritten correctly. Nine
-  selects in `ZCL_ZLK05_SYS_API` are affected.
+  which parse on 7.02. Selects without a join are rewritten correctly. The
+  joins are in the `ZCL_ZLK05_API_*` classes behind `ZCL_ZLK05_SYS_API`.
 - `COND` nested inside a `VALUE` constructor: the outer constructor is expanded
   but the inner `COND` is left as it is, mostly in `ZCL_SE16N_A2U5`.
 - `DATA(x) = <call on a class abaplint cannot resolve>`: without the type the

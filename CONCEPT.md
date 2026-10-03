@@ -1,29 +1,42 @@
 # Concept: where sapgui goes next
 
 Written 2026-09-30, after moving the views to `z2ui5_cl_ui5_view_builder` and
-adopting the abap2UI5 linter. Ordered by what has to happen first, not by
-what is most fun.
+adopting the abap2UI5 linter; brought up to date 2026-10-03, after the
+authorization checks, nine more transactions and the split of the system API
+arrived from the development system. Ordered by what has to happen first, not
+by what is most fun.
 
 ## Where it stands
 
-- 20 apps for 23 transaction codes plus SAP Easy Access, 25 classes, about 24,000 lines, 431
-  ABAP Unit tests against `ZCL_ZLK05_CLIENT_DBL`.
+- 28 apps for 33 transaction codes plus SAP Easy Access, 41 classes, about
+  35,000 lines, 618 ABAP Unit tests against `ZCL_ZLK05_CLIENT_DBL`.
 - Green: abaplint (style profile and SAP_BASIS 7.50) and the abap2UI5 linter.
+  The update from the system arrived red on all three (PCRE, which needs
+  7.55, 20 TEST-SEAMs, `v =` for data in the views) and was brought back to
+  green in the commit after it.
 - Not verified by anything that runs without a system:
   - the unit tests - they only run on an ABAP system,
   - the contents of the views - the linter checks the ABAP side of every app
     but rebuilds no control, because the view is opened in
     `ZCL_ZLK05_GUI_FRAME` and not in the app class (`judged 0 controls`),
   - the 7.02 downport - it aborts on its first blocker.
-- 245 buttons and fields are shown but disabled ("not available in this
+- About 300 buttons and fields are shown but disabled ("not available in this
   environment"). That is the honest SAP GUI look, and also the size of the
   functional backlog.
 
-## 1. Authorization checks (first, before anything else)
+## 1. Authorization checks - done
 
-There is not a single `AUTHORITY-CHECK` in `src/`. The previous README said
-users can do exactly what their own authorizations allow - that only holds for
-the few function modules that check on their own. It does not hold for:
+**Status 2026-10-03:** implemented as proposed below. `ZCL_ZLK05_AUTH` holds
+every check, `guard_app( )` runs S_TCODE plus the basic object check at the
+start of every roundtrip of every app, the API classes check the concrete
+object, a missing authorization ends in the "No Authorization" screen with the
+message from message class `ZLK05`, and SE80 is read-only unless
+`ZCL_SE80_API=>c_write_enabled` is switched on. The unit tests decide each
+check through a friend-only table in `ZCL_ZLK05_AUTH` instead of TEST-SEAMs.
+What is left: compare each screen with a restricted user against the
+original, and move the checks behind an interface together with section 2.
+
+The table and the proposal, as written before:
 
 | Where | What happens today | Standard check to add |
 | --- | --- | --- |
@@ -87,9 +100,8 @@ abap2UI5/linter, not worth waiting for).
   pull into the system before editing there, never edit in both places at the
   same time, and changes reach `main` only through a pull request with green
   CI (branch protection).
-- **The scratch class** `ZCL_ZLK05_TMP_PROBE` lives in the development package,
-  so abapGit brings it back on every push. Move it into `$TMP` or a local
-  package outside the repository; then drop its excludes from the configs.
+- **The scratch class** `ZCL_ZLK05_TMP_PROBE` - done: it is gone from the
+  package, and its excludes are gone from the configs.
 - **AGENTS.md**, like the other abap2UI5 repositories: the builder
   (`ele`/`tag`/`a`/`end`, `a( b = )` for flags, `a( t = )` for data), no system
   access outside the API classes, the authorization rule, how to run the checks.
@@ -106,9 +118,10 @@ abap2UI5/linter, not worth waiting for).
   prefix for everything (for example `ZCL_CSG_<TCODE>`, `ZCL_CSG_FRAME`,
   `ZIF_CSG_SYS_API`). abapGit turns a rename into delete plus create, so do it
   once, together with the interfaces of section 2, before more screens exist.
-- **Split the system API.** `ZCL_ZLK05_SYS_API` has 2,600 lines for every
-  transaction. One class per area (transports, jobs, dumps, users, profile
-  parameters, ...) behind the interfaces of section 2.
+- **Split the system API** - half done: the logic moved into one class per
+  area (`ZCL_ZLK05_API_DEV`, `_ADM`, `_MON`, `_OPS`, `_REPO`, `_TRN`), and
+  `ZCL_ZLK05_SYS_API` stays the single entry point that delegates. What is
+  missing is the interface of section 2 in front of it.
 - **A screen base class.** Every app repeats the same main( ) - init,
   navigated, event, frame event, render - and the same five frame calls
   (menu, system bar, title, application bar, status bar). An abstract
@@ -141,7 +154,12 @@ and both workflows, so nobody maintains a pipeline nobody uses.
 ## 6. Functionality
 
 The disabled functions of the existing screens first - they are visible to
-every user today. The next transactions, read-only first, by value:
+every user today.
+
+Done since the first version of this list: SLG1, SM59, SP01, SE91, SM04 and
+SM30 (display only - it hands the table to SE16N), and beyond the list SU53,
+PFCG and WE02/WE05. Still open: SICF, SM13, SE84/SE03, and SM30 maintenance.
+The original list:
 
 | Transaction | What | Read from |
 | --- | --- | --- |
