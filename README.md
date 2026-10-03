@@ -290,6 +290,7 @@ CI, in `.github/workflows`:
 | `ABAP_STANDARD` | push to main, pull request    |
 | `auto_fix`      | weekly, opens a pull request  |
 | `bump-core`     | weekly, opens a pull request  |
+| `bump-linter`   | weekly, opens a pull request  |
 
 The [abap2UI5 linter](https://github.com/abap2UI5/linter) checks what abaplint
 cannot know about abap2UI5: bindings, events, frontend actions, icons against

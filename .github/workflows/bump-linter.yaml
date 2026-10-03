@@ -1,0 +1,66 @@
+# Moves @abap2ui5/linter and its render runtime @abap2ui5/linter-render to
+# the latest version on npm and opens a pull request - but only after the
+# linter gates passed with it: over src/ and over the view of every screen,
+# with the render gate. package-lock.json decides which linter CI runs, and
+# nothing else moves it; a linter release that adds rules is additive for
+# the linter and possibly breaking here, so it arrives as a pull request
+# instead of as a red main branch. Taken from abap2UI5/samples.
+name: bump-linter
+
+on:
+  schedule:
+    - cron: '47 6 * * 1'   # Mondays 06:47 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: bump-linter
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump-linter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: '22'
+        cache: 'npm'
+    - run: npm ci
+
+    - name: Move the linter to the latest published version
+      id: pin
+      run: |
+        set -euo pipefail
+        VERSION=$(npm view @abap2ui5/linter version)
+        test -n "$VERSION"
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        npm install --save-dev "@abap2ui5/linter@$VERSION" "@abap2ui5/linter-render@$VERSION"
+        if git diff --quiet package.json package-lock.json; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    # the gates that consume the linter - before the pull request exists
+    - if: steps.pin.outputs.changed == 'true'
+      run: npm run lint_abap2ui5 && npm run transpile
+    - if: steps.pin.outputs.changed == 'true'
+      run: npx playwright install --with-deps chromium
+    - if: steps.pin.outputs.changed == 'true'
+      run: npm run views -- --render
+
+    - if: steps.pin.outputs.changed == 'true'
+      uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+      with:
+        branch: bump-linter
+        title: 'Bump @abap2ui5/linter to ${{ steps.pin.outputs.version }}'
+        commit-message: 'Bump @abap2ui5/linter to ${{ steps.pin.outputs.version }}'
+        body: |
+          Weekly move of `@abap2ui5/linter` and `@abap2ui5/linter-render` to
+          the latest version on npm (${{ steps.pin.outputs.version }}). The
+          linter ran over `src/` and over the view of every screen, with the
+          render gate, in the workflow that opened this pull request.

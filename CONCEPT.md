@@ -120,15 +120,18 @@ abap2UI5/linter, not worth waiting for).
   here before (INTO last in the TSTC selects, the removed scratch class). Rule:
   pull into the system before editing there, never edit in both places at the
   same time, and changes reach `main` only through a pull request with green
-  CI (branch protection).
+  CI (branch protection). The rule is in AGENTS.md; the branch protection
+  itself is a repository setting an owner has to switch on.
 - **The scratch class** `ZCL_ZLK05_TMP_PROBE` - done: it is gone from the
   package, and its excludes are gone from the configs.
-- **AGENTS.md**, like the other abap2UI5 repositories: the builder
+- **AGENTS.md** - done, with `CLAUDE.md` pointing at it, like the other
+  abap2UI5 repositories: the builder
   (`ele`/`tag`/`a`/`end`, `a( b = )` for flags, `a( t = )` for data), no system
   access outside the API classes, the authorization rule, how to run the checks.
   The builder rename broke this repository because nothing here said which
   builder to use and where it comes from.
-- **A weekly linter bump** (abap2UI5/samples has `bump-linter.yaml`), so the
+- **A weekly linter bump** - done, `bump-linter.yaml` (from abap2UI5/samples,
+  gated by the linter over `src/` and over the rendered views), so the
   next framework change arrives as a failing pull request instead of as a red
   main branch weeks later - the `ai-demokit` rename sat unnoticed that way.
 
@@ -204,7 +207,8 @@ SE01, SE03 and SM30 are in the router's list already, without a screen.
 
 1. Section 1, authorization - before this is installed anywhere with more than
    one user.
-2. Section 3, AGENTS.md, branch protection, linter bump.
+2. Section 3, AGENTS.md, branch protection, linter bump - done except the
+   branch protection setting.
 3. Section 2, interfaces, transpiled tests, view snapshots - done.
 4. Section 4 names and base class, together, in one migration - done.
 5. Sections 5 and 6 as time allows.
