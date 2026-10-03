@@ -258,7 +258,7 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
     " like the framework: a consumed result is a wire in the view, not an
     " action queued for this roundtrip
     IF result IS SUPPLIED.
-      result = `MOCK_EVENT_CLIENT`.
+      result = `.eB([['MOCK_EVENT_CLIENT']])`.
       RETURN.
     ENDIF.
     APPEND val TO mt_follow_up.
@@ -330,21 +330,25 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
     ENDLOOP.
     APPEND lv_entry TO mt_events.
 
-    result = `MOCK_EVENT`.
+    " the shape of the framework's wire - a handler of the view's controller
+    " - so that a view rendered with this double also loads in UI5
+    result = |.eB([['{ val }']])|.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~_event_client.
-    result = `MOCK_EVENT_CLIENT`.
+    result = `.eB([['MOCK_EVENT_CLIENT']])`.
   ENDMETHOD.
 
   METHOD z2ui5_if_client~_event_nav_app_leave.
-    result = `MOCK_NAV_LEAVE`.
+    result = `.eB([['MOCK_NAV_LEAVE']])`.
   ENDMETHOD.
 
   " ---------- not relevant for view tests ----------
 
   METHOD z2ui5_if_client~check_on_navigated.
-    result = mv_on_navigated.
+    " as in the framework: the first roundtrip of an app counts as a
+    " navigation to it, so init implies navigated
+    result = xsdbool( mv_on_navigated = abap_true OR mv_on_init = abap_true ).
   ENDMETHOD.
 
   METHOD z2ui5_if_client~get_app.

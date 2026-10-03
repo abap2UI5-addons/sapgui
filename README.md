@@ -237,7 +237,7 @@ The checks run on Node, no ABAP system needed:
 
 ```bash
 npm ci
-npm test        # the three lint profiles, then the unit tests transpiled to JS
+npm test        # the three lint profiles, the transpiled unit tests, the views
 ```
 
 | Command                 | What it does                                        |
@@ -248,6 +248,7 @@ npm test        # the three lint profiles, then the unit tests transpiled to JS
 | `npm run lint_abap2ui5` | the abap2UI5 linter (`abap2ui5lint.jsonc`)           |
 | `npm run transpile`     | ABAP to JavaScript into `node/output`                |
 | `npm run unit`          | run the transpiled unit tests, report every failure  |
+| `npm run views`         | write the view of every screen, lint those files     |
 | `npm run deps`          | abap2UI5 and open-abap-core at their pins (`node/deps`) |
 | `npm run auto_fix`      | apply the quick fixes abaplint can apply on its own  |
 | `npm run auto_downport` | rewrite `src/` to 7.02 syntax                        |
@@ -283,11 +284,14 @@ cannot know about abap2UI5: bindings, events, frontend actions, icons against
 the UI5 1.71 floor, the lifecycle of `main( )`, obsolete framework calls. One
 limit to know about: it rebuilds a view from the builder chain in the class it
 reads, and every screen here hands its view to `ZCL_ZLK05_GUI_FRAME`, which
-opens the `mvc:View` and the window bands in another class. So the run summary
-says `judged 1 controls` (the message strip of the "No Authorization" screen,
-the one view built in one piece) - the ABAP side of every app is checked, the
-controls and properties of the views are not yet. The render gate is off for
-the same reason.
+opens the `mvc:View` and the window bands in another class. So on `src/` the
+run summary says `judged 1 controls` - the ABAP side of every app is checked
+there, the views are not. `npm run views` closes that gap: it starts every app
+in the transpiled build (with the doubles), writes the view each one displays
+to `node/views/<class>.view.xml`, and runs the linter on those files - 29
+screens, about 4,400 controls, 290 bindings and 1,100 icons, against the UI5
+1.71 floor. CI adds the render gate (`npm run views -- --render`): each view
+is loaded with `XMLView.create` in headless Chromium.
 
 The findings silenced in the source, each with its reason next to it:
 

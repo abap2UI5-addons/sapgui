@@ -19,7 +19,8 @@ by what is most fun.
   - the tests of the database layer - they read the real system,
   - the contents of the views - the linter checks the ABAP side of every app
     but rebuilds no control, because the view is opened in
-    `ZCL_ZLK05_GUI_FRAME` and not in the app class (`judged 0 controls`),
+    `ZCL_ZLK05_GUI_FRAME` and not in the app class - now covered by
+    `npm run views` (section 2), but only for the first screen of each app,
   - the 7.02 downport - it aborts on its first blocker.
 - About 300 buttons and fields are shown but disabled ("not available in this
   environment"). That is the honest SAP GUI look, and also the size of the
@@ -32,10 +33,10 @@ every check, `guard_app( )` runs S_TCODE plus the basic object check at the
 start of every roundtrip of every app, the API classes check the concrete
 object, a missing authorization ends in the "No Authorization" screen with the
 message from message class `ZLK05`, and SE80 is read-only unless
-`ZCL_SE80_API=>c_write_enabled` is switched on. The unit tests decide each
-check through a friend-only table in `ZCL_ZLK05_AUTH` instead of TEST-SEAMs.
-What is left: compare each screen with a restricted user against the
-original, and move the checks behind an interface together with section 2.
+`ZCL_SE80_API=>c_write_enabled` is switched on. The AUTHORITY-CHECK
+statements sit behind `ZIF_ZLK05_AUTH_SYS`, so the unit tests decide each
+check with a double instead of TEST-SEAMs (section 2). What is left: compare
+each screen with a restricted user against the original.
 
 The table and the proposal, as written before:
 
@@ -64,19 +65,23 @@ reachable for users who may use the Workbench anyway.
 
 ## 2. Tests and views without a system
 
-**Status 2026-10-03: the first two thirds done.** The apps reach the system
-only through three interfaces - `ZIF_ZLK05_SYS_API` (behind the static facade
+**Status 2026-10-03: done.** The apps reach the system only through three
+interfaces - `ZIF_ZLK05_SYS_API` (behind the static facade
 `ZCL_ZLK05_SYS_API`, so the call sites stayed), `ZIF_SE80_API` and
 `ZIF_ZLK05_AUTH_SYS` (the AUTHORITY-CHECK statements, which replaced the
-friend-only fake table of `ZCL_ZLK05_AUTH`). Each has a `FOR TESTING` double
-that is a global friend of the class it plugs into, and every test class
-installs the doubles in `setup( )`. The real implementations are created by
-name, so the transpile leaves the database layer out, and the `unit` workflow
-runs 568 tests in Node on every pull request (2 skipped with a reason, the
-integration tests of the database layer run on a system only). Getting
-there also found a real defect: two SE93 tests had been red on every system
-since the frame changed its menu tooltip in the last update. Still open: the
-view snapshots and the render gate below.
+friend-only fake table of `ZCL_ZLK05_AUTH`). Each has a `FOR TESTING` double;
+every test class installs them in `setup( )`. The real implementations are
+created by name, so the transpile leaves the database layer out, and the
+`unit` workflow runs 568 tests in Node on every pull request (2 skipped with a
+reason; the integration tests of the database layer run on a system only).
+Then `npm run views` starts every app in that build, writes the 29 views to
+`node/views/` and lints them with the property and the render gate - 4,363
+controls instead of 1. Two real defects surfaced on the way: two SE93 tests
+had been red on every system since the frame changed its menu tooltip, and
+the SE16N table suggestion used `core:Item`, which has no `additionalText`,
+so the descriptions never showed. Left as hints: every view declares the
+`table` and `editor` namespaces whether it uses them or not
+(`ZCL_ZLK05_GUI_FRAME=>open_window`).
 
 The plan, as written before:
 
@@ -96,7 +101,9 @@ system tables or Workbench function modules, which is what makes them
 transpilable. Then:
 
 - the 431 tests run on every pull request,
-- each test that renders a screen writes its view to `test/views/*.view.xml`,
+- each test that renders a screen writes its view to `test/views/*.view.xml`
+  (done as `node/views/`, by a script over the transpiled build rather than
+  by the tests),
 - the abap2UI5 linter checks those files with the property AND the render gate -
   every control, property, aggregation and binding of every screen, against
   UI5 1.71, in a real browser.
@@ -133,10 +140,10 @@ abap2UI5/linter, not worth waiting for).
   prefix for everything (for example `ZCL_CSG_<TCODE>`, `ZCL_CSG_FRAME`,
   `ZIF_CSG_SYS_API`). abapGit turns a rename into delete plus create, so do it
   once, together with the interfaces of section 2, before more screens exist.
-- **Split the system API** - half done: the logic moved into one class per
-  area (`ZCL_ZLK05_API_DEV`, `_ADM`, `_MON`, `_OPS`, `_REPO`, `_TRN`), and
-  `ZCL_ZLK05_SYS_API` stays the single entry point that delegates. What is
-  missing is the interface of section 2 in front of it.
+- **Split the system API** - done: the logic sits in one class per area
+  (`ZCL_ZLK05_API_DEV`, `_ADM`, `_MON`, `_OPS`, `_REPO`, `_TRN`) behind
+  `ZIF_ZLK05_SYS_API` and `ZCL_ZLK05_SYS_API_DB`, and `ZCL_ZLK05_SYS_API`
+  stays the single entry point (section 2).
 - **A screen base class.** Every app repeats the same main( ) - init,
   navigated, event, frame event, render - and the same five frame calls
   (menu, system bar, title, application bar, status bar). An abstract
@@ -195,7 +202,6 @@ SE01, SE03 and SM30 are in the router's list already, without a screen.
 1. Section 1, authorization - before this is installed anywhere with more than
    one user.
 2. Section 3, AGENTS.md, branch protection, linter bump.
-3. Section 2, interfaces, transpiled tests, view snapshots - the linter then
-   sees every screen.
+3. Section 2, interfaces, transpiled tests, view snapshots - done.
 4. Section 4 names and base class, together, in one migration.
 5. Sections 5 and 6 as time allows.

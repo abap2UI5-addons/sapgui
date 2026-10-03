@@ -4,6 +4,7 @@ deps
 # transpiled unit tests: npm run transpile
 node/deps
 node/output
+node/views
 
 # IDE
 .vscode/

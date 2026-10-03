@@ -460,7 +460,7 @@ CLASS zcl_se16n_a2u5 IMPLEMENTATION.
                   arg = `${$parameters>/suggestValue}` )
         )->a( n = `submit`          v = client->_event( `LOAD_METADATA` ) ).
     tab_input->ele( `suggestionItems`
-        )->tag( n = `Item` ns = `core`
+        )->tag( n = `ListItem` ns = `core`
             )->a( n = `text`           v = `{TABNAME}`
             )->a( n = `additionalText` v = `{DDTEXT}` ).
     row->tag( n = `Icon` ns = `core`

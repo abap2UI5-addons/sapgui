@@ -40,6 +40,7 @@ CLASS ltcl_se80_ui IMPLEMENTATION.
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
+    mo_cut->mo_api = NEW zcl_se80_api_dbl( ).
   ENDMETHOD.
 
   METHOD teardown.
