@@ -21,7 +21,7 @@ CLASS ltcl_se80_api DEFINITION FINAL FOR TESTING
 
     METHODS setup.
     METHODS assert_refused
-      IMPORTING is_result TYPE zcl_se80_api=>ty_s_result
+      IMPORTING is_result TYPE zif_se80_api=>ty_s_result
                 iv_what   TYPE string.
     METHODS assert_not_in_tadir
       IMPORTING iv_name TYPE sobj_name.
@@ -84,12 +84,12 @@ CLASS ltcl_se80_api IMPLEMENTATION.
   METHOD write_switch_is_off.
     " Switching the Object Navigator to change mode is a deliberate decision.
     " When it is made, this test has to be changed together with it.
-    cl_abap_unit_assert=>assert_false( zcl_se80_api=>c_write_enabled ).
+    cl_abap_unit_assert=>assert_false( zif_se80_api=>c_write_enabled ).
   ENDMETHOD.
 
   METHOD save_refused.
     assert_refused(
-        is_result = mo_cut->save_source( iv_name   = 'ZCL_SE80_API'
+        is_result = mo_cut->zif_se80_api~save_source( iv_name   = 'ZCL_SE80_API'
                                          iv_type   = 'CLAS'
                                          iv_source = `CLASS x DEFINITION. ENDCLASS.` )
         iv_what   = `save_source` ).
@@ -97,40 +97,40 @@ CLASS ltcl_se80_api IMPLEMENTATION.
 
   METHOD activate_refused.
     assert_refused(
-        is_result = mo_cut->activate_object( iv_name = 'ZCL_SE80_API' iv_type = 'CLAS' )
+        is_result = mo_cut->zif_se80_api~activate_object( iv_name = 'ZCL_SE80_API' iv_type = 'CLAS' )
         iv_what   = `activate_object` ).
   ENDMETHOD.
 
   METHOD delete_refused.
     assert_refused(
-        is_result = mo_cut->delete_object( iv_name = c_no_obj iv_type = 'PROG' )
+        is_result = mo_cut->zif_se80_api~delete_object( iv_name = c_no_obj iv_type = 'PROG' )
         iv_what   = `delete_object` ).
   ENDMETHOD.
 
   METHOD create_program_refused.
     assert_refused(
-        is_result = mo_cut->create_program( iv_name = c_no_obj iv_package = '$ZLK_05' )
+        is_result = mo_cut->zif_se80_api~create_program( iv_name = c_no_obj iv_package = '$ZLK_05' )
         iv_what   = `create_program` ).
     assert_not_in_tadir( c_no_obj ).
   ENDMETHOD.
 
   METHOD create_class_refused.
     assert_refused(
-        is_result = mo_cut->create_class( iv_name = c_no_obj iv_package = '$ZLK_05' )
+        is_result = mo_cut->zif_se80_api~create_class( iv_name = c_no_obj iv_package = '$ZLK_05' )
         iv_what   = `create_class` ).
     assert_not_in_tadir( c_no_obj ).
   ENDMETHOD.
 
   METHOD create_interface_refused.
     assert_refused(
-        is_result = mo_cut->create_interface( iv_name = c_no_obj iv_package = '$ZLK_05' )
+        is_result = mo_cut->zif_se80_api~create_interface( iv_name = c_no_obj iv_package = '$ZLK_05' )
         iv_what   = `create_interface` ).
     assert_not_in_tadir( c_no_obj ).
   ENDMETHOD.
 
   METHOD copy_refused.
     assert_refused(
-        is_result = mo_cut->copy_object( iv_source_name = 'ZCL_SE80_API'
+        is_result = mo_cut->zif_se80_api~copy_object( iv_source_name = 'ZCL_SE80_API'
                                          iv_source_type = 'CLAS'
                                          iv_target_name = c_no_obj
                                          iv_package     = '$ZLK_05' )
@@ -140,7 +140,7 @@ CLASS ltcl_se80_api IMPLEMENTATION.
 
   METHOD rename_refused.
     assert_refused(
-        is_result = mo_cut->rename_object( iv_old_name = 'ZCL_SE80_API'
+        is_result = mo_cut->zif_se80_api~rename_object( iv_old_name = 'ZCL_SE80_API'
                                            iv_new_name = c_no_obj
                                            iv_type     = 'CLAS' )
         iv_what   = `rename_object` ).
@@ -149,7 +149,7 @@ CLASS ltcl_se80_api IMPLEMENTATION.
 
   METHOD transport_refused.
     assert_refused(
-        is_result = mo_cut->lock_in_transport( iv_name      = 'ZCL_SE80_API'
+        is_result = mo_cut->zif_se80_api~lock_in_transport( iv_name      = 'ZCL_SE80_API'
                                                iv_type      = 'CLAS'
                                                iv_transport = 'S4HK900000' )
         iv_what   = `lock_in_transport` ).
@@ -176,13 +176,13 @@ CLASS ltcl_se80_api IMPLEMENTATION.
   METHOD load_own_class.
     " the developer running the tests has S_DEVELOP display for the package
     " the class lives in - otherwise he could not have written it
-    DATA(ls) = mo_cut->load_source( iv_name = 'ZCL_SE80_API' iv_type = 'CLAS' ).
+    DATA(ls) = mo_cut->zif_se80_api~load_source( iv_name = 'ZCL_SE80_API' iv_type = 'CLAS' ).
     cl_abap_unit_assert=>assert_char_cp( act = ls-source exp = `*c_write_enabled*` ).
   ENDMETHOD.
 
   METHOD table_content_limited.
     " T000 always has at least one client - the preview must respect maxrows
-    DATA(lv) = mo_cut->get_table_content( iv_name = 'T000' iv_maxrows = 1 ).
+    DATA(lv) = mo_cut->zif_se80_api~get_table_content( iv_name = 'T000' iv_maxrows = 1 ).
     cl_abap_unit_assert=>assert_not_initial( lv ).
     IF lv CP `*not authorized*`.
       RETURN.
@@ -191,7 +191,7 @@ CLASS ltcl_se80_api IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD replace_counts.
-    mo_cut->search_replace_source( EXPORTING iv_source  = `a b a c a`
+    mo_cut->zif_se80_api~search_replace_source( EXPORTING iv_source  = `a b a c a`
                                              iv_search  = `a`
                                              iv_replace = `x`
                                    IMPORTING ev_source  = DATA(lv_src)
@@ -201,7 +201,7 @@ CLASS ltcl_se80_api IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD replace_empty_search.
-    mo_cut->search_replace_source( EXPORTING iv_source  = `abc`
+    mo_cut->zif_se80_api~search_replace_source( EXPORTING iv_source  = `abc`
                                              iv_search  = ``
                                              iv_replace = `x`
                                    IMPORTING ev_source  = DATA(lv_src)
@@ -212,7 +212,7 @@ CLASS ltcl_se80_api IMPLEMENTATION.
 
   METHOD statistics_lines.
     DATA(nl) = cl_abap_char_utilities=>newline.
-    DATA(lt) = mo_cut->get_source_statistics(
+    DATA(lt) = mo_cut->zif_se80_api~get_source_statistics(
         |REPORT z.{ nl }* comment{ nl }{ nl }  " also comment{ nl }WRITE 1.| ).
     cl_abap_unit_assert=>assert_equals( exp = `5` act = condense( lt[ name = `Total Lines` ]-type ) ).
     cl_abap_unit_assert=>assert_equals( exp = `2` act = condense( lt[ name = `Code Lines` ]-type ) ).
@@ -221,14 +221,14 @@ CLASS ltcl_se80_api IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD statistics_empty.
-    cl_abap_unit_assert=>assert_initial( mo_cut->get_source_statistics( `` ) ).
+    cl_abap_unit_assert=>assert_initial( mo_cut->zif_se80_api~get_source_statistics( `` ) ).
   ENDMETHOD.
 
   METHOD icon_known_and_default.
     cl_abap_unit_assert=>assert_equals( exp = `sap-icon://course-book`
-                                        act = mo_cut->get_object_icon( 'CLAS' ) ).
+                                        act = mo_cut->zif_se80_api~get_object_icon( 'CLAS' ) ).
     cl_abap_unit_assert=>assert_equals( exp = `sap-icon://document`
-                                        act = mo_cut->get_object_icon( 'XXXX' ) ).
+                                        act = mo_cut->zif_se80_api~get_object_icon( 'XXXX' ) ).
   ENDMETHOD.
 
 ENDCLASS.

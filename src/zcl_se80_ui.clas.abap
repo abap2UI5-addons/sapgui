@@ -22,7 +22,7 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
     "! Content of the command field of the system function bar
     DATA mv_command      TYPE string.
 
-    DATA mt_tree         TYPE zcl_se80_api=>ty_t_tree.
+    DATA mt_tree         TYPE zif_se80_api=>ty_t_tree.
     DATA mv_cur_package  TYPE devclass VALUE '$ZLK'.
     DATA mv_source       TYPE string.
     DATA mv_source_local TYPE string.
@@ -30,10 +30,10 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
     DATA mv_search       TYPE string.
     DATA mv_search_type  TYPE string VALUE 'ALL'.
     DATA mv_active_tab   TYPE string VALUE 'SRC'.
-    DATA mt_methods      TYPE zcl_se80_api=>ty_t_method.
-    DATA mt_fields       TYPE zcl_se80_api=>ty_t_field.
-    DATA mt_usages       TYPE zcl_se80_api=>ty_t_usage.
-    DATA mt_props        TYPE zcl_se80_api=>ty_t_prop.
+    DATA mt_methods      TYPE zif_se80_api=>ty_t_method.
+    DATA mt_fields       TYPE zif_se80_api=>ty_t_field.
+    DATA mt_usages       TYPE zif_se80_api=>ty_t_usage.
+    DATA mt_props        TYPE zif_se80_api=>ty_t_prop.
     DATA mv_edit_mode    TYPE abap_bool.
     DATA mv_text_elem    TYPE string.
     DATA mv_docu         TYPE string.
@@ -42,7 +42,7 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
     TYPES:
       BEGIN OF ty_s_history,
         obj_name TYPE sobj_name,
-        obj_type TYPE trobjtype,
+        obj_type TYPE zif_se80_api=>ty_objtype,
       END OF ty_s_history.
     DATA mv_find TYPE string.
     DATA mv_replace TYPE string.
@@ -72,7 +72,7 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
 
   PROTECTED SECTION.
     DATA mv_cur_obj_name TYPE sobj_name.
-    DATA mv_cur_obj_type TYPE trobjtype.
+    DATA mv_cur_obj_type TYPE zif_se80_api=>ty_objtype.
     DATA mv_object_title TYPE string.
     DATA mv_message      TYPE string.
     DATA mv_msg_type     TYPE string.
@@ -89,7 +89,11 @@ CLASS zcl_se80_ui DEFINITION PUBLIC.
     DATA mt_recent TYPE STANDARD TABLE OF ty_s_recent WITH EMPTY KEY.
 
     DATA client TYPE REF TO z2ui5_if_client.
-    DATA mo_api TYPE REF TO zcl_se80_api.
+    "! The repository API; a unit test sets its own before main( )
+    DATA mo_api TYPE REF TO zif_se80_api.
+    "! Created by name, so that this screen does not depend on the class
+    "! that reads and writes the repository (README, Development)
+    CONSTANTS c_api_class TYPE string VALUE `ZCL_SE80_API`.
     METHODS view_display.
     METHODS on_event.
     METHODS load_object.
@@ -126,7 +130,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     ENDIF.
     me->client = client.
     IF mo_api IS NOT BOUND.
-      mo_api = NEW zcl_se80_api( ).
+      CREATE OBJECT mo_api TYPE (c_api_class).
     ENDIF.
     IF client->check_on_init( ).
       mt_tree = mo_api->get_package_tree( mv_cur_package ).
@@ -221,8 +225,8 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           load_object( ).
         ENDIF.
       WHEN 'NAV_UP'.
-        SELECT SINGLE parentcl FROM tdevc WHERE devclass = @mv_cur_package INTO @DATA(lv_p).
-        IF sy-subrc = 0 AND lv_p IS NOT INITIAL.
+        DATA(lv_p) = mo_api->get_parent_package( CONV #( mv_cur_package ) ).
+        IF lv_p IS NOT INITIAL.
           mv_cur_package = lv_p.
           mt_tree = mo_api->get_package_tree( mv_cur_package ).
           CLEAR: mv_source, mv_source_local, mv_source_test, mv_cur_obj_name, mv_object_title, mt_methods, mt_fields, mt_props.
@@ -232,7 +236,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         ENDIF.
       WHEN 'SEARCH'.
         IF mv_search IS NOT INITIAL.
-          DATA lv_tf TYPE trobjtype.
+          DATA lv_tf TYPE zif_se80_api=>ty_objtype.
           IF mv_search_type IS NOT INITIAL AND mv_search_type <> 'ALL'.
             lv_tf = mv_search_type.
           ENDIF.
@@ -244,7 +248,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
           mv_msg_type = `Warning`.
         ENDIF.
       WHEN 'TOGGLE_EDIT'.
-        IF zcl_se80_api=>c_write_enabled = abap_false.
+        IF zif_se80_api=>c_write_enabled = abap_false.
           mv_edit_mode = abap_false.
           mv_message   = `Display only - the Object Navigator of this environment does not change repository objects.`.
           mv_msg_type  = `Warning`.
@@ -318,7 +322,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         " Create program or class (based on search type filter)
         IF mv_search IS NOT INITIAL.
           DATA(lv_new_name) = CONV sobj_name( to_upper( mv_search ) ).
-          DATA ls_cr TYPE zcl_se80_api=>ty_s_result.
+          DATA ls_cr TYPE zif_se80_api=>ty_s_result.
           IF mv_search_type = 'CLAS'.
             ls_cr = mo_api->create_class( iv_name = lv_new_name iv_package = mv_cur_package ).
             IF ls_cr-success = abap_true.
@@ -363,10 +367,8 @@ CLASS zcl_se80_ui IMPLEMENTATION.
         IF mv_quick_nav IS NOT INITIAL.
           " Try to load object directly by name
           DATA(lv_qn) = to_upper( mv_quick_nav ).
-          SELECT SINGLE object, obj_name FROM tadir
-            WHERE pgmid = 'R3TR' AND obj_name = @lv_qn
-            INTO @DATA(ls_qn).
-          IF sy-subrc = 0.
+          DATA(ls_qn) = mo_api->find_object( lv_qn ).
+          IF ls_qn IS NOT INITIAL.
             mv_cur_obj_name = ls_qn-obj_name.
             mv_cur_obj_type = ls_qn-object.
             load_object( ).
@@ -497,12 +499,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     IF mv_cur_obj_type = 'PROG' OR mv_cur_obj_type = 'FUGR'.
       DATA(lt_pattr) = mo_api->get_program_attributes( mv_cur_obj_name ).
       LOOP AT lt_pattr ASSIGNING FIELD-SYMBOL(<pa>).
-        APPEND VALUE zcl_se80_api=>ty_s_field( name = <pa>-name type = <pa>-type ) TO mt_fields.
+        APPEND VALUE zif_se80_api=>ty_s_field( name = <pa>-name type = <pa>-type ) TO mt_fields.
       ENDLOOP.
       " Variants
       DATA(lt_vars) = mo_api->get_variants( mv_cur_obj_name ).
       LOOP AT lt_vars ASSIGNING FIELD-SYMBOL(<var>).
-        APPEND VALUE zcl_se80_api=>ty_s_field(
+        APPEND VALUE zif_se80_api=>ty_s_field(
           name = <var>-name keyflag = `VAR` type = <var>-type ) TO mt_fields.
       ENDLOOP.
     ENDIF.
@@ -510,12 +512,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     IF mv_cur_obj_type = 'CLAS' OR mv_cur_obj_type = 'INTF'.
       DATA(lt_events) = mo_api->get_class_events( mv_cur_obj_name ).
       LOOP AT lt_events ASSIGNING FIELD-SYMBOL(<evt>).
-        APPEND VALUE zcl_se80_api=>ty_s_field(
+        APPEND VALUE zif_se80_api=>ty_s_field(
           name = <evt>-name keyflag = <evt>-keyflag type = <evt>-type ) TO mt_fields.
       ENDLOOP.
       DATA(lt_const) = mo_api->get_class_constants( mv_cur_obj_name ).
       LOOP AT lt_const ASSIGNING FIELD-SYMBOL(<co2>).
-        APPEND VALUE zcl_se80_api=>ty_s_field(
+        APPEND VALUE zif_se80_api=>ty_s_field(
           name = <co2>-name keyflag = <co2>-keyflag
           typtype = <co2>-typtype type = <co2>-type ) TO mt_fields.
       ENDLOOP.
@@ -524,7 +526,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     IF mv_cur_obj_type = 'FUNC'.
       DATA(lt_exc) = mo_api->get_fm_exceptions( mv_cur_obj_name ).
       LOOP AT lt_exc ASSIGNING FIELD-SYMBOL(<exc>).
-        APPEND VALUE zcl_se80_api=>ty_s_field(
+        APPEND VALUE zif_se80_api=>ty_s_field(
           name = <exc>-name keyflag = <exc>-keyflag type = <exc>-type ) TO mt_fields.
       ENDLOOP.
     ENDIF.
@@ -532,12 +534,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     IF mv_cur_obj_type = 'TABL'.
       DATA(lt_fk) = mo_api->get_table_foreign_keys( mv_cur_obj_name ).
       LOOP AT lt_fk ASSIGNING FIELD-SYMBOL(<fk2>).
-        APPEND VALUE zcl_se80_api=>ty_s_field(
+        APPEND VALUE zif_se80_api=>ty_s_field(
           name = <fk2>-name keyflag = <fk2>-keyflag type = <fk2>-type ) TO mt_fields.
       ENDLOOP.
       DATA(lt_app) = mo_api->get_table_append_structures( mv_cur_obj_name ).
       LOOP AT lt_app ASSIGNING FIELD-SYMBOL(<app2>).
-        APPEND VALUE zcl_se80_api=>ty_s_field(
+        APPEND VALUE zif_se80_api=>ty_s_field(
           name = <app2>-name keyflag = <app2>-keyflag type = <app2>-type ) TO mt_fields.
       ENDLOOP.
     ENDIF.
@@ -545,12 +547,12 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     IF mv_cur_obj_type = 'CLAS'.
       DATA(lt_fr) = mo_api->get_class_friends( mv_cur_obj_name ).
       LOOP AT lt_fr ASSIGNING FIELD-SYMBOL(<fr2>).
-        APPEND VALUE zcl_se80_api=>ty_s_field(
+        APPEND VALUE zif_se80_api=>ty_s_field(
           name = <fr2>-name type = <fr2>-type ) TO mt_fields.
       ENDLOOP.
       DATA(lt_red) = mo_api->get_redefined_methods( mv_cur_obj_name ).
       LOOP AT lt_red ASSIGNING FIELD-SYMBOL(<red>).
-        APPEND VALUE zcl_se80_api=>ty_s_field(
+        APPEND VALUE zif_se80_api=>ty_s_field(
           name = <red>-name keyflag = <red>-keyflag type = <red>-type ) TO mt_fields.
       ENDLOOP.
     ENDIF.
@@ -558,7 +560,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     IF mv_cur_obj_type = 'CLAS' OR mv_cur_obj_type = 'INTF'.
       DATA(lt_types) = mo_api->get_class_types( mv_cur_obj_name ).
       LOOP AT lt_types ASSIGNING FIELD-SYMBOL(<tp>).
-        APPEND VALUE zcl_se80_api=>ty_s_field(
+        APPEND VALUE zif_se80_api=>ty_s_field(
           name = <tp>-name keyflag = <tp>-keyflag type = <tp>-type ) TO mt_fields.
       ENDLOOP.
     ENDIF.
@@ -571,7 +573,7 @@ CLASS zcl_se80_ui IMPLEMENTATION.
     IF mv_source IS NOT INITIAL.
       DATA(lt_stats) = mo_api->get_source_statistics( mv_source ).
       LOOP AT lt_stats ASSIGNING FIELD-SYMBOL(<st>).
-        APPEND VALUE zcl_se80_api=>ty_s_field( name = <st>-name type = <st>-type ) TO mt_fields.
+        APPEND VALUE zif_se80_api=>ty_s_field( name = <st>-name type = <st>-type ) TO mt_fields.
       ENDLOOP.
     ENDIF.
     mv_text_elem = mo_api->get_text_elements( iv_name = mv_cur_obj_name iv_type = mv_cur_obj_type ).

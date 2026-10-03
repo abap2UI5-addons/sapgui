@@ -96,6 +96,15 @@ CLASS zcl_zlk05_client_dbl DEFINITION
       IMPORTING iv_xml        TYPE string
       RETURNING VALUE(result) TYPE REF TO if_ixml_parser.
     DATA mo_doc TYPE REF TO if_ixml_document.
+
+    TYPES ty_t_node TYPE STANDARD TABLE OF REF TO if_ixml_node WITH EMPTY KEY.
+
+    "! The element children of a node, in document order. Iterated rather
+    "! than read by index: get_item( ) counts from 0 in SAP's iXML and
+    "! from 1 in open-abap, the runtime of the transpiled unit tests.
+    METHODS element_children
+      IMPORTING io_node       TYPE REF TO if_ixml_node
+      RETURNING VALUE(result) TYPE ty_t_node.
 ENDCLASS.
 
 
@@ -170,16 +179,27 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
         EXIT.
       ENDIF.
 
-      DATA(lv_kids)     = 0.
-      DATA(lo_children) = lo_node->get_children( ).
-      DO lo_children->get_length( ) TIMES.
-        IF lo_children->get_item( sy-index - 1 )->get_type( ) = if_ixml_node=>co_node_element.
-          lv_kids = lv_kids + 1.
-        ENDIF.
-      ENDDO.
+      DATA(lv_kids) = lines( element_children( lo_node ) ).
 
       IF lv_kids = 0.
         result = result + 1.
+      ENDIF.
+    ENDDO.
+  ENDMETHOD.
+
+  METHOD element_children.
+    DATA(lo_iter) = io_node->get_children( )->create_iterator( ).
+    DO.
+      DATA(lo_child) = lo_iter->get_next( ).
+      IF lo_child IS NOT BOUND.
+        EXIT.
+      ENDIF.
+      " #text, #comment, #cdata-section - every node that is no element
+      " is named with a #, in SAP's iXML and in open-abap alike (where
+      " get_type( ) is not implemented)
+      DATA(lv_name) = lo_child->get_name( ).
+      IF lv_name IS NOT INITIAL AND lv_name(1) <> `#`.
+        APPEND lo_child TO result.
       ENDIF.
     ENDDO.
   ENDMETHOD.
@@ -188,14 +208,10 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
     DATA(lv_xml) = COND string( WHEN iv_xml IS SUPPLIED THEN iv_xml ELSE mv_view ).
     parse( lv_xml ).
 
-    DATA(lo_children) = mo_doc->get_children( ).
     DATA lt_roots TYPE string_table.
-    DO lo_children->get_length( ) TIMES.
-      DATA(lo_child) = lo_children->get_item( sy-index - 1 ).
-      IF lo_child->get_type( ) = if_ixml_node=>co_node_element.
-        APPEND lo_child->get_name( ) TO lt_roots.
-      ENDIF.
-    ENDDO.
+    LOOP AT element_children( mo_doc ) INTO DATA(lo_child).
+      APPEND lo_child->get_name( ) TO lt_roots.
+    ENDLOOP.
 
     CASE lines( lt_roots ).
       WHEN 0.
@@ -217,13 +233,7 @@ CLASS zcl_zlk05_client_dbl IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA(lo_children) = lo_node->get_children( ).
-    DO lo_children->get_length( ) TIMES.
-      DATA(lo_child) = lo_children->get_item( sy-index - 1 ).
-      IF lo_child->get_type( ) = if_ixml_node=>co_node_element.
-        result = result + 1.
-      ENDIF.
-    ENDDO.
+    result = lines( element_children( lo_node ) ).
   ENDMETHOD.
 
   " ---------- captured ----------

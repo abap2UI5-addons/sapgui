@@ -6,6 +6,8 @@ CLASS ltcl_slg1_a2u5 DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    DATA mo_api TYPE REF TO zcl_zlk05_sys_api_dbl.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_slg1_a2u5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -31,9 +33,16 @@ ENDCLASS.
 CLASS ltcl_slg1_a2u5 IMPLEMENTATION.
 
   METHOD setup.
+    mo_api = zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   METHOD given_logs.
@@ -122,6 +131,8 @@ CLASS ltcl_slg1_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD open_unknown_log.
+    mo_api->answer( iv_method = `GET_APP_LOG_MESSAGES` iv_param = `EV_MESSAGE` iv_key = `99999999999999999999`
+                    iv_value  = `Log 99999999999999999999 does not exist.` ).
     mo_cut->mv_mode = `LIST`.
     mo_cut->do_open( `99999999999999999999` ).
     cl_abap_unit_assert=>assert_equals( exp = `LIST` act = mo_cut->mv_mode ).

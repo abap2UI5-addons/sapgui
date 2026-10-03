@@ -6,6 +6,8 @@ CLASS ltcl_sm30_a2u5 DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    DATA mo_api TYPE REF TO zcl_zlk05_sys_api_dbl.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_sm30_a2u5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -17,16 +19,22 @@ CLASS ltcl_sm30_a2u5 DEFINITION FINAL FOR TESTING
     METHODS unknown_table        FOR TESTING.
     METHODS structure_refused    FOR TESTING.
     METHODS table_goes_to_se16n  FOR TESTING.
-    METHODS kind_of_objects      FOR TESTING.
 ENDCLASS.
 
 
 CLASS ltcl_sm30_a2u5 IMPLEMENTATION.
 
   METHOD setup.
+    mo_api = zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   METHOD view_is_wellformed.
@@ -59,6 +67,8 @@ CLASS ltcl_sm30_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD structure_refused.
+    mo_api->answer( iv_method = `GET_TABLE_KIND` iv_key = `BAPIRET2`
+                    iv_value  = zcl_zlk05_sys_api=>c_table_kind-structure ).
     mo_cut->mv_table = `BAPIRET2`.
     mo_cut->do_display( ).
     cl_abap_unit_assert=>assert_char_cp( act = mo_cut->mv_message exp = `*structure*` ).
@@ -76,15 +86,6 @@ CLASS ltcl_sm30_a2u5 IMPLEMENTATION.
       cl_abap_unit_assert=>assert_equals( exp = `ZCL_SE16N_A2U5` act = mo_dbl->mv_nav_call ).
       cl_abap_unit_assert=>assert_initial( mo_cut->mv_msgtype ).
     ENDIF.
-  ENDMETHOD.
-
-  METHOD kind_of_objects.
-    cl_abap_unit_assert=>assert_equals( exp = zcl_zlk05_sys_api=>c_table_kind-table
-                                        act = zcl_zlk05_sys_api=>get_table_kind( `T000` ) ).
-    cl_abap_unit_assert=>assert_equals( exp = zcl_zlk05_sys_api=>c_table_kind-structure
-                                        act = zcl_zlk05_sys_api=>get_table_kind( `BAPIRET2` ) ).
-    cl_abap_unit_assert=>assert_equals( exp = zcl_zlk05_sys_api=>c_table_kind-none
-                                        act = zcl_zlk05_sys_api=>get_table_kind( `ZZLK05_NONE` ) ).
   ENDMETHOD.
 
 ENDCLASS.

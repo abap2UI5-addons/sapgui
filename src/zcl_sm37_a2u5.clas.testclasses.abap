@@ -6,6 +6,8 @@ CLASS ltcl_sm37_a2u5 DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    DATA mo_api TYPE REF TO zcl_zlk05_sys_api_dbl.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_sm37_a2u5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -43,9 +45,16 @@ ENDCLASS.
 CLASS ltcl_sm37_a2u5 IMPLEMENTATION.
 
   METHOD setup.
+    mo_api = zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   METHOD given_joblist.
@@ -302,6 +311,8 @@ CLASS ltcl_sm37_a2u5 IMPLEMENTATION.
 
   METHOD joblog_unknown_job.
     given_step_list( ).
+    mo_api->answer( iv_method = `GET_JOB_LOG` iv_param = `EV_MESSAGE` iv_key = `ZZLK05_NO_SUCH_JOB`
+                    iv_value  = `Job ZZLK05_NO_SUCH_JOB does not exist.` ).
     mo_cut->mv_current      = `ZZLK05_NO_SUCH_JOB`.
     mo_cut->mv_cur_jobcount = `99999999`.
     mo_cut->do_joblog( ).

@@ -6,6 +6,7 @@ CLASS ltcl_rz11_a2u5 DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_rz11_a2u5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -33,18 +34,22 @@ CLASS ltcl_rz11_a2u5 DEFINITION FINAL FOR TESTING
     METHODS detail_attribute_labels FOR TESTING.
     METHODS detail_back_to_list     FOR TESTING.
 
-    METHODS api_delivers_parameters FOR TESTING.
-    METHODS api_detail_is_original  FOR TESTING.
-    METHODS api_unknown_is_reported FOR TESTING.
 ENDCLASS.
 
 
 CLASS ltcl_rz11_a2u5 IMPLEMENTATION.
 
   METHOD setup.
+    zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   METHOD given_paramlist.
@@ -274,57 +279,5 @@ CLASS ltcl_rz11_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
   " ===================== data source =====================
-
-  METHOD api_delivers_parameters.
-    " TPFYPROPTY is empty on this system. The app must not show an empty
-    " list that pretends there are no profile parameters - the values are
-    " read from the kernel metadata instead.
-    DATA(lt_par) = zcl_zlk05_sys_api=>search_parameters( iv_pattern = `rdisp/*` ).
-
-    cl_abap_unit_assert=>assert_true(
-        act = xsdbool( lines( lt_par ) > 0 )
-        msg = 'the parameter list is empty - the kernel metadata is not read' ).
-
-    LOOP AT lt_par INTO DATA(ls_par) WHERE paraname CS `wp_no_dia`.
-      cl_abap_unit_assert=>assert_not_initial(
-          act = ls_par-value
-          msg = 'the parameter value was not read from the kernel' ).
-      cl_abap_unit_assert=>assert_not_initial(
-          act = ls_par-ptype
-          msg = 'the parameter type was not translated' ).
-    ENDLOOP.
-  ENDMETHOD.
-
-  METHOD api_detail_is_original.
-    " the attribute labels are the text elements of RSPFLDOC
-    DATA(lt_kv) = zcl_zlk05_sys_api=>get_parameter_detail( `rdisp/wp_no_dia` ).
-
-    LOOP AT VALUE string_table( ( `Name` ) ( `Value` ) ( `Resulting Source` )
-                                ( `Type` ) ( `Parameter Group` )
-                                ( `Parameter Description` ) ( `CSN Component` )
-                                ( `System-Wide Parameter` ) ( `Dynamic Parameter` ) )
-         INTO DATA(lv_label).
-      cl_abap_unit_assert=>assert_true(
-          act = xsdbool( line_exists( lt_kv[ label = lv_label ] ) )
-          msg = |the original RZ11 attribute "{ lv_label }" is missing| ).
-    ENDLOOP.
-
-    cl_abap_unit_assert=>assert_not_initial(
-        act = lt_kv[ label = `Resulting Source` ]-value
-        msg = 'the resulting source of the value is not determined' ).
-  ENDMETHOD.
-
-  METHOD api_unknown_is_reported.
-    " an unknown parameter has to say so instead of showing nothing
-    DATA(lt_kv) = zcl_zlk05_sys_api=>get_parameter_detail( `zzz/does_not_exist` ).
-
-    cl_abap_unit_assert=>assert_true(
-        act = xsdbool( lines( lt_kv ) > 0 )
-        msg = 'an unknown parameter returns nothing at all' ).
-    cl_abap_unit_assert=>assert_true(
-        act = xsdbool( find( val = lt_kv[ label = `Value` ]-value
-                             sub = `not known` ) >= 0 )
-        msg = 'an unknown parameter is not reported as unknown' ).
-  ENDMETHOD.
 
 ENDCLASS.

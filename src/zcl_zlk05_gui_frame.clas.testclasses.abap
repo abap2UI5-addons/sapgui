@@ -5,6 +5,7 @@ CLASS ltcl_frame DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    METHODS teardown.
 
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -43,7 +44,14 @@ ENDCLASS.
 CLASS ltcl_frame IMPLEMENTATION.
 
   METHOD setup.
+    zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_dbl = NEW #( ).
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   METHOD keys_back_default.

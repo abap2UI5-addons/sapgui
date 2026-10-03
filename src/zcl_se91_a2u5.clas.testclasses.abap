@@ -6,6 +6,8 @@ CLASS ltcl_se91_a2u5 DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    DATA mo_api TYPE REF TO zcl_zlk05_sys_api_dbl.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_se91_a2u5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -32,9 +34,16 @@ ENDCLASS.
 CLASS ltcl_se91_a2u5 IMPLEMENTATION.
 
   METHOD setup.
+    mo_api = zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   METHOD given_detail.
@@ -112,6 +121,8 @@ CLASS ltcl_se91_a2u5 IMPLEMENTATION.
 
   METHOD execute_opens_class.
     " a full name opens the class directly - if the user may see it
+    mo_api->answer( iv_method = `GET_MESSAGES` iv_param = `ET_MSGS` iv_key = `ZLK05`
+                    iv_value  = VALUE zcl_zlk05_sys_api=>ty_t_msg( ( msgnr = `001` text = `You are not authorized to use transaction &1` ) ) ).
     mo_cut->mv_pattern   = `zlk05`.
     mo_dbl->mv_on_event  = abap_true.
     mo_dbl->ms_get-event = `EXECUTE`.
@@ -125,6 +136,8 @@ CLASS ltcl_se91_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD execute_unknown_class.
+    mo_api->answer( iv_method = `GET_MESSAGES` iv_param = `EV_MESSAGE` iv_key = `ZZ_NO_CLASS_X`
+                    iv_value  = `Message class ZZ_NO_CLASS_X does not exist` ).
     mo_cut->mv_pattern   = `ZZ_NO_CLASS_X`.
     mo_dbl->mv_on_event  = abap_true.
     mo_dbl->ms_get-event = `EXECUTE`.

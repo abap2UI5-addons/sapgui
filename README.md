@@ -187,9 +187,15 @@ src/
   zcl_se80_ui.clas.abap          SE80
   zcl_se80_api.clas.abap         SE80 repository API, the only writing class
   zcl_zlk05_sys_api.clas.abap    shared read only system API, the single entry point
-  zcl_zlk05_api_*.clas.abap      its implementation, one class per area
-                                 (dev, adm, mon, ops, repo, trn)
+  zif_zlk05_sys_api.intf.abap    what it reads from the system, as an interface
+  zcl_zlk05_sys_api_db.clas.abap   ... on a system, through ZCL_ZLK05_API_*
+  zcl_zlk05_api_*.clas.abap      one class per area (dev, adm, mon, ops, repo, trn)
+  zcl_zlk05_sys_api_dbl.clas.abap  ... in the unit tests (FOR TESTING)
+  zif_se80_api.intf.abap         the SE80 repository API, as an interface
   zcl_zlk05_auth.clas.abap       every authorization check
+  zif_zlk05_auth_sys.intf.abap   its AUTHORITY-CHECK statements, as an interface
+  zcl_zlk05_auth_sys.clas.abap     ... on a system
+  zcl_zlk05_auth_sys_dbl.clas.abap ... in the unit tests (FOR TESTING)
   zcl_zlk05_gui_frame.clas.abap  the six bands of a SAP GUI window
   zcl_zlk05_tcode_router.clas.abap  the command field: which class a code starts
   zif_zlk05_start_params.intf.abap  start values for an app (like SPA/GPA)
@@ -206,7 +212,24 @@ the concrete object before they read or write it.
 
 There are 618 ABAP Unit tests. They run against `ZCL_ZLK05_CLIENT_DBL` instead
 of a live client, so the view and the event wiring can be asserted without a
-browser.
+browser - and against two more doubles instead of the system:
+
+- `ZCL_ZLK05_SYS_API_DBL` stands in for everything the apps read
+  (`ZIF_ZLK05_SYS_API`). A test says what the system answers with
+  `answer( )` - a result, an EXPORTING parameter, for one key or for every
+  call.
+- `ZCL_ZLK05_AUTH_SYS_DBL` stands in for the AUTHORITY-CHECK statements
+  (`ZIF_ZLK05_AUTH_SYS`): every check passes until a test calls `deny( )`
+  for it, so no test depends on the roles of the user who runs it.
+
+Every test class installs both in `setup( )` and removes them in
+`teardown( )`. They are global friends of `ZCL_ZLK05_SYS_API` and
+`ZCL_ZLK05_AUTH` and `FOR TESTING`, so productive code cannot use them.
+`ZCL_ZLK05_SYS_API`, `ZCL_ZLK05_AUTH` and `ZCL_SE80_UI` create their real
+implementation by name, which keeps the apps free of any static dependency
+on the classes that touch the database. The tests of those classes
+(`ZCL_ZLK05_SYS_API_DB`, `ZCL_SE80_API`) read the real system and run on a
+system only.
 
 ### Development
 
@@ -214,7 +237,7 @@ The checks run on Node, no ABAP system needed:
 
 ```bash
 npm ci
-npm test        # abaplint.jsonc, abap_standard.jsonc, abap2ui5lint.jsonc
+npm test        # the three lint profiles, then the unit tests transpiled to JS
 ```
 
 | Command                 | What it does                                        |
@@ -223,6 +246,9 @@ npm test        # abaplint.jsonc, abap_standard.jsonc, abap2ui5lint.jsonc
 | `npm run lint_standard` | syntax check against SAP_BASIS 7.50                  |
 | `npm run lint_702`      | syntax check against SAP_BASIS 7.02                  |
 | `npm run lint_abap2ui5` | the abap2UI5 linter (`abap2ui5lint.jsonc`)           |
+| `npm run transpile`     | ABAP to JavaScript into `node/output`                |
+| `npm run unit`          | run the transpiled unit tests, report every failure  |
+| `npm run deps`          | abap2UI5 and open-abap-core at their pins (`node/deps`) |
 | `npm run auto_fix`      | apply the quick fixes abaplint can apply on its own  |
 | `npm run auto_downport` | rewrite `src/` to 7.02 syntax                        |
 
@@ -235,8 +261,8 @@ release and not against the framework's `main`. Four configs carry the pin
 `.github/abaplint/auto_fix.jsonc`, and the downported `<tag>-702` form in
 `.github/abaplint/abap_702.jsonc`); read and move them only with
 `scripts/core-pin.mjs` (`get` fails when they disagree). The `bump-core`
-workflow moves the pin weekly to the newest release after `npm run lint` and
-`npm run lint_standard` passed on it. Do not drop the key: abaplint then
+workflow moves the pin weekly to the newest release after `npm run lint`,
+`npm run lint_standard` and the transpiled unit tests passed on it. Do not drop the key: abaplint then
 clones `main` silently.
 
 CI, in `.github/workflows`:
@@ -245,6 +271,7 @@ CI, in `.github/workflows`:
 | --------------- | ----------------------------- |
 | `abaplint`      | push to main, pull request    |
 | `abap2ui5lint`  | push to main, pull request    |
+| `unit`          | push to main, pull request    |
 | `ABAP_STANDARD` | push to main, pull request    |
 | `auto_fix`      | weekly, opens a pull request  |
 | `bump-core`     | weekly, opens a pull request  |
@@ -272,6 +299,22 @@ The findings silenced in the source, each with its reason next to it:
   `_event( )`, which the linter cannot see from inside the frame.
 - `popup-without-close-wire` on the dialog of `popup_open( )`: its Close
   button is added by `popup_show( )`.
+
+**The transpiled unit tests.** `npm run transpile` turns `src/` into
+JavaScript with [@abaplint/transpiler](https://github.com/abaplint/transpiler),
+against the downported abap2UI5 release of the pin and
+[open-abap-core](https://github.com/open-abap/open-abap-core) for the kernel
+classes (`node/setup/fetch-deps.mjs` pins both). The classes that read the
+database - `ZCL_ZLK05_SYS_API_DB`, `ZCL_ZLK05_API_*`, `ZCL_SE80_API`,
+`ZCL_ZLK05_AUTH_SYS` - are left out (`exclude_filter` in
+`node/setup/abap_transpile.json`): their tables, function modules and BAdIs
+do not exist in Node, and nothing depends on them statically. Two tests are
+skipped there, each with its reason (DDIC structures open-abap-core does not
+have). Three things behave differently in Node and are worked around in the
+source, with a comment where it happens: iXML's `get_item( )` counts from 1
+and `get_type( )` is not implemented in open-abap, and the transpiler
+compares only the first component of a multi-component key in
+`DELETE TABLE ... WITH TABLE KEY`.
 
 A few rules are switched off on purpose, with the reason written next to them
 in `abaplint.jsonc`. This repository is a rebuild of the ABAP Workbench, so

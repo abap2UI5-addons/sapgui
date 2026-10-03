@@ -8,14 +8,15 @@ by what is most fun.
 
 ## Where it stands
 
-- 28 apps for 33 transaction codes plus SAP Easy Access, 41 classes, about
+- 28 apps for 33 transaction codes plus SAP Easy Access, 45 classes and 4 interfaces, about
   35,000 lines, 618 ABAP Unit tests against `ZCL_ZLK05_CLIENT_DBL`.
-- Green: abaplint (style profile and SAP_BASIS 7.50) and the abap2UI5 linter.
+- Green: abaplint (style profile and SAP_BASIS 7.50), the abap2UI5 linter and
+  the unit tests, transpiled to JavaScript (section 2).
   The update from the system arrived red on all three (PCRE, which needs
   7.55, 20 TEST-SEAMs, `v =` for data in the views) and was brought back to
   green in the commit after it.
 - Not verified by anything that runs without a system:
-  - the unit tests - they only run on an ABAP system,
+  - the tests of the database layer - they read the real system,
   - the contents of the views - the linter checks the ABAP side of every app
     but rebuilds no control, because the view is opened in
     `ZCL_ZLK05_GUI_FRAME` and not in the app class (`judged 0 controls`),
@@ -63,7 +64,21 @@ reachable for users who may use the Workbench anyway.
 
 ## 2. Tests and views without a system
 
-Two gaps, one fix.
+**Status 2026-10-03: the first two thirds done.** The apps reach the system
+only through three interfaces - `ZIF_ZLK05_SYS_API` (behind the static facade
+`ZCL_ZLK05_SYS_API`, so the call sites stayed), `ZIF_SE80_API` and
+`ZIF_ZLK05_AUTH_SYS` (the AUTHORITY-CHECK statements, which replaced the
+friend-only fake table of `ZCL_ZLK05_AUTH`). Each has a `FOR TESTING` double
+that is a global friend of the class it plugs into, and every test class
+installs the doubles in `setup( )`. The real implementations are created by
+name, so the transpile leaves the database layer out, and the `unit` workflow
+runs 568 tests in Node on every pull request (2 skipped with a reason, the
+integration tests of the database layer run on a system only). Getting
+there also found a real defect: two SE93 tests had been red on every system
+since the frame changed its menu tooltip in the last update. Still open: the
+view snapshots and the render gate below.
+
+The plan, as written before:
 
 **Make the apps independent of the system.** The apps call
 `ZCL_ZLK05_SYS_API` statically, 37 different methods; SE80 already goes through

@@ -1,6 +1,10 @@
 node_modules
 deps
 
+# transpiled unit tests: npm run transpile
+node/deps
+node/output
+
 # IDE
 .vscode/
 .idea/

@@ -6,6 +6,7 @@ CLASS ltcl_sm04_a2u5 DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_sm04_a2u5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -19,7 +20,6 @@ CLASS ltcl_sm04_a2u5 DEFINITION FINAL FOR TESTING
     METHODS view_back_nav_wired  FOR TESTING.
     METHODS view_read_only_stated FOR TESTING.
     METHODS view_empty_is_sane   FOR TESTING.
-    METHODS api_delivers_self    FOR TESTING.
 
     METHODS view_click_opens_user    FOR TESTING.
     METHODS click_jumps_to_su01      FOR TESTING.
@@ -30,9 +30,16 @@ ENDCLASS.
 CLASS ltcl_sm04_a2u5 IMPLEMENTATION.
 
   METHOD setup.
+    zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   METHOD given_sessions.
@@ -85,18 +92,6 @@ CLASS ltcl_sm04_a2u5 IMPLEMENTATION.
     mo_cut->view_display( ).
     cl_abap_unit_assert=>assert_initial( mo_dbl->get_xml_errors( ) ).
   ENDMETHOD.
-
-  METHOD api_delivers_self.
-    " the user running the test is logged on - the list is never empty,
-    " unless the kernel refuses to deliver it, which must be reported
-    zcl_zlk05_sys_api=>get_user_sessions( IMPORTING et_sessions = DATA(lt)
-                                                    ev_message  = DATA(lv_msg) ).
-    IF lv_msg IS NOT INITIAL.
-      RETURN.
-    ENDIF.
-    cl_abap_unit_assert=>assert_not_initial( lt ).
-  ENDMETHOD.
-
 
   METHOD view_click_opens_user.
     given_sessions( ).

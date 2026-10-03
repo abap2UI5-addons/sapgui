@@ -6,6 +6,8 @@ CLASS ltcl_se93_a2u5 DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    DATA mo_api TYPE REF TO zcl_zlk05_sys_api_dbl.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_se93_a2u5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -80,9 +82,22 @@ ENDCLASS.
 CLASS ltcl_se93_a2u5 IMPLEMENTATION.
 
   METHOD setup.
+    mo_api = zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
+    " the type names of the text pool of SAPLSEUK, as on an English system
+    mo_api->answer( iv_method = `SEUK_TEXT` iv_key = `001` iv_value = `Dialog Transaction` ).
+    mo_api->answer( iv_method = `SEUK_TEXT` iv_key = `002` iv_value = `Report Transaction` ).
+    mo_api->answer( iv_method = `SEUK_TEXT` iv_key = `003` iv_value = `Parameter Transaction` ).
+    mo_api->answer( iv_method = `SEUK_TEXT` iv_key = `019` iv_value = `Variant Transaction` ).
+    mo_api->answer( iv_method = `SEUK_TEXT` iv_key = `028` iv_value = `Object Transaction` ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   METHOD given_list.
@@ -184,7 +199,7 @@ CLASS ltcl_se93_a2u5 IMPLEMENTATION.
     given_list( ).
     mo_cut->view_display( ).
 
-    assert_shows( it_text = VALUE #( ( `Transaction Code - the menu bar` )
+    assert_shows( it_text = VALUE #( ( `Transaction Code - the menu of the application` )
                                      ( `Edit` ) ( `Goto` ) ( `Utilities` )
                                      ( `Environment` ) )
                   iv_ctx  = `entry menu bar` ).
@@ -194,7 +209,7 @@ CLASS ltcl_se93_a2u5 IMPLEMENTATION.
     cl_abap_unit_assert=>assert_equals(
         exp = -1
         act = find( val = mo_dbl->mv_view
-                    sub = `Transaction code - the menu bar` )
+                    sub = `Transaction code - the menu of the application` )
         msg = 'the entry screen shows the menu title of the display screens' ).
   ENDMETHOD.
 
@@ -342,12 +357,12 @@ CLASS ltcl_se93_a2u5 IMPLEMENTATION.
     given_detail( detail_dialog( ) ).
     mo_cut->view_detail( ).
 
-    assert_shows( it_text = VALUE #( ( `Transaction code - the menu bar` ) )
+    assert_shows( it_text = VALUE #( ( `Transaction code - the menu of the application` ) )
                   iv_ctx  = `display menu bar` ).
     cl_abap_unit_assert=>assert_equals(
         exp = -1
         act = find( val = mo_dbl->mv_view
-                    sub = `Transaction Code - the menu bar` )
+                    sub = `Transaction Code - the menu of the application` )
         msg = 'the display screen shows the menu title of the entry screen' ).
   ENDMETHOD.
 

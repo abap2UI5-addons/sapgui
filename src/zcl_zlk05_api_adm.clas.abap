@@ -10,6 +10,11 @@ CLASS zcl_zlk05_api_adm DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PUBLIC SECTION.
 
+    "! Reads a single profile parameter value from the kernel
+    CLASS-METHODS get_param_value
+      IMPORTING iv_name       TYPE string
+      RETURNING VALUE(result) TYPE string.
+
     CLASS-METHODS search_users
       IMPORTING iv_pattern    TYPE string OPTIONAL
                 iv_max        TYPE i DEFAULT 200
@@ -42,12 +47,6 @@ CLASS zcl_zlk05_api_adm DEFINITION PUBLIC FINAL CREATE PUBLIC.
     "! Text of an RFC connection type (fixed values of domain RFCTYPE)
     CLASS-METHODS rfc_type_text
       IMPORTING iv_rfctype    TYPE string
-      RETURNING VALUE(result) TYPE string.
-
-    "! Value of one KEY= component of RFCDES-RFCOPTIONS
-    CLASS-METHODS rfc_option
-      IMPORTING iv_options    TYPE string
-                iv_key        TYPE string
       RETURNING VALUE(result) TYPE string.
 
     "! Failed authorization checks of a user (SUSR_USER_SU53_READ)
@@ -92,9 +91,27 @@ CLASS zcl_zlk05_api_adm DEFINITION PUBLIC FINAL CREATE PUBLIC.
 ENDCLASS.
 
 
-
 CLASS zcl_zlk05_api_adm IMPLEMENTATION.
 
+
+  METHOD get_param_value.
+
+    DATA lv_name  TYPE spfl_parameter_name.
+    DATA lv_value TYPE string.
+
+    lv_name = iv_name.
+    TRY.
+        DATA(lv_rc) = cl_spfl_profile_parameter=>get_value(
+                          EXPORTING name  = lv_name
+                          IMPORTING value = lv_value ).
+        IF lv_rc = 0.
+          result = lv_value.
+        ENDIF.
+      CATCH cx_root.
+        CLEAR result.
+    ENDTRY.
+
+  ENDMETHOD.
 
 
   METHOD search_users.
@@ -239,7 +256,7 @@ CLASS zcl_zlk05_api_adm IMPLEMENTATION.
 
       APPEND VALUE #(
         paraname = <m>-name
-        value    = zcl_zlk05_sys_api=>get_param_value( <m>-name )
+        value    = get_param_value( <m>-name )
         grp      = <m>-pgroup
         ptype    = zcl_zlk05_sys_api=>param_type_text( <m>-type )
         dynamic  = COND string( WHEN <m>-is_dynamic = 1 THEN `X` ELSE `` )
@@ -302,7 +319,7 @@ CLASS zcl_zlk05_api_adm IMPLEMENTATION.
 
     result = VALUE #(
       ( label = `Name`                     value = ls_meta-name )
-      ( label = `Value`                    value = zcl_zlk05_sys_api=>get_param_value( ls_meta-name ) )
+      ( label = `Value`                    value = get_param_value( ls_meta-name ) )
       ( label = `Resulting Source`         value = zcl_zlk05_sys_api=>param_origin_text( lv_origin ) )
       ( label = `Type`                     value = zcl_zlk05_sys_api=>param_type_text( ls_meta-type ) )
       ( label = `Further Selection Criteria` value = lv_restr )
@@ -358,8 +375,8 @@ CLASS zcl_zlk05_api_adm IMPLEMENTATION.
         rfcdest  = <d>-rfcdest
         rfctype  = <d>-rfctype
         typetext = rfc_type_text( CONV string( <d>-rfctype ) )
-        target   = rfc_option( iv_options = lv_opt iv_key = `H` )
-        sysnr    = rfc_option( iv_options = lv_opt iv_key = `S` )
+        target   = zcl_zlk05_sys_api=>rfc_option( iv_options = lv_opt iv_key = `H` )
+        sysnr    = zcl_zlk05_sys_api=>rfc_option( iv_options = lv_opt iv_key = `S` )
         descr    = <d>-rfcdoc1 ) TO result.
     ENDLOOP.
 
@@ -390,22 +407,6 @@ CLASS zcl_zlk05_api_adm IMPLEMENTATION.
 
   ENDMETHOD.
 
-
-  METHOD rfc_option.
-
-    " RFCOPTIONS is a comma separated list of KEY=value pairs. Only the
-    " keys asked for are returned - the caller decides what is shown.
-    DATA(lv_key) = |{ to_upper( iv_key ) }=|.
-    SPLIT iv_options AT `,` INTO TABLE DATA(lt_parts).
-    LOOP AT lt_parts INTO DATA(lv_part).
-      IF strlen( lv_part ) > strlen( lv_key )
-         AND to_upper( substring( val = lv_part len = strlen( lv_key ) ) ) = lv_key.
-        result = substring( val = lv_part off = strlen( lv_key ) ).
-        RETURN.
-      ENDIF.
-    ENDLOOP.
-
-  ENDMETHOD.
 
   METHOD get_auth_failures.
 

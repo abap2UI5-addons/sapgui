@@ -12,7 +12,10 @@
     "strip_trailing_ws": "find src -type f -name '*.abap' -exec sed -i 's/[[:space:]]\\+$//' {} +",
     "auto_fix": "abaplint .github/abaplint/auto_fix.jsonc --fix",
     "auto_downport": "abaplint .github/abaplint/abap_702.jsonc --fix && npm run syfixes && npm run strip_trailing_ws",
-    "test": "npm run lint && npm run lint_standard && npm run lint_abap2ui5"
+    "test": "npm run lint && npm run lint_standard && npm run lint_abap2ui5 && npm run transpile && npm run unit",
+    "deps": "node node/setup/fetch-deps.mjs",
+    "transpile": "npm run deps && node -e \"require('fs').rmSync('node/output',{recursive:true,force:true})\" && abap_transpile node/setup/abap_transpile.json",
+    "unit": "node node/setup/run-unit.mjs"
   },
   "repository": {
     "type": "git",
@@ -28,6 +31,9 @@
   "homepage": "https://github.com/abap2UI5-addons/sapgui",
   "devDependencies": {
     "@abap2ui5/linter": "^0.8.5",
-    "@abaplint/cli": "^2.120.63"
+    "@abaplint/cli": "^2.120.63",
+    "@abaplint/database-sqlite": "^2.13.83",
+    "@abaplint/runtime": "^2.13.96",
+    "@abaplint/transpiler-cli": "^2.13.96"
   }
 }

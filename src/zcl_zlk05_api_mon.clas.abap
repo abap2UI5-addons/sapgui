@@ -22,9 +22,6 @@ CLASS zcl_zlk05_api_mon DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 iv_jobcount   TYPE string
       RETURNING VALUE(result) TYPE zcl_zlk05_sys_api=>ty_t_jobstep.
 
-    CLASS-METHODS parse_flist
-      IMPORTING iv_flist      TYPE string
-      RETURNING VALUE(result) TYPE zcl_zlk05_sys_api=>ty_t_kv.
 
     CLASS-METHODS get_dumps
       IMPORTING iv_date_from  TYPE d OPTIONAL
@@ -123,9 +120,7 @@ CLASS zcl_zlk05_api_mon DEFINITION PUBLIC FINAL CREATE PUBLIC.
 ENDCLASS.
 
 
-
 CLASS zcl_zlk05_api_mon IMPLEMENTATION.
-
 
 
   METHOD get_jobs.
@@ -225,38 +220,6 @@ CLASS zcl_zlk05_api_mon IMPLEMENTATION.
 
   ENDMETHOD.
 
-  METHOD parse_flist.
-
-    DATA(lv_len) = strlen( iv_flist ).
-    DATA(lv_off) = 0.
-
-    WHILE lv_off + 5 <= lv_len.
-
-      DATA(lv_tag)  = substring( val = iv_flist off = lv_off len = 2 ).
-      DATA(lv_size) = substring( val = iv_flist off = lv_off + 2 len = 3 ).
-
-      IF lv_size CN '0123456789'.
-        EXIT.
-      ENDIF.
-
-      DATA(lv_vlen) = CONV i( lv_size ).
-      lv_off = lv_off + 5.
-      IF lv_off + lv_vlen > lv_len.
-        lv_vlen = lv_len - lv_off.
-      ENDIF.
-      IF lv_vlen <= 0.
-        EXIT.
-      ENDIF.
-
-      APPEND VALUE #( label = lv_tag
-                      value = substring( val = iv_flist
-                                         off = lv_off
-                                         len = lv_vlen ) ) TO result.
-      lv_off = lv_off + lv_vlen.
-
-    ENDWHILE.
-
-  ENDMETHOD.
 
   METHOD get_dumps.
 
@@ -277,7 +240,7 @@ CLASS zcl_zlk05_api_mon IMPLEMENTATION.
 
     LOOP AT lt_snap ASSIGNING FIELD-SYMBOL(<s>).
 
-      DATA(lt_tags) = parse_flist( CONV string( <s>-flist ) ).
+      DATA(lt_tags) = zcl_zlk05_sys_api=>parse_flist( CONV string( <s>-flist ) ).
 
       APPEND VALUE #(
         datum    = zcl_zlk05_sys_api=>format_date( <s>-datum )
@@ -320,7 +283,7 @@ CLASS zcl_zlk05_api_mon IMPLEMENTATION.
     DATA(lv_all) = |{ lt_snap[ 1 ]-flist }{ lt_snap[ 1 ]-flist02 }| &&
                    |{ lt_snap[ 1 ]-flist03 }{ lt_snap[ 1 ]-flist04 }|.
 
-    DATA(lt_tags) = parse_flist( lv_all ).
+    DATA(lt_tags) = zcl_zlk05_sys_api=>parse_flist( lv_all ).
 
     " Map the technical tags to readable labels, keep the rest as-is
     LOOP AT lt_tags ASSIGNING FIELD-SYMBOL(<t>).
@@ -567,23 +530,23 @@ CLASS zcl_zlk05_api_mon IMPLEMENTATION.
 
     result = VALUE #(
       ( label = `Instance (rdisp/myname)`
-        value = zcl_zlk05_sys_api=>get_param_value( `rdisp/myname` ) )
+        value = zcl_zlk05_api_adm=>get_param_value( `rdisp/myname` ) )
       ( label = `Trace Directory (DIR_ATRA)`
-        value = zcl_zlk05_sys_api=>get_param_value( `DIR_ATRA` ) )
+        value = zcl_zlk05_api_adm=>get_param_value( `DIR_ATRA` ) )
       ( label = `SQL Trace Ring Buffer (rstr/buffer_size_kB)`
-        value = zcl_zlk05_sys_api=>get_param_value( `rstr/buffer_size_kB` ) )
+        value = zcl_zlk05_api_adm=>get_param_value( `rstr/buffer_size_kB` ) )
       ( label = `Maximum Trace File Size (rstr/max_filesize_MB)`
-        value = zcl_zlk05_sys_api=>get_param_value( `rstr/max_filesize_MB` ) )
+        value = zcl_zlk05_api_adm=>get_param_value( `rstr/max_filesize_MB` ) )
       ( label = `Number of Trace Files (rstr/max_files)`
-        value = zcl_zlk05_sys_api=>get_param_value( `rstr/max_files` ) )
+        value = zcl_zlk05_api_adm=>get_param_value( `rstr/max_files` ) )
       ( label = `Maximum Disk Space (rstr/max_diskspace)`
-        value = zcl_zlk05_sys_api=>get_param_value( `rstr/max_diskspace` ) )
+        value = zcl_zlk05_api_adm=>get_param_value( `rstr/max_diskspace` ) )
       ( label = `Accept Remote Trace (rstr/accept_remote_trace)`
-        value = zcl_zlk05_sys_api=>get_param_value( `rstr/accept_remote_trace` ) )
+        value = zcl_zlk05_api_adm=>get_param_value( `rstr/accept_remote_trace` ) )
       ( label = `Table Buffer Trace (rsdb/staton)`
-        value = zcl_zlk05_sys_api=>get_param_value( `rsdb/staton` ) )
+        value = zcl_zlk05_api_adm=>get_param_value( `rsdb/staton` ) )
       ( label = `Developer Trace Level (rdisp/TRACE)`
-        value = zcl_zlk05_sys_api=>get_param_value( `rdisp/TRACE` ) ) ).
+        value = zcl_zlk05_api_adm=>get_param_value( `rdisp/TRACE` ) ) ).
 
     " a parameter that carries no value is not set - say so instead of
     " leaving an empty cell that reads like a failed read

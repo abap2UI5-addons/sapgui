@@ -6,6 +6,7 @@ CLASS ltcl_se16n DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_se16n_a2u5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -103,18 +104,25 @@ CLASS ltcl_se16n IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD setup.
+    zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
   ENDMETHOD.
 
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
+  ENDMETHOD.
+
   METHOD given_two_columns.
-    mo_cut->mv_table_name = `MARA`.
+    mo_cut->mv_table_name = `T100`.
     mo_cut->mt_fields = VALUE #(
-      ( fname = `MATNR` label = `Material` ftype = `CHAR` col_id = `C01` visible = abap_true )
-      ( fname = `MTART` label = `Type`     ftype = `CHAR` col_id = `C02` visible = abap_true ) ).
+      ( fname = `MSGNR` label = `Material` ftype = `CHAR` col_id = `C01` visible = abap_true )
+      ( fname = `ARBGB` label = `Type`     ftype = `CHAR` col_id = `C02` visible = abap_true ) ).
     mo_cut->mt_crit = VALUE #(
-      ( key = `1` fname = `MATNR` sign = `I` opt = `EQ` low = `4711` ) ).
+      ( key = `1` fname = `MSGNR` sign = `I` opt = `EQ` low = `4711` ) ).
   ENDMETHOD.
 
   METHOD assert_wellformed.
@@ -127,8 +135,8 @@ CLASS ltcl_se16n IMPLEMENTATION.
 
   METHOD cond_eq.
     cl_abap_unit_assert=>assert_equals(
-        exp = `MATNR = '4711'`
-        act = mo_cut->build_condition( VALUE #( fname = `MATNR` opt = `EQ` low = `4711` ) ) ).
+        exp = `MSGNR = '4711'`
+        act = mo_cut->build_condition( VALUE #( fname = `MSGNR` opt = `EQ` low = `4711` ) ) ).
   ENDMETHOD.
 
   METHOD cond_operators.
@@ -164,8 +172,8 @@ CLASS ltcl_se16n IMPLEMENTATION.
   METHOD cond_cp_wildcards.
     " SAP GUI wildcards * and + become SQL % and _
     cl_abap_unit_assert=>assert_equals(
-        exp = `MATNR LIKE 'A%B_'`
-        act = mo_cut->build_condition( VALUE #( fname = `MATNR` opt = `CP` low = `A*B+` ) ) ).
+        exp = `MSGNR LIKE 'A%B_'`
+        act = mo_cut->build_condition( VALUE #( fname = `MSGNR` opt = `CP` low = `A*B+` ) ) ).
   ENDMETHOD.
 
   METHOD cond_between.
@@ -182,41 +190,41 @@ CLASS ltcl_se16n IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD where_include_or.
-    mo_cut->mv_table_name = `MARA`.
+    mo_cut->mv_table_name = `T100`.
     " two include lines on the SAME field are OR-combined
     mo_cut->mt_crit = VALUE #(
-      ( fname = `MATNR` sign = `I` opt = `EQ` low = `1` )
-      ( fname = `MATNR` sign = `I` opt = `EQ` low = `2` ) ).
+      ( fname = `MSGNR` sign = `I` opt = `EQ` low = `1` )
+      ( fname = `MSGNR` sign = `I` opt = `EQ` low = `2` ) ).
     cl_abap_unit_assert=>assert_equals(
-        exp = `( MATNR = '1' OR MATNR = '2' )`
+        exp = `( MSGNR = '1' OR MSGNR = '2' )`
         act = mo_cut->build_where( ) ).
   ENDMETHOD.
 
   METHOD where_exclude_not.
-    mo_cut->mv_table_name = `MARA`.
+    mo_cut->mv_table_name = `T100`.
     " sign = E must negate the condition - it was silently ignored before
     mo_cut->mt_crit = VALUE #(
-      ( fname = `MTART` sign = `E` opt = `EQ` low = `FERT` ) ).
+      ( fname = `ARBGB` sign = `E` opt = `EQ` low = `FERT` ) ).
     cl_abap_unit_assert=>assert_equals(
-        exp = `NOT ( MTART = 'FERT' )`
+        exp = `NOT ( ARBGB = 'FERT' )`
         act = mo_cut->build_where( ) ).
   ENDMETHOD.
 
   METHOD where_two_fields_and.
-    mo_cut->mv_table_name = `MARA`.
+    mo_cut->mv_table_name = `T100`.
     " different fields are AND-combined, exclude stays negated
     mo_cut->mt_crit = VALUE #(
-      ( fname = `MATNR` sign = `I` opt = `EQ` low = `1` )
-      ( fname = `MTART` sign = `E` opt = `EQ` low = `FERT` ) ).
+      ( fname = `MSGNR` sign = `I` opt = `EQ` low = `1` )
+      ( fname = `ARBGB` sign = `E` opt = `EQ` low = `FERT` ) ).
     cl_abap_unit_assert=>assert_equals(
-        exp = `( MATNR = '1' ) AND NOT ( MTART = 'FERT' )`
+        exp = `( MSGNR = '1' ) AND NOT ( ARBGB = 'FERT' )`
         act = mo_cut->build_where( ) ).
   ENDMETHOD.
 
   METHOD where_skips_empty.
     " empty lines and lines without a field name are ignored
     mo_cut->mt_crit = VALUE #(
-      ( fname = `MATNR` sign = `I` opt = `EQ` low = `` high = `` )
+      ( fname = `MSGNR` sign = `I` opt = `EQ` low = `` high = `` )
       ( fname = ``      sign = `I` opt = `EQ` low = `X` ) ).
     cl_abap_unit_assert=>assert_equals( exp = `1 = 1` act = mo_cut->build_where( ) ).
   ENDMETHOD.
@@ -225,13 +233,13 @@ CLASS ltcl_se16n IMPLEMENTATION.
     " field names come back from the browser - a name that is not a field
     " of the table (or an attempt to smuggle SQL in) must never reach the
     " dynamic WHERE clause
-    mo_cut->mv_table_name = `MARA`.
+    mo_cut->mv_table_name = `T100`.
     mo_cut->mt_crit = VALUE #(
       ( fname = `NO_SUCH_FIELD` sign = `I` opt = `EQ` low = `1` )
-      ( fname = `MATNR = MATNR OR MATNR` sign = `I` opt = `EQ` low = `1` )
-      ( fname = `MTART` sign = `I` opt = `EQ` low = `FERT` ) ).
+      ( fname = `MSGNR = MSGNR OR MSGNR` sign = `I` opt = `EQ` low = `1` )
+      ( fname = `ARBGB` sign = `I` opt = `EQ` low = `FERT` ) ).
     cl_abap_unit_assert=>assert_equals(
-        exp = `( MTART = 'FERT' )`
+        exp = `( ARBGB = 'FERT' )`
         act = mo_cut->build_where( ) ).
   ENDMETHOD.
 
@@ -290,8 +298,8 @@ CLASS ltcl_se16n IMPLEMENTATION.
     " SE16N takes the selection values from the line of the field itself
     given_two_columns( ).
     CLEAR mo_cut->mt_crit.
-    mo_cut->mt_fields[ fname = `MATNR` ]-opt = `EQ`.
-    mo_cut->mt_fields[ fname = `MATNR` ]-low = `4711`.
+    mo_cut->mt_fields[ fname = `MSGNR` ]-opt = `EQ`.
+    mo_cut->mt_fields[ fname = `MSGNR` ]-low = `4711`.
 
     mo_cut->crit_from_fields( ).
 
@@ -300,7 +308,7 @@ CLASS ltcl_se16n IMPLEMENTATION.
         act = lines( mo_cut->mt_crit )
         msg = 'one selection line was expected' ).
     cl_abap_unit_assert=>assert_equals(
-        exp = `( MATNR = '4711' )`
+        exp = `( MSGNR = '4711' )`
         act = mo_cut->build_where( )
         msg = 'the value of the field line does not reach the WHERE clause' ).
   ENDMETHOD.
@@ -309,7 +317,7 @@ CLASS ltcl_se16n IMPLEMENTATION.
     " a value without an operator is read as Equal To
     given_two_columns( ).
     CLEAR mo_cut->mt_crit.
-    mo_cut->mt_fields[ fname = `MTART` ]-low = `FERT`.
+    mo_cut->mt_fields[ fname = `ARBGB` ]-low = `FERT`.
 
     mo_cut->crit_from_fields( ).
 
@@ -365,7 +373,7 @@ CLASS ltcl_se16n IMPLEMENTATION.
 
     cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view
-                             sub = `MARA: Display of Entries Found` ) >= 0 )
+                             sub = `T100: Display of Entries Found` ) >= 0 )
         msg = 'the result screen does not show the original screen title' ).
     cl_abap_unit_assert=>assert_true(
         act = xsdbool( find( val = mo_dbl->mv_view sub = `Table Entry` ) >= 0 )

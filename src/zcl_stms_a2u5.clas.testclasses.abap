@@ -6,6 +6,7 @@ CLASS ltcl_stms_a2u5 DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_stms_a2u5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -39,8 +40,6 @@ CLASS ltcl_stms_a2u5 DEFINITION FINAL FOR TESTING
     METHODS empty_queue_is_reported FOR TESTING.
     METHODS message_reaches_view    FOR TESTING.
 
-    METHODS api_domain_is_read      FOR TESTING.
-    METHODS api_systems_are_read    FOR TESTING.
     METHODS api_texts_are_resolved  FOR TESTING.
 ENDCLASS.
 
@@ -48,9 +47,16 @@ ENDCLASS.
 CLASS ltcl_stms_a2u5 IMPLEMENTATION.
 
   METHOD setup.
+    zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   METHOD given_domain.
@@ -326,41 +332,6 @@ CLASS ltcl_stms_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
   " ===================== data source =====================
-
-  METHOD api_domain_is_read.
-    zcl_zlk05_sys_api=>get_tms_domain(
-      IMPORTING ev_domain  = DATA(lv_dom)
-                ev_system  = DATA(lv_sys)
-                ev_message = DATA(lv_msg) ).
-
-    IF lv_msg IS INITIAL.
-      cl_abap_unit_assert=>assert_not_initial(
-          act = lv_dom
-          msg = 'the transport domain of this system was not determined' ).
-      cl_abap_unit_assert=>assert_equals(
-          exp = CONV string( sy-sysid )
-          act = lv_sys
-          msg = 'the own system name does not match SY-SYSID' ).
-    ELSE.
-      " a system outside a transport domain is a valid state - but then it
-      " has to be reported
-      cl_abap_unit_assert=>assert_true(
-          act = xsdbool( find( val = lv_msg sub = `transport domain` ) >= 0 )
-          msg = 'a missing transport domain is not reported' ).
-    ENDIF.
-  ENDMETHOD.
-
-  METHOD api_systems_are_read.
-    DATA(lt_sys) = zcl_zlk05_sys_api=>get_tms_systems( ).
-
-    cl_abap_unit_assert=>assert_true(
-        act = xsdbool( lines( lt_sys ) > 0 )
-        msg = 'no systems were read from TMSCSYS' ).
-
-    cl_abap_unit_assert=>assert_true(
-        act = xsdbool( line_exists( lt_sys[ sysnam = CONV string( sy-sysid ) ] ) )
-        msg = 'the own system is missing in the system overview' ).
-  ENDMETHOD.
 
   METHOD api_texts_are_resolved.
     " the coded system type and configuration status must be translated into

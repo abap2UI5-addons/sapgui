@@ -1,4 +1,5 @@
-CLASS zcl_zlk05_sys_api DEFINITION PUBLIC FINAL CREATE PUBLIC.
+CLASS zcl_zlk05_sys_api DEFINITION PUBLIC FINAL CREATE PUBLIC
+  GLOBAL FRIENDS zcl_zlk05_sys_api_dbl.
 
 * ---------------------------------------------------------------------
 *  Shared system API for the SAP GUI look-alike apps of package $ZLK_05
@@ -7,12 +8,16 @@ CLASS zcl_zlk05_sys_api DEFINITION PUBLIC FINAL CREATE PUBLIC.
 *  apps (ZCL_SM37_A2U5, ZCL_ST22_A2U5, ...) only build views and
 *  dispatch events - they never read the system directly.
 *
-*  Since the split the logic lives in five classes, one per area:
-*    ZCL_ZLK05_API_DEV   workbench      ZCL_ZLK05_API_MON  monitoring
-*    ZCL_ZLK05_API_ADM   administration ZCL_ZLK05_API_TRN  transport
-*    ZCL_ZLK05_API_REPO  area menu / SE93
-*  This class stays the single entry point: it owns all types and the
-*  shared helpers, and delegates every other method.
+*  This class is the single entry point: it owns all types and the
+*  helpers that only compute, and hands every method that reads the
+*  system to an instance of ZIF_ZLK05_SYS_API - see api( ):
+*    ZCL_ZLK05_SYS_API_DB   on a system; it delegates to one class per
+*                           area: ZCL_ZLK05_API_DEV (workbench), _ADM
+*                           (administration), _MON (monitoring), _OPS
+*                           (output, IDocs), _REPO (area menu, SE93),
+*                           _TRN (transport)
+*    ZCL_ZLK05_SYS_API_DBL  in the unit tests, installed by the test
+*                           class (a global friend, FOR TESTING)
 *
 *  Every method is READ-ONLY. Nothing in this class changes system
 *  state or persists data.
@@ -630,10 +635,6 @@ CLASS zcl_zlk05_sys_api DEFINITION PUBLIC FINAL CREATE PUBLIC.
       IMPORTING iv_time       TYPE t
       RETURNING VALUE(result) TYPE string.
 
-    "! Reads a single profile parameter value from the kernel
-    CLASS-METHODS get_param_value
-      IMPORTING iv_name       TYPE string
-      RETURNING VALUE(result) TYPE string.
 
     "! Kernel parameter type number -> the text RSPFLDOC shows
     CLASS-METHODS param_type_text
@@ -1196,10 +1197,32 @@ CLASS zcl_zlk05_sys_api DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PRIVATE SECTION.
 
+    "! The implementation on a real system. Created by name, so that this
+    "! class - and every app - does not depend on the database layer:
+    "! the unit tests run transpiled without it (README, Development).
+    CONSTANTS c_db_class TYPE string VALUE `ZCL_ZLK05_SYS_API_DB`.
+
+    "! Set by ZCL_ZLK05_SYS_API_DBL in a unit test, else created by api( )
+    CLASS-DATA go_api TYPE REF TO zif_zlk05_sys_api.
+
+    "! The instance every reading method hands over to
+    CLASS-METHODS api
+      RETURNING VALUE(result) TYPE REF TO zif_zlk05_sys_api.
+
 ENDCLASS.
 
 
 CLASS zcl_zlk05_sys_api IMPLEMENTATION.
+
+
+  METHOD api.
+
+    IF go_api IS NOT BOUND.
+      CREATE OBJECT go_api TYPE (c_db_class).
+    ENDIF.
+    result = go_api.
+
+  ENDMETHOD.
 
 
   METHOD to_like_pattern.
@@ -1245,16 +1268,25 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    lv_date = lv_in.
-    CALL FUNCTION 'DATE_CHECK_PLAUSIBILITY'
-      EXPORTING
-        date                      = lv_date
-      EXCEPTIONS
-        plausibility_check_failed = 1
-        OTHERS                    = 2.
-    IF sy-subrc = 0.
-      result = lv_date.
+    " the calendar check of DATE_CHECK_PLAUSIBILITY, computed here so
+    " that a selection screen needs no function module
+    DATA(lv_year)  = CONV i( lv_in(4) ).
+    DATA(lv_month) = CONV i( lv_in+4(2) ).
+    DATA(lv_day)   = CONV i( lv_in+6(2) ).
+    IF lv_year < 1 OR lv_month < 1 OR lv_month > 12 OR lv_day < 1.
+      RETURN.
     ENDIF.
+    DATA(lv_leap) = xsdbool( ( lv_year MOD 4 = 0 AND lv_year MOD 100 <> 0 ) OR lv_year MOD 400 = 0 ).
+    DATA(lv_last) = SWITCH i( lv_month
+                      WHEN 2 THEN COND #( WHEN lv_leap = abap_true THEN 29 ELSE 28 )
+                      WHEN 4 OR 6 OR 9 OR 11 THEN 30
+                      ELSE 31 ).
+    IF lv_day > lv_last.
+      RETURN.
+    ENDIF.
+
+    lv_date = lv_in.
+    result = lv_date.
 
   ENDMETHOD.
 
@@ -1279,153 +1311,162 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_param_value.
-
-    DATA lv_name  TYPE spfl_parameter_name.
-    DATA lv_value TYPE string.
-
-    lv_name = iv_name.
-    TRY.
-        DATA(lv_rc) = cl_spfl_profile_parameter=>get_value(
-                          EXPORTING name  = lv_name
-                          IMPORTING value = lv_value ).
-        IF lv_rc = 0.
-          result = lv_value.
-        ENDIF.
-      CATCH cx_root.
-        CLEAR result.
-    ENDTRY.
-
-  ENDMETHOD.
-
-
   METHOD search_ddic.
-    result = zcl_zlk05_api_dev=>search_ddic( iv_pattern = iv_pattern iv_kind = iv_kind iv_max = iv_max ).
+    result = api( )->search_ddic( iv_pattern = iv_pattern iv_kind = iv_kind iv_max = iv_max ).
   ENDMETHOD.
 
 
   METHOD get_table_fields.
-    result = zcl_zlk05_api_dev=>get_table_fields( iv_tabname ).
+    result = api( )->get_table_fields( iv_tabname ).
   ENDMETHOD.
 
 
   METHOD get_dtel_detail.
-    result = zcl_zlk05_api_dev=>get_dtel_detail( iv_rollname ).
+    result = api( )->get_dtel_detail( iv_rollname ).
   ENDMETHOD.
 
 
   METHOD search_classes.
-    result = zcl_zlk05_api_dev=>search_classes( iv_pattern = iv_pattern iv_max = iv_max ).
+    result = api( )->search_classes( iv_pattern = iv_pattern iv_max = iv_max ).
   ENDMETHOD.
 
 
   METHOD get_class_components.
-    result = zcl_zlk05_api_dev=>get_class_components( iv_clsname ).
+    result = api( )->get_class_components( iv_clsname ).
   ENDMETHOD.
 
 
   METHOD search_functions.
-    result = zcl_zlk05_api_dev=>search_functions( iv_pattern = iv_pattern iv_max = iv_max ).
+    result = api( )->search_functions( iv_pattern = iv_pattern iv_max = iv_max ).
   ENDMETHOD.
 
 
   METHOD get_function_params.
-    result = zcl_zlk05_api_dev=>get_function_params( iv_funcname ).
+    result = api( )->get_function_params( iv_funcname ).
   ENDMETHOD.
 
 
   METHOD search_programs.
-    result = zcl_zlk05_api_dev=>search_programs( iv_pattern = iv_pattern iv_max = iv_max ).
+    result = api( )->search_programs( iv_pattern = iv_pattern iv_max = iv_max ).
   ENDMETHOD.
 
 
   METHOD get_program_source.
-    result = zcl_zlk05_api_dev=>get_program_source( iv_name ).
+    result = api( )->get_program_source( iv_name ).
   ENDMETHOD.
 
 
   METHOD get_jobs.
-    result = zcl_zlk05_api_mon=>get_jobs( iv_jobname = iv_jobname iv_user = iv_user iv_status = iv_status iv_max = iv_max ).
+    result = api( )->get_jobs( iv_jobname = iv_jobname iv_user = iv_user iv_status = iv_status iv_max = iv_max ).
   ENDMETHOD.
 
 
   METHOD get_job_steps.
-    result = zcl_zlk05_api_mon=>get_job_steps( iv_jobname = iv_jobname iv_jobcount = iv_jobcount ).
+    result = api( )->get_job_steps( iv_jobname = iv_jobname iv_jobcount = iv_jobcount ).
   ENDMETHOD.
 
 
   METHOD parse_flist.
-    result = zcl_zlk05_api_mon=>parse_flist( iv_flist ).
+
+    DATA(lv_len) = strlen( iv_flist ).
+    DATA(lv_off) = 0.
+
+    WHILE lv_off + 5 <= lv_len.
+
+      DATA(lv_tag)  = substring( val = iv_flist off = lv_off len = 2 ).
+      DATA(lv_size) = substring( val = iv_flist off = lv_off + 2 len = 3 ).
+
+      IF lv_size CN '0123456789'.
+        EXIT.
+      ENDIF.
+
+      DATA(lv_vlen) = CONV i( lv_size ).
+      lv_off = lv_off + 5.
+      IF lv_off + lv_vlen > lv_len.
+        lv_vlen = lv_len - lv_off.
+      ENDIF.
+      IF lv_vlen <= 0.
+        EXIT.
+      ENDIF.
+
+      APPEND VALUE #( label = lv_tag
+                      value = substring( val = iv_flist
+                                         off = lv_off
+                                         len = lv_vlen ) ) TO result.
+      lv_off = lv_off + lv_vlen.
+
+    ENDWHILE.
+
   ENDMETHOD.
 
 
   METHOD get_dumps.
-    result = zcl_zlk05_api_mon=>get_dumps( iv_date_from = iv_date_from iv_user = iv_user iv_max = iv_max ).
+    result = api( )->get_dumps( iv_date_from = iv_date_from iv_user = iv_user iv_max = iv_max ).
   ENDMETHOD.
 
 
   METHOD get_dump_detail.
-    result = zcl_zlk05_api_mon=>get_dump_detail( iv_datum = iv_datum iv_uzeit = iv_uzeit iv_modno = iv_modno ).
+    result = api( )->get_dump_detail( iv_datum = iv_datum iv_uzeit = iv_uzeit iv_modno = iv_modno ).
   ENDMETHOD.
 
 
   METHOD search_users.
-    result = zcl_zlk05_api_adm=>search_users( iv_pattern = iv_pattern iv_max = iv_max ).
+    result = api( )->search_users( iv_pattern = iv_pattern iv_max = iv_max ).
   ENDMETHOD.
 
 
   METHOD get_user_roles.
-    result = zcl_zlk05_api_adm=>get_user_roles( iv_bname ).
+    result = api( )->get_user_roles( iv_bname ).
   ENDMETHOD.
 
 
   METHOD get_work_processes.
-    zcl_zlk05_api_mon=>get_work_processes( IMPORTING et_wp = et_wp ev_message = ev_message ).
+    api( )->get_work_processes( IMPORTING et_wp = et_wp ev_message = ev_message ).
   ENDMETHOD.
 
 
   METHOD get_locks.
-    zcl_zlk05_api_mon=>get_locks( EXPORTING iv_table = iv_table iv_user = iv_user IMPORTING et_locks = et_locks ev_message = ev_message ).
+    api( )->get_locks( EXPORTING iv_table = iv_table iv_user = iv_user IMPORTING et_locks = et_locks ev_message = ev_message ).
   ENDMETHOD.
 
 
   METHOD get_buffer_stats.
-    zcl_zlk05_api_mon=>get_buffer_stats( IMPORTING et_buffer = et_buffer et_memory = et_memory ev_message = ev_message ).
+    api( )->get_buffer_stats( IMPORTING et_buffer = et_buffer et_memory = et_memory ev_message = ev_message ).
   ENDMETHOD.
 
 
   METHOD get_tms_domain.
-    zcl_zlk05_api_trn=>get_tms_domain( IMPORTING ev_domain = ev_domain ev_system = ev_system ev_message = ev_message ).
+    api( )->get_tms_domain( IMPORTING ev_domain = ev_domain ev_system = ev_system ev_message = ev_message ).
   ENDMETHOD.
 
 
   METHOD get_tms_systems.
-    result = zcl_zlk05_api_trn=>get_tms_systems( ).
+    result = api( )->get_tms_systems( ).
   ENDMETHOD.
 
 
   METHOD get_tms_queue.
-    result = zcl_zlk05_api_trn=>get_tms_queue( iv_max ).
+    result = api( )->get_tms_queue( iv_max ).
   ENDMETHOD.
 
 
   METHOD get_transports.
-    result = zcl_zlk05_api_trn=>get_transports( iv_user = iv_user iv_status = iv_status iv_max = iv_max ).
+    result = api( )->get_transports( iv_user = iv_user iv_status = iv_status iv_max = iv_max ).
   ENDMETHOD.
 
 
   METHOD get_transport_objects.
-    result = zcl_zlk05_api_trn=>get_transport_objects( iv_trkorr = iv_trkorr iv_max = iv_max ).
+    result = api( )->get_transport_objects( iv_trkorr = iv_trkorr iv_max = iv_max ).
   ENDMETHOD.
 
 
   METHOD get_clients.
-    result = zcl_zlk05_api_adm=>get_clients( ).
+    result = api( )->get_clients( ).
   ENDMETHOD.
 
 
   METHOD search_parameters.
-    result = zcl_zlk05_api_adm=>search_parameters( iv_pattern = iv_pattern iv_only_dynamic = iv_only_dynamic iv_max = iv_max ).
+    result = api( )->search_parameters( iv_pattern = iv_pattern iv_only_dynamic = iv_only_dynamic iv_max = iv_max ).
   ENDMETHOD.
 
 
@@ -1462,7 +1503,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
 
   METHOD get_parameter_detail.
-    result = zcl_zlk05_api_adm=>get_parameter_detail( iv_paraname ).
+    result = api( )->get_parameter_detail( iv_paraname ).
   ENDMETHOD.
 
 
@@ -1475,131 +1516,143 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
 
   METHOD get_syslog.
-    zcl_zlk05_api_mon=>get_syslog( EXPORTING iv_date_from = iv_date_from iv_time_from = iv_time_from iv_date_to = iv_date_to iv_time_to = iv_time_to iv_user = iv_user iv_tcode = iv_tcode IMPORTING et_syslog = et_syslog ev_message = ev_message ).
+    api( )->get_syslog( EXPORTING iv_date_from = iv_date_from iv_time_from = iv_time_from iv_date_to = iv_date_to iv_time_to = iv_time_to iv_user = iv_user iv_tcode = iv_tcode IMPORTING et_syslog = et_syslog ev_message = ev_message ).
   ENDMETHOD.
 
 
   METHOD get_trace_status.
-    result = zcl_zlk05_api_mon=>get_trace_status( ).
+    result = api( )->get_trace_status( ).
   ENDMETHOD.
 
 
   METHOD get_trace_state.
-    zcl_zlk05_api_mon=>get_trace_state( IMPORTING es_state = es_state ev_message = ev_message ).
+    api( )->get_trace_state( IMPORTING es_state = es_state ev_message = ev_message ).
   ENDMETHOD.
 
 
   METHOD get_area_menu_children.
-    result = zcl_zlk05_api_repo=>get_area_menu_children( iv_struct_id = iv_struct_id iv_node_id = iv_node_id ).
+    result = api( )->get_area_menu_children( iv_struct_id = iv_struct_id iv_node_id = iv_node_id ).
   ENDMETHOD.
 
 
   METHOD transaction_exists.
-    result = zcl_zlk05_api_repo=>transaction_exists( iv_tcode ).
+    result = api( )->transaction_exists( iv_tcode ).
   ENDMETHOD.
 
 
   METHOD get_transaction_text.
-    result = zcl_zlk05_api_repo=>get_transaction_text( iv_tcode ).
+    result = api( )->get_transaction_text( iv_tcode ).
   ENDMETHOD.
 
 
   METHOD seuk_text.
-    result = zcl_zlk05_api_repo=>seuk_text( iv_key ).
+    result = api( )->seuk_text( iv_key ).
   ENDMETHOD.
 
 
   METHOD get_transactions.
-    result = zcl_zlk05_api_repo=>get_transactions( iv_pattern = iv_pattern iv_max = iv_max ).
+    result = api( )->get_transactions( iv_pattern = iv_pattern iv_max = iv_max ).
   ENDMETHOD.
 
 
   METHOD get_transaction_detail.
-    result = zcl_zlk05_api_repo=>get_transaction_detail( iv_tcode ).
+    result = api( )->get_transaction_detail( iv_tcode ).
   ENDMETHOD.
 
   METHOD get_app_logs.
-    result = zcl_zlk05_api_mon=>get_app_logs( iv_object = iv_object iv_subobject = iv_subobject iv_user = iv_user iv_date_from = iv_date_from iv_date_to = iv_date_to iv_max = iv_max ).
+    result = api( )->get_app_logs( iv_object = iv_object iv_subobject = iv_subobject iv_user = iv_user iv_date_from = iv_date_from iv_date_to = iv_date_to iv_max = iv_max ).
   ENDMETHOD.
 
   METHOD get_app_log_messages.
-    zcl_zlk05_api_mon=>get_app_log_messages( EXPORTING iv_lognumber = iv_lognumber IMPORTING et_messages = et_messages ev_message = ev_message ).
+    api( )->get_app_log_messages( EXPORTING iv_lognumber = iv_lognumber IMPORTING et_messages = et_messages ev_message = ev_message ).
   ENDMETHOD.
 
   METHOD get_rfc_destinations.
-    result = zcl_zlk05_api_adm=>get_rfc_destinations( iv_pattern = iv_pattern iv_rfctype = iv_rfctype iv_max = iv_max ).
+    result = api( )->get_rfc_destinations( iv_pattern = iv_pattern iv_rfctype = iv_rfctype iv_max = iv_max ).
   ENDMETHOD.
 
   METHOD rfc_type_text.
-    result = zcl_zlk05_api_adm=>rfc_type_text( iv_rfctype ).
+    result = api( )->rfc_type_text( iv_rfctype ).
   ENDMETHOD.
 
   METHOD rfc_option.
-    result = zcl_zlk05_api_adm=>rfc_option( iv_options = iv_options iv_key = iv_key ).
+
+    " RFCOPTIONS is a comma separated list of KEY=value pairs. Only the
+    " keys asked for are returned - the caller decides what is shown.
+    DATA(lv_key) = |{ to_upper( iv_key ) }=|.
+    SPLIT iv_options AT `,` INTO TABLE DATA(lt_parts).
+    LOOP AT lt_parts INTO DATA(lv_part).
+      IF strlen( lv_part ) > strlen( lv_key )
+         AND to_upper( substring( val = lv_part len = strlen( lv_key ) ) ) = lv_key.
+        result = substring( val = lv_part off = strlen( lv_key ) ).
+        RETURN.
+      ENDIF.
+    ENDLOOP.
+
   ENDMETHOD.
 
   METHOD get_user_sessions.
-    zcl_zlk05_api_mon=>get_user_sessions( IMPORTING et_sessions = et_sessions ev_message = ev_message ).
+    api( )->get_user_sessions( IMPORTING et_sessions = et_sessions ev_message = ev_message ).
   ENDMETHOD.
 
   METHOD get_job_log.
-    zcl_zlk05_api_mon=>get_job_log( EXPORTING iv_jobname = iv_jobname iv_jobcount = iv_jobcount IMPORTING et_log = et_log ev_message = ev_message ).
+    api( )->get_job_log( EXPORTING iv_jobname = iv_jobname iv_jobcount = iv_jobcount IMPORTING et_log = et_log ev_message = ev_message ).
   ENDMETHOD.
 
   METHOD get_table_kind.
-    result = zcl_zlk05_api_dev=>get_table_kind( iv_name ).
+    result = api( )->get_table_kind( iv_name ).
   ENDMETHOD.
 
   METHOD get_method_include.
-    result = zcl_zlk05_api_dev=>get_method_include( iv_class = iv_class iv_method = iv_method ).
+    result = api( )->get_method_include( iv_class = iv_class iv_method = iv_method ).
   ENDMETHOD.
 
   METHOD get_function_include.
-    result = zcl_zlk05_api_dev=>get_function_include( iv_funcname ).
+    result = api( )->get_function_include( iv_funcname ).
   ENDMETHOD.
 
   METHOD get_auth_failures.
-    zcl_zlk05_api_adm=>get_auth_failures( EXPORTING iv_bname = iv_bname iv_seconds = iv_seconds IMPORTING et_fails = et_fails ev_message = ev_message ).
+    api( )->get_auth_failures( EXPORTING iv_bname = iv_bname iv_seconds = iv_seconds IMPORTING et_fails = et_fails ev_message = ev_message ).
   ENDMETHOD.
 
   METHOD get_spool_requests.
-    result = zcl_zlk05_api_ops=>get_spool_requests( iv_owner = iv_owner iv_date_from = iv_date_from iv_max = iv_max ).
+    result = api( )->get_spool_requests( iv_owner = iv_owner iv_date_from = iv_date_from iv_max = iv_max ).
   ENDMETHOD.
 
   METHOD get_spool_content.
-    zcl_zlk05_api_ops=>get_spool_content( EXPORTING iv_rqident = iv_rqident iv_max_lines = iv_max_lines IMPORTING et_lines = et_lines ev_message = ev_message ).
+    api( )->get_spool_content( EXPORTING iv_rqident = iv_rqident iv_max_lines = iv_max_lines IMPORTING et_lines = et_lines ev_message = ev_message ).
   ENDMETHOD.
 
   METHOD get_idocs.
-    result = zcl_zlk05_api_ops=>get_idocs( iv_docnum = iv_docnum iv_mestyp = iv_mestyp iv_status = iv_status iv_direct = iv_direct iv_date_from = iv_date_from iv_date_to = iv_date_to iv_max = iv_max ).
+    result = api( )->get_idocs( iv_docnum = iv_docnum iv_mestyp = iv_mestyp iv_status = iv_status iv_direct = iv_direct iv_date_from = iv_date_from iv_date_to = iv_date_to iv_max = iv_max ).
   ENDMETHOD.
 
   METHOD get_idoc_detail.
-    zcl_zlk05_api_ops=>get_idoc_detail( EXPORTING iv_docnum = iv_docnum IMPORTING es_idoc = es_idoc et_control = et_control et_status = et_status et_segments = et_segments ev_message = ev_message ).
+    api( )->get_idoc_detail( EXPORTING iv_docnum = iv_docnum IMPORTING es_idoc = es_idoc et_control = et_control et_status = et_status et_segments = et_segments ev_message = ev_message ).
   ENDMETHOD.
 
   METHOD search_roles.
-    result = zcl_zlk05_api_adm=>search_roles( iv_pattern = iv_pattern iv_max = iv_max ).
+    result = api( )->search_roles( iv_pattern = iv_pattern iv_max = iv_max ).
   ENDMETHOD.
 
   METHOD get_role_detail.
-    zcl_zlk05_api_adm=>get_role_detail( EXPORTING iv_role = iv_role IMPORTING et_head = et_head et_descr = et_descr et_tcodes = et_tcodes et_auth = et_auth et_users = et_users et_roles = et_roles ev_message = ev_message ).
+    api( )->get_role_detail( EXPORTING iv_role = iv_role IMPORTING et_head = et_head et_descr = et_descr et_tcodes = et_tcodes et_auth = et_auth et_users = et_users et_roles = et_roles ev_message = ev_message ).
   ENDMETHOD.
 
   METHOD search_message_classes.
-    result = zcl_zlk05_api_dev=>search_message_classes( iv_pattern = iv_pattern iv_max = iv_max ).
+    result = api( )->search_message_classes( iv_pattern = iv_pattern iv_max = iv_max ).
   ENDMETHOD.
 
   METHOD get_messages.
-    zcl_zlk05_api_dev=>get_messages( EXPORTING iv_arbgb = iv_arbgb IMPORTING et_head = et_head et_msgs = et_msgs ev_message = ev_message ).
+    api( )->get_messages( EXPORTING iv_arbgb = iv_arbgb IMPORTING et_head = et_head et_msgs = et_msgs ev_message = ev_message ).
   ENDMETHOD.
 
   METHOD get_message_longtext.
-    result = zcl_zlk05_api_dev=>get_message_longtext( iv_arbgb = iv_arbgb iv_msgnr = iv_msgnr ).
+    result = api( )->get_message_longtext( iv_arbgb = iv_arbgb iv_msgnr = iv_msgnr ).
   ENDMETHOD.
 
   METHOD get_system_status.
-    result = zcl_zlk05_api_adm=>get_system_status( iv_tcode = iv_tcode iv_program = iv_program ).
+    result = api( )->get_system_status( iv_tcode = iv_tcode iv_program = iv_program ).
   ENDMETHOD.
 
 ENDCLASS.

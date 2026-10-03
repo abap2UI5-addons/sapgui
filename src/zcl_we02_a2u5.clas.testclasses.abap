@@ -6,6 +6,8 @@ CLASS ltcl_we02_a2u5 DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    DATA mo_api TYPE REF TO zcl_zlk05_sys_api_dbl.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_we02_a2u5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -33,10 +35,17 @@ ENDCLASS.
 CLASS ltcl_we02_a2u5 IMPLEMENTATION.
 
   METHOD setup.
+    mo_api = zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
     mo_cut->mt_directions = VALUE #( ( key = `` text = `Both` ) ( key = `1` text = `Outbound` ) ).
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   METHOD given_list.
@@ -145,6 +154,8 @@ CLASS ltcl_we02_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD open_invalid_number.
+    mo_api->answer( iv_method = `GET_IDOC_DETAIL` iv_param = `EV_MESSAGE` iv_key = `abc`
+                    iv_value  = `Enter a valid IDoc number` ).
     mo_cut->mv_mode = `LIST`.
     mo_cut->do_open( `abc` ).
     cl_abap_unit_assert=>assert_equals( exp = `LIST`  act = mo_cut->mv_mode ).
@@ -152,6 +163,8 @@ CLASS ltcl_we02_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD open_unknown_idoc.
+    mo_api->answer( iv_method = `GET_IDOC_DETAIL` iv_param = `EV_MESSAGE` iv_key = `9999999999999999`
+                    iv_value  = `IDoc 9999999999999999 does not exist` ).
     mo_cut->mv_mode = `LIST`.
     mo_cut->do_open( `9999999999999999` ).
     cl_abap_unit_assert=>assert_equals( exp = `LIST` act = mo_cut->mv_mode ).

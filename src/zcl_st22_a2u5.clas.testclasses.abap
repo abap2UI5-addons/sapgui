@@ -6,6 +6,7 @@ CLASS ltcl_st22_a2u5 DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_st22_a2u5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -56,9 +57,16 @@ ENDCLASS.
 CLASS ltcl_st22_a2u5 IMPLEMENTATION.
 
   METHOD setup.
+    zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   METHOD given_dumplist.
@@ -232,7 +240,7 @@ CLASS ltcl_st22_a2u5 IMPLEMENTATION.
     " a broken date must not turn into a selection over the whole SNAP table
     mo_cut->mv_date_from = `not a date`.
     cl_abap_unit_assert=>assert_equals(
-        exp = sy-datum - 7
+        exp = CONV d( sy-datum - 7 )
         act = mo_cut->date_from_input( )
         msg = 'an unusable date is not caught' ).
 

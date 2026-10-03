@@ -6,6 +6,8 @@ CLASS ltcl_su53_a2u5 DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    DATA mo_api TYPE REF TO zcl_zlk05_sys_api_dbl.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_su53_a2u5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -30,9 +32,16 @@ ENDCLASS.
 CLASS ltcl_su53_a2u5 IMPLEMENTATION.
 
   METHOD setup.
+    mo_api = zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   METHOD given_fails.
@@ -93,6 +102,8 @@ CLASS ltcl_su53_a2u5 IMPLEMENTATION.
   METHOD read_own_user_default.
     " the own checks need no further authorization - there is always an
     " answer: a list or the statement that nothing failed
+    mo_api->answer( iv_method = `GET_AUTH_FAILURES` iv_param = `EV_MESSAGE`
+                    iv_value  = |No failed authorization checks for { sy-uname } in the last 3 hours.| ).
     mo_cut->mv_user = ``.
     mo_cut->do_read( ).
     cl_abap_unit_assert=>assert_equals( exp = CONV string( sy-uname ) act = mo_cut->mv_user ).

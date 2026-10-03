@@ -2,321 +2,7 @@ CLASS zcl_se80_api DEFINITION PUBLIC.
 
   PUBLIC SECTION.
 
-    " ===== Types =====
-    TYPES:
-      BEGIN OF ty_s_source_result,
-        source       TYPE string,
-        source_local TYPE string,
-        source_test  TYPE string,
-        syntax_mode  TYPE string,
-        lines        TYPE i,
-        success      TYPE abap_bool,
-        message      TYPE string,
-      END OF ty_s_source_result.
-
-    TYPES:
-      BEGIN OF ty_s_method,
-        cmpname  TYPE string,
-        exposure TYPE string,
-        mtdtype  TYPE string,
-      END OF ty_s_method.
-    TYPES ty_t_method TYPE STANDARD TABLE OF ty_s_method WITH EMPTY KEY.
-
-    TYPES:
-      BEGIN OF ty_s_field,
-        name    TYPE string,
-        keyflag TYPE string,
-        typtype TYPE string,
-        type    TYPE string,
-      END OF ty_s_field.
-    TYPES ty_t_field TYPE STANDARD TABLE OF ty_s_field WITH EMPTY KEY.
-
-    TYPES:
-      BEGIN OF ty_s_prop,
-        label TYPE string,
-        value TYPE string,
-      END OF ty_s_prop.
-    TYPES ty_t_prop TYPE STANDARD TABLE OF ty_s_prop WITH EMPTY KEY.
-
-    TYPES:
-      BEGIN OF ty_s_usage,
-        object   TYPE string,
-        obj_name TYPE string,
-      END OF ty_s_usage.
-    TYPES ty_t_usage TYPE STANDARD TABLE OF ty_s_usage WITH EMPTY KEY.
-
-    TYPES:
-      BEGIN OF ty_s_tree_leaf,
-        text  TYPE string,
-        icon  TYPE string,
-        key   TYPE string,
-        otype TYPE string,
-      END OF ty_s_tree_leaf.
-    TYPES:
-      BEGIN OF ty_s_tree_child,
-        text  TYPE string,
-        icon  TYPE string,
-        key   TYPE string,
-        otype TYPE string,
-        nodes TYPE STANDARD TABLE OF ty_s_tree_leaf WITH EMPTY KEY,
-      END OF ty_s_tree_child.
-    TYPES:
-      BEGIN OF ty_s_tree_node,
-        text  TYPE string,
-        icon  TYPE string,
-        key   TYPE string,
-        otype TYPE string,
-        nodes TYPE STANDARD TABLE OF ty_s_tree_child WITH EMPTY KEY,
-      END OF ty_s_tree_node.
-    TYPES ty_t_tree TYPE STANDARD TABLE OF ty_s_tree_node WITH EMPTY KEY.
-
-    TYPES:
-      BEGIN OF ty_s_check_msg,
-        type    TYPE string,
-        line    TYPE i,
-        col     TYPE i,
-        message TYPE string,
-      END OF ty_s_check_msg.
-    TYPES ty_t_check_msg TYPE STANDARD TABLE OF ty_s_check_msg WITH EMPTY KEY.
-
-    TYPES:
-      BEGIN OF ty_s_result,
-        success TYPE abap_bool,
-        message TYPE string,
-      END OF ty_s_result.
-
-    " ===== Write protection =====
-    " The Object Navigator of this environment is READ-ONLY. All methods
-    " that change the repository (save, activate, create, delete, rename,
-    " copy, transport) refuse to run while this constant is abap_false.
-    " Switching it on is a deliberate code change - and even then every
-    " change still needs S_DEVELOP for the concrete package and object.
-    CONSTANTS c_write_enabled TYPE abap_bool VALUE abap_false.
-
-    " ===== Navigation =====
-    METHODS get_package_tree
-      IMPORTING iv_package    TYPE devclass
-      RETURNING VALUE(result) TYPE ty_t_tree.
-
-    METHODS search_objects
-      IMPORTING iv_pattern    TYPE string
-                iv_type       TYPE trobjtype OPTIONAL
-      RETURNING VALUE(result) TYPE ty_t_tree.
-
-    " ===== Source Reading =====
-    METHODS load_source
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-      RETURNING VALUE(result) TYPE ty_s_source_result.
-
-    " ===== Source Writing =====
-    METHODS save_source
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-                iv_source     TYPE string
-      RETURNING VALUE(result) TYPE ty_s_result.
-
-    " ===== Activation =====
-    METHODS activate_object
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-      RETURNING VALUE(result) TYPE ty_s_result.
-
-    " ===== Syntax Check =====
-    METHODS check_syntax
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-                iv_source     TYPE string
-      RETURNING VALUE(result) TYPE ty_t_check_msg.
-
-    " ===== Pretty Printer =====
-    METHODS pretty_print
-      IMPORTING iv_source     TYPE string
-      RETURNING VALUE(result) TYPE string.
-
-    " ===== Metadata =====
-    METHODS get_metadata
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-      EXPORTING et_methods    TYPE ty_t_method
-                et_fields     TYPE ty_t_field.
-
-    " ===== Properties =====
-    METHODS get_properties
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-                iv_source     TYPE string OPTIONAL
-      RETURNING VALUE(result) TYPE ty_t_prop.
-
-    " ===== Where-Used =====
-    METHODS get_where_used
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_usage.
-
-    " ===== Utilities =====
-    METHODS get_object_icon
-      IMPORTING iv_type       TYPE trobjtype
-      RETURNING VALUE(result) TYPE string.
-
-    METHODS get_text_elements
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-      RETURNING VALUE(result) TYPE string.
-
-    METHODS get_documentation
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-      RETURNING VALUE(result) TYPE string.
-
-    METHODS get_includes
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS get_object_status
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-      RETURNING VALUE(result) TYPE string.
-
-    METHODS delete_object
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-      RETURNING VALUE(result) TYPE ty_s_result.
-
-    METHODS lock_in_transport
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-                iv_transport  TYPE trkorr
-      RETURNING VALUE(result) TYPE ty_s_result.
-
-    METHODS create_program
-      IMPORTING iv_name       TYPE sobj_name
-                iv_package    TYPE devclass
-      RETURNING VALUE(result) TYPE ty_s_result.
-
-    METHODS create_class
-      IMPORTING iv_name       TYPE sobj_name
-                iv_package    TYPE devclass
-                iv_superclass TYPE seoclsname OPTIONAL
-      RETURNING VALUE(result) TYPE ty_s_result.
-
-    METHODS create_interface
-      IMPORTING iv_name       TYPE sobj_name
-                iv_package    TYPE devclass
-      RETURNING VALUE(result) TYPE ty_s_result.
-
-    METHODS get_subclasses
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_usage.
-
-    METHODS get_implementations
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_usage.
-
-    METHODS get_method_signature
-      IMPORTING iv_classname  TYPE sobj_name
-                iv_methodname TYPE string
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS get_class_events
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS get_source_statistics
-      IMPORTING iv_source     TYPE string
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS get_variants
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS get_table_content
-      IMPORTING iv_name       TYPE sobj_name
-                iv_maxrows    TYPE i DEFAULT 10
-      RETURNING VALUE(result) TYPE string.
-
-    METHODS get_class_types
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS rename_object
-      IMPORTING iv_old_name   TYPE sobj_name
-                iv_new_name   TYPE sobj_name
-                iv_type       TYPE trobjtype
-      RETURNING VALUE(result) TYPE ty_s_result.
-
-    METHODS get_fm_exceptions
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS get_class_constants
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS get_table_foreign_keys
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS get_package_info
-      IMPORTING iv_package    TYPE devclass
-      RETURNING VALUE(result) TYPE ty_t_prop.
-
-    METHODS get_table_append_structures
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS get_class_friends
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS get_redefined_methods
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS get_lock_info
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-      RETURNING VALUE(result) TYPE string.
-
-    METHODS get_package_path
-      IMPORTING iv_package    TYPE devclass
-      RETURNING VALUE(result) TYPE string.
-
-    METHODS copy_object
-      IMPORTING iv_source_name TYPE sobj_name
-                iv_source_type TYPE trobjtype
-                iv_target_name TYPE sobj_name
-                iv_package     TYPE devclass
-      RETURNING VALUE(result)  TYPE ty_s_result.
-
-    METHODS get_table_tech_settings
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS compare_versions
-      IMPORTING iv_name       TYPE sobj_name
-                iv_type       TYPE trobjtype
-      RETURNING VALUE(result) TYPE string.
-
-    METHODS get_program_attributes
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_field.
-
-    METHODS get_object_dependencies
-      IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_t_usage.
-
-    METHODS search_replace_source
-      IMPORTING iv_source     TYPE string
-                iv_search     TYPE string
-                iv_replace    TYPE string
-      EXPORTING ev_source     TYPE string
-                ev_count      TYPE i.
-
-    METHODS get_object_description
-      IMPORTING iv_type       TYPE trobjtype
-                iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE string.
+    INTERFACES zif_se80_api.
 
   PROTECTED SECTION.
   PRIVATE SECTION.
@@ -337,37 +23,37 @@ CLASS zcl_se80_api DEFINITION PUBLIC.
                 iv_type       TYPE trobjtype
                 iv_actvt      TYPE activ_auth
                 iv_package    TYPE devclass OPTIONAL
-      RETURNING VALUE(result) TYPE ty_s_result.
+      RETURNING VALUE(result) TYPE zif_se80_api=>ty_s_result.
 
     " S_DEVELOP display for one object
     METHODS check_read
       IMPORTING iv_name       TYPE sobj_name
                 iv_type       TYPE trobjtype
-      RETURNING VALUE(result) TYPE ty_s_result.
+      RETURNING VALUE(result) TYPE zif_se80_api=>ty_s_result.
 
     METHODS read_class_source
       IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_s_source_result.
+      RETURNING VALUE(result) TYPE zif_se80_api=>ty_s_source_result.
 
     METHODS read_program_source
       IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_s_source_result.
+      RETURNING VALUE(result) TYPE zif_se80_api=>ty_s_source_result.
 
     METHODS read_func_source
       IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_s_source_result.
+      RETURNING VALUE(result) TYPE zif_se80_api=>ty_s_source_result.
 
     METHODS read_fugr_source
       IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_s_source_result.
+      RETURNING VALUE(result) TYPE zif_se80_api=>ty_s_source_result.
 
     METHODS read_ddls_source
       IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_s_source_result.
+      RETURNING VALUE(result) TYPE zif_se80_api=>ty_s_source_result.
 
     METHODS read_bsp_source
       IMPORTING iv_name       TYPE sobj_name
-      RETURNING VALUE(result) TYPE ty_s_source_result.
+      RETURNING VALUE(result) TYPE zif_se80_api=>ty_s_source_result.
 
     METHODS count_lines
       IMPORTING iv_source     TYPE string
@@ -380,7 +66,7 @@ ENDCLASS.
 CLASS ZCL_SE80_API IMPLEMENTATION.
 
 
-  METHOD get_package_tree.
+  METHOD zif_se80_api~get_package_tree.
     " Sub-packages
     SELECT d~devclass, t~ctext
       FROM tdevc AS d
@@ -405,7 +91,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
 
     " Build package nodes
     LOOP AT lt_pkgs ASSIGNING <pkg>.
-      DATA(ls_node) = VALUE ty_s_tree_node(
+      DATA(ls_node) = VALUE zif_se80_api=>ty_s_tree_node(
         text  = COND #( WHEN <pkg>-ctext IS NOT INITIAL
                         THEN |{ <pkg>-devclass } ({ <pkg>-ctext })|
                         ELSE CONV string( <pkg>-devclass ) )
@@ -415,7 +101,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
       LOOP AT lt_objs ASSIGNING FIELD-SYMBOL(<obj>) WHERE devclass = <pkg>-devclass.
         APPEND VALUE #(
           text  = CONV string( <obj>-obj_name )
-          icon  = get_object_icon( <obj>-object )
+          icon  = zif_se80_api~get_object_icon( <obj>-object )
           key   = CONV string( <obj>-obj_name )
           otype = CONV string( <obj>-object )
         ) TO ls_node-nodes.
@@ -437,14 +123,14 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
 
     IF lines( lt_cur ) > 5 AND lines( lt_types ) > 1.
       LOOP AT lt_types ASSIGNING FIELD-SYMBOL(<type>).
-        DATA(ls_grp) = VALUE ty_s_tree_node(
-          icon  = get_object_icon( <type> )
+        DATA(ls_grp) = VALUE zif_se80_api=>ty_s_tree_node(
+          icon  = zif_se80_api~get_object_icon( <type> )
           key   = CONV string( iv_package )
           otype = `DEVC` ).
         LOOP AT lt_cur ASSIGNING <c> WHERE object = <type>.
-          DATA(ls_child) = VALUE ty_s_tree_child(
+          DATA(ls_child) = VALUE zif_se80_api=>ty_s_tree_child(
             text  = CONV string( <c>-obj_name )
-            icon  = get_object_icon( <c>-object )
+            icon  = zif_se80_api~get_object_icon( <c>-object )
             key   = CONV string( <c>-obj_name )
             otype = CONV string( <c>-object ) ).
           " For classes: add methods as sub-items
@@ -510,7 +196,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
       LOOP AT lt_cur ASSIGNING <c>.
         APPEND VALUE #(
           text  = CONV string( <c>-obj_name )
-          icon  = get_object_icon( <c>-object )
+          icon  = zif_se80_api~get_object_icon( <c>-object )
           key   = CONV string( <c>-obj_name )
           otype = CONV string( <c>-object )
         ) TO result.
@@ -519,7 +205,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD search_objects.
+  METHOD zif_se80_api~search_objects.
     DATA(lv_pat) = |%{ to_upper( iv_pattern ) }%|.
     IF iv_type IS NOT INITIAL.
       SELECT object, obj_name FROM tadir
@@ -535,7 +221,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
     LOOP AT lt_f ASSIGNING FIELD-SYMBOL(<f>).
       APPEND VALUE #(
         text  = |{ <f>-obj_name } [{ <f>-object }]|
-        icon  = get_object_icon( <f>-object )
+        icon  = zif_se80_api~get_object_icon( <f>-object )
         key   = CONV string( <f>-obj_name )
         otype = CONV string( <f>-object )
       ) TO result.
@@ -543,7 +229,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD load_source.
+  METHOD zif_se80_api~load_source.
     DATA(ls_gate) = check_read( iv_name = iv_name iv_type = iv_type ).
     IF ls_gate-success = abap_false.
       result-success = abap_false.
@@ -742,7 +428,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD save_source.
+  METHOD zif_se80_api~save_source.
     DATA(ls_gate) = check_write( iv_name  = iv_name
                                 iv_type  = iv_type
                                 iv_actvt = zcl_zlk05_auth=>c_actvt_change ).
@@ -812,7 +498,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD activate_object.
+  METHOD zif_se80_api~activate_object.
     DATA(ls_gate) = check_write( iv_name  = iv_name
                                 iv_type  = iv_type
                                 iv_actvt = zcl_zlk05_auth=>c_actvt_activate ).
@@ -853,7 +539,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD check_syntax.
+  METHOD zif_se80_api~check_syntax.
     DATA lt_source TYPE string_table.
     SPLIT iv_source AT cl_abap_char_utilities=>newline INTO TABLE lt_source.
 
@@ -913,7 +599,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD pretty_print.
+  METHOD zif_se80_api~pretty_print.
     " PRETTY_PRINTER works on any source, class sections included
     DATA lt_source TYPE string_table.
     SPLIT iv_source AT cl_abap_char_utilities=>newline INTO TABLE lt_source.
@@ -931,7 +617,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_metadata.
+  METHOD zif_se80_api~get_metadata.
     CLEAR: et_methods, et_fields.
 
     CASE iv_type.
@@ -978,7 +664,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
           ) TO et_fields.
         ENDLOOP.
         " Technical Settings + Indexes
-        DATA(lt_tech) = get_table_tech_settings( iv_name ).
+        DATA(lt_tech) = zif_se80_api~get_table_tech_settings( iv_name ).
         APPEND LINES OF lt_tech TO et_fields.
 
       WHEN 'FUGR'.
@@ -1083,7 +769,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_properties.
+  METHOD zif_se80_api~get_properties.
     SELECT SINGLE author, devclass, created_on FROM tadir
       WHERE pgmid = 'R3TR' AND object = @iv_type AND obj_name = @iv_name
       INTO @DATA(ls).
@@ -1103,7 +789,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
       ENDIF.
     ENDIF.
     " Description
-    DATA(lv_desc) = get_object_description( iv_type = iv_type iv_name = iv_name ).
+    DATA(lv_desc) = zif_se80_api~get_object_description( iv_type = iv_type iv_name = iv_name ).
     IF lv_desc IS NOT INITIAL.
       INSERT VALUE #( label = `Description` value = lv_desc ) INTO result INDEX 1.
     ENDIF.
@@ -1147,12 +833,12 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
       ENDIF.
       " Subclasses / Implementations count
       IF iv_type = 'CLAS'.
-        DATA(lt_subs) = get_subclasses( iv_name ).
+        DATA(lt_subs) = zif_se80_api~get_subclasses( iv_name ).
         IF lt_subs IS NOT INITIAL.
           APPEND VALUE #( label = `Subclasses` value = CONV string( lines( lt_subs ) ) ) TO result.
         ENDIF.
       ELSEIF iv_type = 'INTF'.
-        DATA(lt_impls) = get_implementations( iv_name ).
+        DATA(lt_impls) = zif_se80_api~get_implementations( iv_name ).
         IF lt_impls IS NOT INITIAL.
           APPEND VALUE #( label = `Implementations` value = CONV string( lines( lt_impls ) ) ) TO result.
         ENDIF.
@@ -1165,7 +851,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_where_used.
+  METHOD zif_se80_api~get_where_used.
     DATA(lv_like) = |%{ iv_name }%|.
     SELECT otype, include FROM wbcrossgt
       WHERE name LIKE @lv_like
@@ -1178,7 +864,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_object_icon.
+  METHOD zif_se80_api~get_object_icon.
     result = SWITCH #( iv_type
       WHEN 'CLAS' THEN `sap-icon://course-book`
       WHEN 'INTF' THEN `sap-icon://interface`
@@ -1202,7 +888,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_program_attributes.
+  METHOD zif_se80_api~get_program_attributes.
     SELECT SINGLE subc, rstat, appl, fixpt FROM trdir
       WHERE name = @iv_name
       INTO @DATA(ls_tr).
@@ -1227,7 +913,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_object_dependencies.
+  METHOD zif_se80_api~get_object_dependencies.
     " Find what this object USES (forward dependencies)
     DATA(lv_like) = |%{ iv_name }%|.
     SELECT DISTINCT name, otype FROM wbcrossgt
@@ -1246,7 +932,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD search_replace_source.
+  METHOD zif_se80_api~search_replace_source.
     ev_source = iv_source.
     ev_count = 0.
     IF iv_search IS INITIAL.
@@ -1256,7 +942,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD compare_versions.
+  METHOD zif_se80_api~compare_versions.
     " Compare active vs inactive version (for classes)
     DATA lt_active TYPE string_table.
     DATA lt_inactive TYPE string_table.
@@ -1327,7 +1013,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_method_signature.
+  METHOD zif_se80_api~get_method_signature.
     " Get method parameters from SEOSUBCODF
     SELECT sconame, pardecltyp, parpasstyp, type FROM seosubcodf
       WHERE clsname = @iv_classname
@@ -1348,7 +1034,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_class_events.
+  METHOD zif_se80_api~get_class_events.
     " Get events defined in a class
     SELECT cmpname, exposure FROM seocompodf
       WHERE clsname = @iv_name AND version = 1
@@ -1365,7 +1051,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_source_statistics.
+  METHOD zif_se80_api~get_source_statistics.
     IF iv_source IS INITIAL.
       RETURN.
     ENDIF.
@@ -1390,7 +1076,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_variants.
+  METHOD zif_se80_api~get_variants.
     SELECT varid~variant, varit~vtext FROM varid
       INNER JOIN varit ON varit~report = varid~report
         AND varit~variant = varid~variant AND varit~langu = 'E'
@@ -1406,7 +1092,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_table_content.
+  METHOD zif_se80_api~get_table_content.
     DATA(ls_auth) = zcl_zlk05_auth=>check_table_display( CONV string( iv_name ) ).
     IF ls_auth-allowed = abap_false.
       result = |* { ls_auth-message }|.
@@ -1461,7 +1147,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_class_types.
+  METHOD zif_se80_api~get_class_types.
     " Get types defined in a class
     SELECT cmpname, exposure, type FROM seocompodf
       WHERE clsname = @iv_name AND version = 1
@@ -1478,7 +1164,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD rename_object.
+  METHOD zif_se80_api~rename_object.
     DATA(ls_gate) = check_write( iv_name  = iv_old_name
                                 iv_type  = iv_type
                                 iv_actvt = zcl_zlk05_auth=>c_actvt_delete ).
@@ -1530,7 +1216,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_package_info.
+  METHOD zif_se80_api~get_package_info.
     SELECT SINGLE d~devclass, d~parentcl, d~dlvunit, d~component, t~ctext
       FROM tdevc AS d
       LEFT JOIN tdevct AS t ON t~devclass = d~devclass AND t~spras = 'E'
@@ -1564,7 +1250,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_table_append_structures.
+  METHOD zif_se80_api~get_table_append_structures.
     " Find append structures for a table
     SELECT tabname FROM dd03l
       WHERE fieldname = '.APPEND' AND precfield = @iv_name AND as4local = 'A'
@@ -1579,7 +1265,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_lock_info.
+  METHOD zif_se80_api~get_lock_info.
     " Check if object is locked by someone
     DATA lv_user TYPE syuname.
     CASE iv_type.
@@ -1612,7 +1298,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_package_path.
+  METHOD zif_se80_api~get_package_path.
     " Build full package hierarchy path
     DATA lv_pkg TYPE devclass.
     DATA lt_path TYPE STANDARD TABLE OF devclass WITH EMPTY KEY.
@@ -1635,7 +1321,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_class_friends.
+  METHOD zif_se80_api~get_class_friends.
     " Friends of the active version, SE24 tab Friends
     SELECT refclsname FROM seofriends
       WHERE clsname = @iv_name AND version = '1'
@@ -1649,7 +1335,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_redefined_methods.
+  METHOD zif_se80_api~get_redefined_methods.
     SELECT cmpname FROM seocompodf
       WHERE clsname = @iv_name AND version = 1
       AND redefin = 'X'
@@ -1665,7 +1351,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_fm_exceptions.
+  METHOD zif_se80_api~get_fm_exceptions.
     " Function module exceptions
     SELECT parameter FROM fupararef
       WHERE funcname = @iv_name AND r3state = 'A' AND paramtype = 'X'
@@ -1681,7 +1367,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_class_constants.
+  METHOD zif_se80_api~get_class_constants.
     " Get constants defined in a class
     SELECT cmpname, exposure, attvalue, type FROM seocompodf
       WHERE clsname = @iv_name AND version = 1
@@ -1699,7 +1385,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_table_foreign_keys.
+  METHOD zif_se80_api~get_table_foreign_keys.
     " Foreign keys for a table
     SELECT fieldname, checktable FROM dd03l
       WHERE tabname = @iv_name AND as4local = 'A'
@@ -1717,7 +1403,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD create_interface.
+  METHOD zif_se80_api~create_interface.
     DATA(ls_gate) = check_write( iv_name  = iv_name
                                 iv_type  = 'INTF'
                                 iv_actvt = zcl_zlk05_auth=>c_actvt_create
@@ -1757,7 +1443,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_subclasses.
+  METHOD zif_se80_api~get_subclasses.
     " Find all direct subclasses
     SELECT clsname FROM seometarel
       WHERE refclsname = @iv_name AND version = 1
@@ -1772,7 +1458,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_implementations.
+  METHOD zif_se80_api~get_implementations.
     " Find all classes implementing this interface
     SELECT clsname FROM vseoimplem
       WHERE refclsname = @iv_name AND version = 1
@@ -1787,7 +1473,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD create_class.
+  METHOD zif_se80_api~create_class.
     DATA(ls_gate) = check_write( iv_name  = iv_name
                                 iv_type  = 'CLAS'
                                 iv_actvt = zcl_zlk05_auth=>c_actvt_create
@@ -1845,7 +1531,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD copy_object.
+  METHOD zif_se80_api~copy_object.
     DATA(ls_gate) = check_write( iv_name  = iv_target_name
                                 iv_type  = iv_source_type
                                 iv_actvt = zcl_zlk05_auth=>c_actvt_create
@@ -1886,7 +1572,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_table_tech_settings.
+  METHOD zif_se80_api~get_table_tech_settings.
     " Read DD09L for technical settings
     SELECT SINGLE tabkat, tabart, bufallow, schfeldanz FROM dd09l
       WHERE tabname = @iv_name AND as4local = 'A'
@@ -1910,7 +1596,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD create_program.
+  METHOD zif_se80_api~create_program.
     DATA(ls_gate) = check_write( iv_name  = iv_name
                                 iv_type  = 'PROG'
                                 iv_actvt = zcl_zlk05_auth=>c_actvt_create
@@ -1949,7 +1635,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_object_status.
+  METHOD zif_se80_api~get_object_status.
     " Simple status check
     result = `Active`.
     SELECT SINGLE obj_name FROM tadir
@@ -1971,7 +1657,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD delete_object.
+  METHOD zif_se80_api~delete_object.
     DATA(ls_gate) = check_write( iv_name  = iv_name
                                 iv_type  = iv_type
                                 iv_actvt = zcl_zlk05_auth=>c_actvt_delete ).
@@ -2028,7 +1714,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD lock_in_transport.
+  METHOD zif_se80_api~lock_in_transport.
     DATA(ls_gate) = check_write( iv_name  = iv_name
                                 iv_type  = iv_type
                                 iv_actvt = zcl_zlk05_auth=>c_actvt_change ).
@@ -2062,7 +1748,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_documentation.
+  METHOD zif_se80_api~get_documentation.
     DATA lt_lines TYPE string_table.
     DATA lt_doc TYPE STANDARD TABLE OF tline WITH EMPTY KEY.
 
@@ -2103,7 +1789,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_includes.
+  METHOD zif_se80_api~get_includes.
     CASE iv_type.
       WHEN 'FUGR'.
         " List function modules as includes
@@ -2137,7 +1823,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_text_elements.
+  METHOD zif_se80_api~get_text_elements.
     DATA lt_lines TYPE string_table.
     CASE iv_type.
       WHEN 'PROG' OR 'CLAS' OR 'FUGR'.
@@ -2161,7 +1847,30 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_object_description.
+  METHOD zif_se80_api~get_parent_package.
+    DATA lv_package TYPE devclass.
+    lv_package = to_upper( iv_package ).
+    SELECT SINGLE parentcl FROM tdevc WHERE devclass = @lv_package INTO @DATA(lv_parent).
+    IF sy-subrc = 0.
+      result = lv_parent.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD zif_se80_api~find_object.
+    DATA lv_name TYPE sobj_name.
+    lv_name = to_upper( iv_name ).
+    SELECT SINGLE object, obj_name FROM tadir
+      WHERE pgmid = 'R3TR' AND obj_name = @lv_name
+      INTO @DATA(ls_object).
+    IF sy-subrc = 0.
+      result-object   = ls_object-object.
+      result-obj_name = ls_object-obj_name.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD zif_se80_api~get_object_description.
     CASE iv_type.
       WHEN 'CLAS' OR 'INTF'.
         SELECT SINGLE descript FROM seoclasstx WHERE clsname = @iv_name AND langu = 'E' INTO @result ##SUBRC_OK.
@@ -2221,7 +1930,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
 
     result-success = abap_false.
 
-    IF c_write_enabled = abap_false.
+    IF zif_se80_api=>c_write_enabled = abap_false.
       MESSAGE e013(zlk05) INTO result-message.
       RETURN.
     ENDIF.

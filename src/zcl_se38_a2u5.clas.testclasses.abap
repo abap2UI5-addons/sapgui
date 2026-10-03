@@ -6,6 +6,8 @@ CLASS ltcl_se38_a2u5 DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    DATA mo_api TYPE REF TO zcl_zlk05_sys_api_dbl.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_se38_a2u5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -43,7 +45,9 @@ CLASS ltcl_se38_a2u5 IMPLEMENTATION.
 
   METHOD start_opens_program.
     " a jump from another transaction opens the program directly
-    DATA(lv_pool) = CONV string( cl_oo_classname_service=>get_classpool_name( 'ZCL_SE38_A2U5' ) ).
+    DATA(lv_pool) = `ZCL_SE38_A2U5=================CP`.
+    mo_api->answer( iv_method = `GET_PROGRAM_SOURCE` iv_key = lv_pool
+                    iv_value  = `class-pool .` ).
     CAST zif_zlk05_start_params( mo_cut )->set_start_params(
         VALUE #( ( name = zif_zlk05_start_params=>c_program value = to_lower( lv_pool ) ) ) ).
     mo_dbl->mv_on_init = abap_true.
@@ -80,9 +84,16 @@ CLASS ltcl_se38_a2u5 IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD setup.
+    mo_api = zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   METHOD given_hitlist.

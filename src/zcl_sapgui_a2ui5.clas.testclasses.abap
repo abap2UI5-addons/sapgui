@@ -6,6 +6,7 @@ CLASS ltcl_launcher DEFINITION FINAL FOR TESTING
   RISK LEVEL HARMLESS.
 
   PRIVATE SECTION.
+    METHODS teardown.
     DATA mo_cut TYPE REF TO zcl_sapgui_a2ui5.
     DATA mo_dbl TYPE REF TO zcl_zlk05_client_dbl.
 
@@ -57,10 +58,17 @@ CLASS ltcl_launcher IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD setup.
+    zcl_zlk05_sys_api_dbl=>install( ).
+    zcl_zlk05_auth_sys_dbl=>install( ).
     mo_cut = NEW #( ).
     mo_dbl = NEW #( ).
     mo_cut->client = mo_dbl.
     mo_cut->init_menu( ).
+  ENDMETHOD.
+
+  METHOD teardown.
+    zcl_zlk05_sys_api_dbl=>uninstall( ).
+    zcl_zlk05_auth_sys_dbl=>uninstall( ).
   ENDMETHOD.
 
   " ===================== command field =====================

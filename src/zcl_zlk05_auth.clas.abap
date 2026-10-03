@@ -1,4 +1,5 @@
-CLASS zcl_zlk05_auth DEFINITION PUBLIC FINAL CREATE PUBLIC.
+CLASS zcl_zlk05_auth DEFINITION PUBLIC FINAL CREATE PUBLIC
+  GLOBAL FRIENDS zcl_zlk05_auth_sys_dbl.
 
 * ---------------------------------------------------------------------
 *  Authorization checks of the SAP GUI look-alike apps of $ZLK_05.
@@ -17,9 +18,10 @@ CLASS zcl_zlk05_auth DEFINITION PUBLIC FINAL CREATE PUBLIC.
 *                     SE16N (S_TABU_NAM / S_TABU_DIS), the package and
 *                     object in SE80 (S_DEVELOP).
 *
-*  Every AUTHORITY-CHECK asks fake_subrc( ) first, so that the unit
-*  tests (LOCAL FRIENDS) can simulate a user without the authorization.
-*  Outside a test gt_fake is always empty and the real check runs.
+*  The AUTHORITY-CHECK statements themselves, and what a check reads
+*  from the repository, sit behind ZIF_ZLK05_AUTH_SYS - see sys( ). On
+*  a system that is ZCL_ZLK05_AUTH_SYS; in the unit tests it is
+*  ZCL_ZLK05_AUTH_SYS_DBL, which a test tells which checks to fail.
 * ---------------------------------------------------------------------
 
   PUBLIC SECTION.
@@ -30,11 +32,14 @@ CLASS zcl_zlk05_auth DEFINITION PUBLIC FINAL CREATE PUBLIC.
         message TYPE string,
       END OF ty_s_check.
 
-    CONSTANTS c_actvt_create  TYPE activ_auth VALUE '01'.
-    CONSTANTS c_actvt_change  TYPE activ_auth VALUE '02'.
-    CONSTANTS c_actvt_display TYPE activ_auth VALUE '03'.
-    CONSTANTS c_actvt_delete  TYPE activ_auth VALUE '06'.
-    CONSTANTS c_actvt_activate TYPE activ_auth VALUE '07'.
+    "! Activity of an authorization field (ACTIV_AUTH)
+    TYPES ty_actvt TYPE c LENGTH 2.
+
+    CONSTANTS c_actvt_create  TYPE ty_actvt VALUE '01'.
+    CONSTANTS c_actvt_change  TYPE ty_actvt VALUE '02'.
+    CONSTANTS c_actvt_display TYPE ty_actvt VALUE '03'.
+    CONSTANTS c_actvt_delete  TYPE ty_actvt VALUE '06'.
+    CONSTANTS c_actvt_activate TYPE ty_actvt VALUE '07'.
 
     "! The entry screen (SAP Easy Access). It has no transaction code of
     "! its own and only shows the menu - every transaction started from it
@@ -75,7 +80,7 @@ CLASS zcl_zlk05_auth DEFINITION PUBLIC FINAL CREATE PUBLIC.
     "! activity is checked) - this is the "may use the workbench at all"
     "! check of SE80 / SE38 / SE11 / ...
     CLASS-METHODS check_develop
-      IMPORTING iv_actvt      TYPE activ_auth
+      IMPORTING iv_actvt      TYPE ty_actvt
                 iv_package    TYPE string OPTIONAL
                 iv_objtype    TYPE string OPTIONAL
                 iv_objname    TYPE string OPTIONAL
@@ -171,23 +176,17 @@ CLASS zcl_zlk05_auth DEFINITION PUBLIC FINAL CREATE PUBLIC.
 
   PRIVATE SECTION.
 
-    TYPES:
-      BEGIN OF ty_s_fake,
-        seam  TYPE string,
-        subrc TYPE i,
-      END OF ty_s_fake.
+    "! The implementation on a real system. Created by name, so that the
+    "! checks - and every app - do not depend on it: the unit tests run
+    "! transpiled without it (README, Development).
+    CONSTANTS c_sys_class TYPE string VALUE `ZCL_ZLK05_AUTH_SYS`.
 
-    "! fake_subrc( ) when no test decided the check: run the real one
-    CONSTANTS c_no_fake TYPE i VALUE -1.
+    "! Set by ZCL_ZLK05_AUTH_SYS_DBL in a unit test, else created by sys( )
+    CLASS-DATA go_sys TYPE REF TO zif_zlk05_auth_sys.
 
-    "! sy-subrc per check, set by the unit tests only
-    CLASS-DATA gt_fake TYPE HASHED TABLE OF ty_s_fake WITH UNIQUE KEY seam.
-
-    "! The sy-subrc a unit test decided for the check iv_seam, c_no_fake
-    "! when none did
-    CLASS-METHODS fake_subrc
-      IMPORTING iv_seam       TYPE string
-      RETURNING VALUE(result) TYPE i.
+    "! The AUTHORITY-CHECK statements and repository reads of the checks
+    CLASS-METHODS sys
+      RETURNING VALUE(result) TYPE REF TO zif_zlk05_auth_sys.
 
     CLASS-METHODS render_denied
       IMPORTING io_client  TYPE REF TO z2ui5_if_client
@@ -207,14 +206,12 @@ ENDCLASS.
 CLASS zcl_zlk05_auth IMPLEMENTATION.
 
 
-  METHOD fake_subrc.
+  METHOD sys.
 
-    READ TABLE gt_fake INTO DATA(ls_fake) WITH TABLE KEY seam = iv_seam.
-    IF sy-subrc = 0.
-      result = ls_fake-subrc.
-    ELSE.
-      result = c_no_fake.
+    IF go_sys IS NOT BOUND.
+      CREATE OBJECT go_sys TYPE (c_sys_class).
     ENDIF.
+    result = go_sys.
 
   ENDMETHOD.
 
@@ -232,7 +229,7 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
 
   METHOD check_tcode.
 
-    DATA lv_tcode TYPE tcode.
+    DATA lv_tcode TYPE string.
     DATA lv_subrc TYPE sy-subrc.
 
     lv_tcode = to_upper( condense( iv_tcode ) ).
@@ -242,11 +239,7 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    lv_subrc = fake_subrc( `auth_tcode` ).
-    IF lv_subrc = c_no_fake.
-      AUTHORITY-CHECK OBJECT 'S_TCODE' ID 'TCD' FIELD lv_tcode.
-      lv_subrc = sy-subrc.
-    ENDIF.
+    lv_subrc = sys( )->s_tcode( lv_tcode ).
 
     IF lv_subrc = 0.
       result = allowed( ).
@@ -272,11 +265,7 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
         result = check_develop( c_actvt_display ).
 
       WHEN `SM21`.
-        lv_subrc = fake_subrc( `auth_base_sm21` ).
-        IF lv_subrc = c_no_fake.
-          AUTHORITY-CHECK OBJECT 'S_ADMI_FCD' ID 'S_ADMI_FCD' FIELD 'SM21'.
-          lv_subrc = sy-subrc.
-        ENDIF.
+        lv_subrc = sys( )->s_admi_fcd( `SM21` ).
         IF lv_subrc <> 0.
           MESSAGE e002(zlk05) INTO DATA(lv_msg_sm21).
           result = denied( lv_msg_sm21 ).
@@ -284,66 +273,35 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
 
       WHEN `RZ10` OR `RZ11` OR `SM04`.
         " SM04: TH_USER_LIST itself asks for S_RZL_ADM 03 from outside
-        lv_subrc = fake_subrc( `auth_base_rzl` ).
-        IF lv_subrc = c_no_fake.
-          AUTHORITY-CHECK OBJECT 'S_RZL_ADM' ID 'ACTVT' FIELD c_actvt_display.
-          lv_subrc = sy-subrc.
-        ENDIF.
+        lv_subrc = sys( )->s_rzl_adm( ).
         IF lv_subrc <> 0.
           MESSAGE e003(zlk05) INTO DATA(lv_msg_rzl).
           result = denied( lv_msg_rzl ).
         ENDIF.
 
       WHEN `SU01`.
-        lv_subrc = fake_subrc( `auth_base_user` ).
-        IF lv_subrc = c_no_fake.
-          AUTHORITY-CHECK OBJECT 'S_USER_GRP'
-            ID 'CLASS' DUMMY
-            ID 'ACTVT' FIELD c_actvt_display.
-          lv_subrc = sy-subrc.
-        ENDIF.
+        lv_subrc = sys( )->s_user_grp_any( ).
         IF lv_subrc <> 0.
           MESSAGE e004(zlk05) INTO DATA(lv_msg_usr).
           result = denied( lv_msg_usr ).
         ENDIF.
 
       WHEN `STMS` OR `SE09` OR `SE10`.
-        lv_subrc = fake_subrc( `auth_base_transport` ).
-        IF lv_subrc = c_no_fake.
-          AUTHORITY-CHECK OBJECT 'S_TRANSPRT'
-            ID 'TTYPE' DUMMY
-            ID 'ACTVT' FIELD c_actvt_display.
-          lv_subrc = sy-subrc.
-        ENDIF.
+        lv_subrc = sys( )->s_transprt_any( ).
         IF lv_subrc <> 0.
           MESSAGE e005(zlk05) INTO DATA(lv_msg_tr).
           result = denied( lv_msg_tr ).
         ENDIF.
 
       WHEN `SLG1`.
-        lv_subrc = fake_subrc( `auth_base_slg1` ).
-        IF lv_subrc = c_no_fake.
-          AUTHORITY-CHECK OBJECT 'S_APPL_LOG'
-            ID 'ALG_OBJECT' DUMMY
-            ID 'ALG_SUBOBJ' DUMMY
-            ID 'ACTVT'      FIELD c_actvt_display.
-          lv_subrc = sy-subrc.
-        ENDIF.
+        lv_subrc = sys( )->s_appl_log_any( ).
         IF lv_subrc <> 0.
           MESSAGE e015(zlk05) INTO DATA(lv_msg_slg1).
           result = denied( lv_msg_slg1 ).
         ENDIF.
 
       WHEN `SM59`.
-        lv_subrc = fake_subrc( `auth_base_sm59` ).
-        IF lv_subrc = c_no_fake.
-          AUTHORITY-CHECK OBJECT 'S_RFC_ADM'
-            ID 'ACTVT'     FIELD c_actvt_display
-            ID 'RFCTYPE'   DUMMY
-            ID 'RFCDEST'   DUMMY
-            ID 'ICF_VALUE' DUMMY.
-          lv_subrc = sy-subrc.
-        ENDIF.
+        lv_subrc = sys( )->s_rfc_adm_any( ).
         IF lv_subrc <> 0.
           MESSAGE e016(zlk05) INTO DATA(lv_msg_sm59).
           result = denied( lv_msg_sm59 ).
@@ -351,13 +309,7 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
 
       WHEN `PFCG`.
         " TSTCA of PFCG: S_USER_AGR - here for display
-        lv_subrc = fake_subrc( `auth_base_pfcg` ).
-        IF lv_subrc = c_no_fake.
-          AUTHORITY-CHECK OBJECT 'S_USER_AGR'
-            ID 'ACT_GROUP' DUMMY
-            ID 'ACTVT'     FIELD c_actvt_display.
-          lv_subrc = sy-subrc.
-        ENDIF.
+        lv_subrc = sys( )->s_user_agr_any( ).
         IF lv_subrc <> 0.
           MESSAGE e024(zlk05) INTO DATA(lv_msg_pfcg).
           result = denied( lv_msg_pfcg ).
@@ -366,26 +318,7 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
       WHEN `WE02` OR `WE05`.
         " RSEIDOC2, form AUTHORITY_CHECK_RSEIDOC2_DISP: WE02, or the older
         " WE05 authorization
-        lv_subrc = fake_subrc( `auth_base_idoc` ).
-        IF lv_subrc = c_no_fake.
-          AUTHORITY-CHECK OBJECT 'S_IDOCMONI'
-            ID 'EDI_TCD' FIELD 'WE02'
-            ID 'ACTVT'   FIELD c_actvt_display
-            ID 'EDI_DIR' DUMMY
-            ID 'EDI_MES' DUMMY
-            ID 'EDI_PRN' DUMMY
-            ID 'EDI_PRT' DUMMY.
-          IF sy-subrc <> 0.
-            AUTHORITY-CHECK OBJECT 'S_IDOCMONI'
-              ID 'EDI_TCD' FIELD 'WE05'
-              ID 'ACTVT'   FIELD c_actvt_display
-              ID 'EDI_DIR' DUMMY
-              ID 'EDI_MES' DUMMY
-              ID 'EDI_PRN' DUMMY
-              ID 'EDI_PRT' DUMMY.
-          ENDIF.
-          lv_subrc = sy-subrc.
-        ENDIF.
+        lv_subrc = sys( )->s_idocmoni_any( ).
         IF lv_subrc <> 0.
           MESSAGE e025(zlk05) INTO DATA(lv_msg_idoc).
           result = denied( lv_msg_idoc ).
@@ -453,8 +386,8 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
 
   METHOD check_table_display.
 
-    DATA lv_table  TYPE tabname.
-    DATA lv_cclass TYPE tddat-cclass.
+    DATA lv_table  TYPE string.
+    DATA lv_cclass TYPE string.
     DATA lv_subrc  TYPE sy-subrc.
 
     lv_table = to_upper( condense( iv_table ) ).
@@ -465,18 +398,12 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
     ENDIF.
 
     " 1 - authorization group of the table, &NC& when it has none
-    SELECT SINGLE cclass FROM tddat WHERE tabname = @lv_table INTO @lv_cclass.
-    IF sy-subrc <> 0 OR lv_cclass IS INITIAL.
+    lv_cclass = sys( )->table_auth_group( lv_table ).
+    IF lv_cclass IS INITIAL.
       lv_cclass = '&NC&'.
     ENDIF.
 
-    lv_subrc = fake_subrc( `auth_tabu_dis` ).
-    IF lv_subrc = c_no_fake.
-      AUTHORITY-CHECK OBJECT 'S_TABU_DIS'
-        ID 'DICBERCLS' FIELD lv_cclass
-        ID 'ACTVT'     FIELD c_actvt_display.
-      lv_subrc = sy-subrc.
-    ENDIF.
+    lv_subrc = sys( )->s_tabu_dis( lv_cclass ).
 
     IF lv_subrc = 0.
       result = allowed( ).
@@ -484,13 +411,7 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
     ENDIF.
 
     " 2 - table by name
-    lv_subrc = fake_subrc( `auth_tabu_nam` ).
-    IF lv_subrc = c_no_fake.
-      AUTHORITY-CHECK OBJECT 'S_TABU_NAM'
-        ID 'ACTVT' FIELD c_actvt_display
-        ID 'TABLE' FIELD lv_table.
-      lv_subrc = sy-subrc.
-    ENDIF.
+    lv_subrc = sys( )->s_tabu_nam( lv_table ).
 
     IF lv_subrc = 0.
       result = allowed( ).
@@ -505,22 +426,13 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
   METHOD check_develop.
 
     DATA lv_subrc   TYPE sy-subrc.
-    DATA lv_package TYPE devclass.
-    DATA lv_objtype TYPE trobjtype.
-    DATA lv_objname TYPE sobj_name.
+    DATA lv_package TYPE string.
+    DATA lv_objtype TYPE string.
+    DATA lv_objname TYPE string.
 
     IF iv_objname IS INITIAL.
 
-      lv_subrc = fake_subrc( `auth_develop_generic` ).
-      IF lv_subrc = c_no_fake.
-        AUTHORITY-CHECK OBJECT 'S_DEVELOP'
-          ID 'DEVCLASS' DUMMY
-          ID 'OBJTYPE'  DUMMY
-          ID 'OBJNAME'  DUMMY
-          ID 'P_GROUP'  DUMMY
-          ID 'ACTVT'    FIELD iv_actvt.
-        lv_subrc = sy-subrc.
-      ENDIF.
+      lv_subrc = sys( )->s_develop_any( CONV #( iv_actvt ) ).
 
     ELSE.
 
@@ -528,16 +440,10 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
       lv_objtype = to_upper( iv_objtype ).
       lv_objname = to_upper( iv_objname ).
 
-      lv_subrc = fake_subrc( `auth_develop_object` ).
-      IF lv_subrc = c_no_fake.
-        AUTHORITY-CHECK OBJECT 'S_DEVELOP'
-          ID 'DEVCLASS' FIELD lv_package
-          ID 'OBJTYPE'  FIELD lv_objtype
-          ID 'OBJNAME'  FIELD lv_objname
-          ID 'P_GROUP'  DUMMY
-          ID 'ACTVT'    FIELD iv_actvt.
-        lv_subrc = sy-subrc.
-      ENDIF.
+      lv_subrc = sys( )->s_develop( iv_actvt   = CONV #( iv_actvt )
+                                    iv_package = lv_package
+                                    iv_objtype = lv_objtype
+                                    iv_objname = lv_objname ).
 
     ENDIF.
 
@@ -556,18 +462,12 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
 
   METHOD check_user_group.
 
-    DATA lv_group TYPE xuclass.
+    DATA lv_group TYPE string.
     DATA lv_subrc TYPE sy-subrc.
 
     lv_group = to_upper( condense( iv_group ) ).
 
-    lv_subrc = fake_subrc( `auth_user_group` ).
-    IF lv_subrc = c_no_fake.
-      AUTHORITY-CHECK OBJECT 'S_USER_GRP'
-        ID 'CLASS' FIELD lv_group
-        ID 'ACTVT' FIELD c_actvt_display.
-      lv_subrc = sy-subrc.
-    ENDIF.
+    lv_subrc = sys( )->s_user_grp( lv_group ).
 
     IF lv_subrc = 0.
       result = allowed( ).
@@ -581,21 +481,15 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
 
   METHOD check_appl_log.
 
-    DATA lv_object TYPE balobj_d.
-    DATA lv_subobj TYPE balsubobj.
+    DATA lv_object TYPE string.
+    DATA lv_subobj TYPE string.
     DATA lv_subrc  TYPE sy-subrc.
 
     lv_object = to_upper( condense( iv_object ) ).
     lv_subobj = to_upper( condense( iv_subobject ) ).
 
-    lv_subrc = fake_subrc( `auth_appl_log` ).
-    IF lv_subrc = c_no_fake.
-      AUTHORITY-CHECK OBJECT 'S_APPL_LOG'
-        ID 'ALG_OBJECT' FIELD lv_object
-        ID 'ALG_SUBOBJ' FIELD lv_subobj
-        ID 'ACTVT'      FIELD c_actvt_display.
-      lv_subrc = sy-subrc.
-    ENDIF.
+    lv_subrc = sys( )->s_appl_log( iv_object    = lv_object
+                                   iv_subobject = lv_subobj ).
 
     IF lv_subrc = 0.
       result = allowed( ).
@@ -609,22 +503,15 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
 
   METHOD check_rfc_dest.
 
-    DATA lv_type  TYPE rfctype_d.
-    DATA lv_dest  TYPE rfcdest.
+    DATA lv_type  TYPE string.
+    DATA lv_dest  TYPE string.
     DATA lv_subrc TYPE sy-subrc.
 
     lv_type = to_upper( condense( iv_rfctype ) ).
     lv_dest = to_upper( condense( iv_rfcdest ) ).
 
-    lv_subrc = fake_subrc( `auth_rfc_dest` ).
-    IF lv_subrc = c_no_fake.
-      AUTHORITY-CHECK OBJECT 'S_RFC_ADM'
-        ID 'ACTVT'     FIELD c_actvt_display
-        ID 'RFCTYPE'   FIELD lv_type
-        ID 'RFCDEST'   FIELD lv_dest
-        ID 'ICF_VALUE' DUMMY.
-      lv_subrc = sy-subrc.
-    ENDIF.
+    lv_subrc = sys( )->s_rfc_adm( iv_rfctype = lv_type
+                                  iv_rfcdest = lv_dest ).
 
     IF lv_subrc = 0.
       result = allowed( ).
@@ -639,8 +526,8 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
   METHOD check_program_display.
 
     DATA(lv_prog) = to_upper( condense( iv_program ) ).
-    DATA lv_objtype TYPE trobjtype.
-    DATA lv_objname TYPE sobj_name.
+    DATA lv_objtype TYPE string.
+    DATA lv_objname TYPE string.
 
     IF lv_prog IS INITIAL.
       result = denied( `` ).
@@ -659,29 +546,20 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
       lv_objname = lv_prog.
       " not a program of its own: an include of a function group,
       " L<group><3 characters> - LZFGTOP, LZFGU01, LZFGF01 ...
-      SELECT SINGLE @abap_true FROM tadir
-        WHERE pgmid = 'R3TR' AND object = 'PROG' AND obj_name = @lv_objname
-        INTO @DATA(lv_is_prog).
-      IF lv_is_prog = abap_false AND lv_prog CP 'L*' AND strlen( lv_prog ) > 4.
+      IF sys( )->object_exists( iv_object = `PROG` iv_obj_name = lv_objname ) = abap_false AND lv_prog CP 'L*' AND strlen( lv_prog ) > 4.
         DATA(lv_group) = substring( val = lv_prog off = 1 len = strlen( lv_prog ) - 4 ).
-        SELECT SINGLE @abap_true FROM tadir
-          WHERE pgmid = 'R3TR' AND object = 'FUGR' AND obj_name = @lv_group
-          INTO @DATA(lv_is_fugr).
-        IF lv_is_fugr = abap_true.
+        IF sys( )->object_exists( iv_object = `FUGR` iv_obj_name = lv_group ) = abap_true.
           lv_objtype = 'FUGR'.
           lv_objname = lv_group.
         ENDIF.
       ENDIF.
     ENDIF.
 
-    SELECT SINGLE devclass FROM tadir
-      WHERE pgmid = 'R3TR' AND object = @lv_objtype AND obj_name = @lv_objname
-      INTO @DATA(lv_devclass) ##SUBRC_OK.
-
     result = check_develop( iv_actvt   = c_actvt_display
-                            iv_package = CONV #( lv_devclass )
-                            iv_objtype = CONV #( lv_objtype )
-                            iv_objname = CONV #( lv_objname ) ).
+                            iv_package = sys( )->object_package( iv_object   = lv_objtype
+                                                                 iv_obj_name = lv_objname )
+                                                                 iv_objtype = lv_objtype
+                                                                 iv_objname = lv_objname ).
 
   ENDMETHOD.
 
@@ -695,17 +573,7 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    lv_subrc = fake_subrc( `auth_job_prot` ).
-    IF lv_subrc = c_no_fake.
-      AUTHORITY-CHECK OBJECT 'S_BTCH_JOB'
-        ID 'JOBGROUP'  DUMMY
-        ID 'JOBACTION' FIELD 'PROT'.
-      lv_subrc = sy-subrc.
-      IF lv_subrc <> 0.
-        AUTHORITY-CHECK OBJECT 'S_BTCH_ADM' ID 'BTCADMIN' FIELD 'Y'.
-        lv_subrc = sy-subrc.
-      ENDIF.
-    ENDIF.
+    lv_subrc = sys( )->s_btch_job_prot( ).
 
     IF lv_subrc = 0.
       result = allowed( ).
@@ -720,9 +588,7 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
 
   METHOD check_user_display.
 
-    DATA(lv_user) = CONV xubname( to_upper( condense( iv_bname ) ) ).
-    SELECT SINGLE class FROM usr02 WHERE bname = @lv_user INTO @DATA(lv_group) ##SUBRC_OK.
-    result = check_user_group( CONV string( lv_group ) ).
+    result = check_user_group( sys( )->user_group( to_upper( condense( iv_bname ) ) ) ).
 
   ENDMETHOD.
 
@@ -803,18 +669,12 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
 
   METHOD check_role.
 
-    DATA lv_role  TYPE agr_name.
+    DATA lv_role  TYPE string.
     DATA lv_subrc TYPE sy-subrc.
 
     lv_role = to_upper( condense( iv_role ) ).
 
-    lv_subrc = fake_subrc( `auth_role` ).
-    IF lv_subrc = c_no_fake.
-      AUTHORITY-CHECK OBJECT 'S_USER_AGR'
-        ID 'ACT_GROUP' FIELD lv_role
-        ID 'ACTVT'     FIELD c_actvt_display.
-      lv_subrc = sy-subrc.
-    ENDIF.
+    lv_subrc = sys( )->s_user_agr( lv_role ).
 
     IF lv_subrc = 0.
       result = allowed( ).
@@ -829,10 +689,8 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
   METHOD check_idoc.
 
     DATA lv_subrc TYPE sy-subrc.
-    DATA lv_prn   TYPE edi_rcvprn.
-    DATA lv_prt   TYPE edi_rcvprt.
-    DATA lo_badi  TYPE REF TO idoc_authority_restriction.
-    DATA lv_ok    TYPE flag.
+    DATA lv_prn   TYPE string.
+    DATA lv_prt   TYPE string.
 
     " outbound: the receiver is checked, inbound: the sender
     IF is_edidc-direct = '1'.
@@ -843,34 +701,9 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
       lv_prt = is_edidc-sndprt.
     ENDIF.
 
-    lv_subrc = fake_subrc( `auth_idoc` ).
-    IF lv_subrc = c_no_fake.
-      AUTHORITY-CHECK OBJECT 'S_IDOCMONI'
-        ID 'EDI_TCD' FIELD 'WE02'
-        ID 'ACTVT'   FIELD c_actvt_display
-        ID 'EDI_DIR' FIELD is_edidc-direct
-        ID 'EDI_MES' FIELD is_edidc-mestyp
-        ID 'EDI_PRN' FIELD lv_prn
-        ID 'EDI_PRT' FIELD lv_prt.
-      lv_subrc = sy-subrc.
-
-      " the customer check of RSEIDOC2 on top of the authorization
-      IF lv_subrc = 0.
-        lv_ok = abap_true.
-        TRY.
-            GET BADI lo_badi FILTERS mestyp = is_edidc-mestyp.
-            CALL BADI lo_badi->is_idoc_access_allowed
-              EXPORTING if_docnum       = is_edidc-docnum
-                        if_edidc        = is_edidc
-              CHANGING  if_authority_ok = lv_ok.
-          CATCH cx_badi ##NO_HANDLER.
-            " no implementation - nothing restricts the access
-        ENDTRY.
-        IF lv_ok = abap_false.
-          lv_subrc = 4.
-        ENDIF.
-      ENDIF.
-    ENDIF.
+    lv_subrc = sys( )->s_idocmoni( is_edidc        = is_edidc
+                                   iv_partner_num  = lv_prn
+                                   iv_partner_type = lv_prt ).
 
     IF lv_subrc = 0.
       result = allowed( ).
@@ -886,21 +719,12 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
   METHOD check_spool.
 
     DATA lv_subrc  TYPE sy-subrc.
-    DATA lv_access TYPE authb-spoaction.
+    DATA lv_access TYPE string.
 
     lv_access = to_upper( iv_access ).
 
-    lv_subrc = fake_subrc( `auth_spool` ).
-    IF lv_subrc = c_no_fake.
-      CALL FUNCTION 'RSPO_CHECK_JOB_PERMISSION'
-        EXPORTING
-          access        = lv_access
-          spoolreq      = is_tsp01
-        EXCEPTIONS
-          no_permission = 1
-          OTHERS        = 2.
-      lv_subrc = sy-subrc.
-    ENDIF.
+    lv_subrc = sys( )->spool_permission( is_tsp01  = is_tsp01
+                                         iv_access = lv_access ).
 
     IF lv_subrc = 0.
       result = allowed( ).
@@ -914,17 +738,13 @@ CLASS zcl_zlk05_auth IMPLEMENTATION.
 
   METHOD check_message_class.
 
-    DATA lv_arbgb TYPE sobj_name.
-    lv_arbgb = to_upper( condense( iv_arbgb ) ).
-
-    SELECT SINGLE devclass FROM tadir
-      WHERE pgmid = 'R3TR' AND object = 'MSAG' AND obj_name = @lv_arbgb
-      INTO @DATA(lv_devclass) ##SUBRC_OK.
+    DATA(lv_arbgb) = to_upper( condense( iv_arbgb ) ).
 
     result = check_develop( iv_actvt   = c_actvt_display
-                            iv_package = CONV #( lv_devclass )
-                            iv_objtype = `MSAG`
-                            iv_objname = CONV #( lv_arbgb ) ).
+                            iv_package = sys( )->object_package( iv_object   = `MSAG`
+                                                                 iv_obj_name = lv_arbgb )
+                                                                 iv_objtype = `MSAG`
+                                                                 iv_objname = lv_arbgb ).
 
   ENDMETHOD.
 
