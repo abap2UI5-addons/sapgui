@@ -1,9 +1,6 @@
 {
   "global": {
-    "files": "/src/**/*.*",
-    // a scratch class kept in the development system (an ADT console
-    // runner, not an app) - abapGit serializes it with the package
-    "exclude": ["zcl_zlk05_tmp_probe\\.clas\\."]
+    "files": "/src/**/*.*"
   },
   "dependencies": [
     {
@@ -38,6 +35,7 @@
         "CLAS",
         "DEVC",
         "INTF",
+        "MSAG",
         "TABL"
       ]
     },
@@ -231,7 +229,10 @@
     "unnecessary_pragma": true,
     "unnecessary_return": true,
     "unreachable_code": true,
-    "unsecure_fae": true,
+    // the rule reports every FOR ALL ENTRIES, guarded or not (its own
+    // implementation says "todo"); each of the three here sits behind an
+    // IS NOT INITIAL check of its driver table
+    "unsecure_fae": false,
     "unused_ddic": true,
     "unused_macros": true,
     "unused_types": true,

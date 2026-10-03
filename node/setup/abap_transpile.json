@@ -1,0 +1,45 @@
+{
+  "input_folder": "src",
+  "output_folder": "node/output",
+  "libs": [
+    {
+      "url": "https://github.com/abap2UI5/abap2UI5",
+      "folder": "/node/deps/abap2ui5"
+    },
+    {
+      "url": "https://github.com/open-abap/open-abap-core",
+      "folder": "/node/deps/open-abap-core"
+    }
+  ],
+  "write_unit_tests": true,
+  "options": {
+    "ignoreSyntaxCheck": false,
+    "addFilenames": true,
+    "addCommonJS": true,
+    "setup": {
+      "filename": "../setup/setup.mjs",
+      "preFunction": "setup"
+    },
+    "unknownTypes": "runtimeError",
+    "skip": [
+      {
+        "object": "ZCL_SAPGUI_AUTH",
+        "class": "ltcl_auth",
+        "method": "idoc_denied",
+        "note": "the IDoc control record EDIDC is not in the DDIC of open-abap-core; runs on a system"
+      },
+      {
+        "object": "ZCL_SAPGUI_AUTH",
+        "class": "ltcl_auth",
+        "method": "spool_denied",
+        "note": "the spool request record TSP01 is not in the DDIC of open-abap-core; runs on a system"
+      }
+    ]
+  },
+  "exclude_filter": [
+    "zcl_sapgui_sys_api_db\\.",
+    "zcl_sapgui_api_",
+    "zcl_sapgui_se80_api\\.",
+    "zcl_sapgui_auth_sys\\."
+  ]
+}

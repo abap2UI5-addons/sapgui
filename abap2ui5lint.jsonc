@@ -7,10 +7,7 @@
 
   "paths": ["src"],
 
-  // the scratch class of the development package, see abaplint.jsonc
-  "ignore": ["zcl_zlk05_tmp_probe\\."],
-
-  // The helper classes (ZCL_ZLK05_*, ZCL_SE80_API) build no view, but the
+  // The helper classes (ZCL_SAPGUI_*, ZCL_SAPGUI_SE80_API) build no view, but the
   // activation and hygiene rules apply to them as much as to the apps.
   "allClasses": true,
 
@@ -20,11 +17,18 @@
   "distribution": "openui5",
 
   // Off for now, and not by accident: every screen hands its view to
-  // ZCL_ZLK05_GUI_FRAME, which opens the mvc:View and the six bands of the
+  // ZCL_SAPGUI_FRAME, which opens the mvc:View and the six bands of the
   // window in another class, so the linter reconstructs no control of any
   // app here ("judged 0 controls" in the run summary). A render gate would
   // have nothing to render. README "Development" says what changes that.
   "render": false,
+
+  // the house layout of abap2UI5 and its sample repositories: one call per
+  // line, four spaces per tree level, end( ) in the column it closes.
+  // `npx abap2ui5lint --fix` applies it.
+  "rules": {
+    "chain-house-layout": "warning"
+  },
 
   "failOn": "warning"
 }

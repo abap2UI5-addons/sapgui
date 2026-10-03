@@ -46,7 +46,7 @@ jobs:
 
     # the gates that resolve the core - they run before the PR exists
     - if: steps.pin.outputs.changed == 'true'
-      run: npm run lint && npm run lint_standard
+      run: npm run lint && npm run lint_standard && npm run transpile && npm run unit
 
     - if: steps.pin.outputs.changed == 'true'
       uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
@@ -57,4 +57,5 @@ jobs:
         body: |
           Weekly move of the abap2UI5 release this addon is checked against
           (the abaplint configs) to ${{ steps.pin.outputs.version }}. abaplint
-          ran against the new tag in the workflow that opened this pull request.
+          and the transpiled unit tests ran against the new tag in the
+          workflow that opened this pull request.

@@ -1,0 +1,39 @@
+# The ABAP Unit tests of src/, transpiled to JavaScript and run in Node -
+# no SAP system needed. The apps reach the system only through
+# ZIF_SAPGUI_SYS_API, ZIF_SAPGUI_AUTH_SYS and ZIF_SAPGUI_SE80_API; the tests put
+# doubles in front of them, and the classes that read the database are
+# left out of the transpile (node/setup/abap_transpile.json). Their own
+# tests run on a system only. Then the view of every screen is written to
+# node/views and checked by the abap2UI5 linter with the render gate.
+# README, "Development".
+name: unit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: unit-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run transpile
+      - run: npm run unit
+      # every screen as the browser gets it, through the abap2UI5 linter:
+      # properties against UI5 1.71 and a real XMLView.create in Chromium
+      - run: npx playwright install --with-deps chromium
+      - run: npm run views -- --render
