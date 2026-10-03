@@ -1305,12 +1305,12 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
 
   METHOD get_table_fields.
-    result = zcl_zlk05_api_dev=>get_table_fields( iv_tabname = iv_tabname ).
+    result = zcl_zlk05_api_dev=>get_table_fields( iv_tabname ).
   ENDMETHOD.
 
 
   METHOD get_dtel_detail.
-    result = zcl_zlk05_api_dev=>get_dtel_detail( iv_rollname = iv_rollname ).
+    result = zcl_zlk05_api_dev=>get_dtel_detail( iv_rollname ).
   ENDMETHOD.
 
 
@@ -1320,7 +1320,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
 
   METHOD get_class_components.
-    result = zcl_zlk05_api_dev=>get_class_components( iv_clsname = iv_clsname ).
+    result = zcl_zlk05_api_dev=>get_class_components( iv_clsname ).
   ENDMETHOD.
 
 
@@ -1330,7 +1330,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
 
   METHOD get_function_params.
-    result = zcl_zlk05_api_dev=>get_function_params( iv_funcname = iv_funcname ).
+    result = zcl_zlk05_api_dev=>get_function_params( iv_funcname ).
   ENDMETHOD.
 
 
@@ -1340,7 +1340,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
 
   METHOD get_program_source.
-    result = zcl_zlk05_api_dev=>get_program_source( iv_name = iv_name ).
+    result = zcl_zlk05_api_dev=>get_program_source( iv_name ).
   ENDMETHOD.
 
 
@@ -1355,7 +1355,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
 
   METHOD parse_flist.
-    result = zcl_zlk05_api_mon=>parse_flist( iv_flist = iv_flist ).
+    result = zcl_zlk05_api_mon=>parse_flist( iv_flist ).
   ENDMETHOD.
 
 
@@ -1375,7 +1375,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
 
   METHOD get_user_roles.
-    result = zcl_zlk05_api_adm=>get_user_roles( iv_bname = iv_bname ).
+    result = zcl_zlk05_api_adm=>get_user_roles( iv_bname ).
   ENDMETHOD.
 
 
@@ -1405,7 +1405,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
 
   METHOD get_tms_queue.
-    result = zcl_zlk05_api_trn=>get_tms_queue( iv_max = iv_max ).
+    result = zcl_zlk05_api_trn=>get_tms_queue( iv_max ).
   ENDMETHOD.
 
 
@@ -1462,7 +1462,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
 
   METHOD get_parameter_detail.
-    result = zcl_zlk05_api_adm=>get_parameter_detail( iv_paraname = iv_paraname ).
+    result = zcl_zlk05_api_adm=>get_parameter_detail( iv_paraname ).
   ENDMETHOD.
 
 
@@ -1495,17 +1495,17 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
 
   METHOD transaction_exists.
-    result = zcl_zlk05_api_repo=>transaction_exists( iv_tcode = iv_tcode ).
+    result = zcl_zlk05_api_repo=>transaction_exists( iv_tcode ).
   ENDMETHOD.
 
 
   METHOD get_transaction_text.
-    result = zcl_zlk05_api_repo=>get_transaction_text( iv_tcode = iv_tcode ).
+    result = zcl_zlk05_api_repo=>get_transaction_text( iv_tcode ).
   ENDMETHOD.
 
 
   METHOD seuk_text.
-    result = zcl_zlk05_api_repo=>seuk_text( iv_key = iv_key ).
+    result = zcl_zlk05_api_repo=>seuk_text( iv_key ).
   ENDMETHOD.
 
 
@@ -1515,7 +1515,7 @@ CLASS zcl_zlk05_sys_api IMPLEMENTATION.
 
 
   METHOD get_transaction_detail.
-    result = zcl_zlk05_api_repo=>get_transaction_detail( iv_tcode = iv_tcode ).
+    result = zcl_zlk05_api_repo=>get_transaction_detail( iv_tcode ).
   ENDMETHOD.
 
   METHOD get_app_logs.

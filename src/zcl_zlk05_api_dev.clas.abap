@@ -440,7 +440,7 @@ CLASS zcl_zlk05_api_dev IMPLEMENTATION.
       WHEN 'VIEW'.
         SELECT SINGLE viewclass FROM dd25l
           WHERE viewname = @lv_name AND as4local = 'A'
-          INTO @DATA(lv_viewclass).
+          INTO @DATA(lv_viewclass) ##SUBRC_OK.
         result = SWITCH #( lv_viewclass
                    WHEN 'D' THEN zcl_zlk05_sys_api=>c_table_kind-db_view
                    WHEN 'C' THEN zcl_zlk05_sys_api=>c_table_kind-maint_view
@@ -567,7 +567,7 @@ CLASS zcl_zlk05_api_dev IMPLEMENTATION.
     ENDIF.
     SELECT SINGLE devclass FROM tadir
       WHERE pgmid = 'R3TR' AND object = 'MSAG' AND obj_name = @lv_arbgb
-      INTO @DATA(lv_devclass).
+      INTO @DATA(lv_devclass) ##SUBRC_OK.
 
     et_head = VALUE #(
       ( label = `Message class`      value = lv_arbgb )
@@ -606,7 +606,11 @@ CLASS zcl_zlk05_api_dev IMPLEMENTATION.
     LOOP AT lt_nr INTO ls_nr.
       READ TABLE lt_t100 INTO DATA(ls_t100) WITH KEY sprsl = sy-langu msgnr = ls_nr-msgnr.
       IF sy-subrc <> 0.
+        " any language, but never the text of the previous message
         READ TABLE lt_t100 INTO ls_t100 WITH KEY msgnr = ls_nr-msgnr.
+        IF sy-subrc <> 0.
+          CLEAR ls_t100.
+        ENDIF.
       ENDIF.
       READ TABLE lt_self INTO DATA(ls_self) WITH KEY msgnr = ls_nr-msgnr BINARY SEARCH.
       DATA(lv_self) = xsdbool( sy-subrc = 0 AND ls_self-selfdef IS NOT INITIAL ).
@@ -634,7 +638,7 @@ CLASS zcl_zlk05_api_dev IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    SELECT SINGLE masterlang FROM t100a WHERE arbgb = @lv_arbgb INTO @DATA(lv_master).
+    SELECT SINGLE masterlang FROM t100a WHERE arbgb = @lv_arbgb INTO @DATA(lv_master) ##SUBRC_OK.
 
     " logon language, English, the original language - the first one that has the text
     LOOP AT VALUE string_table( ( CONV string( sy-langu ) ) ( `E` ) ( CONV string( lv_master ) ) )
@@ -663,7 +667,7 @@ CLASS zcl_zlk05_api_dev IMPLEMENTATION.
     " message long text, no formatting tags
     LOOP AT lt_line INTO DATA(ls_line).
       DATA(lv_text) = CONV string( ls_line-tdline ).
-      REPLACE ALL OCCURRENCES OF PCRE `<[^>]*>` IN lv_text WITH ``.
+      REPLACE ALL OCCURRENCES OF REGEX `<[^>]*>` IN lv_text WITH `` ##REGEX_POSIX.
       REPLACE ALL OCCURRENCES OF `&CAUSE&`            IN lv_text WITH `Diagnosis`.
       REPLACE ALL OCCURRENCES OF `&SYSTEM_RESPONSE&`  IN lv_text WITH `System Response`.
       REPLACE ALL OCCURRENCES OF `&WHAT_TO_DO&`       IN lv_text WITH `Procedure`.

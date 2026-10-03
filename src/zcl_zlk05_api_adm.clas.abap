@@ -150,7 +150,7 @@ CLASS zcl_zlk05_api_adm IMPLEMENTATION.
     DATA(lv_user) = CONV xubname( to_upper( condense( iv_bname ) ) ).
 
     " the roles of a user are as protected as the user himself
-    SELECT SINGLE class FROM usr02 WHERE bname = @lv_user INTO @DATA(lv_group).
+    SELECT SINGLE class FROM usr02 WHERE bname = @lv_user INTO @DATA(lv_group) ##SUBRC_OK.
     IF zcl_zlk05_auth=>check_user_group( CONV string( lv_group ) )-allowed = abap_false.
       RETURN.
     ENDIF.
@@ -732,7 +732,7 @@ CLASS zcl_zlk05_api_adm IMPLEMENTATION.
     ENDLOOP.
 
     " --- Host and database data
-    SELECT SINGLE tzonesys FROM ttzcu INTO @lv_tzone.
+    SELECT SINGLE tzonesys FROM ttzcu INTO @lv_tzone ##SUBRC_OK.
     result = VALUE #( BASE result
       ( group = `Host Data`     label = `System ID`          value = sy-sysid )
       ( group = `Host Data`     label = `Application server` value = sy-host )

@@ -214,8 +214,8 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
       SPLIT lv_bcol AT `|` INTO DATA(lv_bhead) DATA(lv_bfld) DATA(lv_bwid).
       DATA(bcol) = bcols->ele( n = `Column` ns = `table`
           )->a( n = `width` t = lv_bwid
-          )->a( n = `sortProperty`   v = lv_bfld
-          )->a( n = `filterProperty` v = lv_bfld ).
+          )->a( n = `sortProperty`   t = lv_bfld
+          )->a( n = `filterProperty` t = lv_bfld ).
       bcol->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_bhead )->end( )->end( ).
       bcol->ele( n = `template` ns = `table`
@@ -251,8 +251,8 @@ CLASS zcl_st02_a2u5 IMPLEMENTATION.
       SPLIT lv_mcol AT `|` INTO DATA(lv_mhead) DATA(lv_mfld) DATA(lv_mwid).
       DATA(mcol) = mcols->ele( n = `Column` ns = `table`
           )->a( n = `width` t = lv_mwid
-          )->a( n = `sortProperty`   v = lv_mfld
-          )->a( n = `filterProperty` v = lv_mfld ).
+          )->a( n = `sortProperty`   t = lv_mfld
+          )->a( n = `filterProperty` t = lv_mfld ).
       mcol->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_mhead )->end( )->end( ).
       mcol->ele( n = `template` ns = `table`

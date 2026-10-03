@@ -363,7 +363,6 @@ CLASS zcl_zlk05_api_ops IMPLEMENTATION.
   ENDMETHOD.
 
 
-
   METHOD load_idoc_customizing.
 
     IF mv_idoc_init = abap_true.

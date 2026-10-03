@@ -47,7 +47,7 @@ CLASS zcl_sm30_a2u5 IMPLEMENTATION.
 
     me->client = client.
 
-    IF client->check_on_init( ) OR client->check_on_navigated( ).
+    IF client->check_on_navigated( ).
       view_display( ).
     ELSEIF client->check_on_event( ).
       on_event( ).

@@ -3,10 +3,7 @@
 // sources to 7.02 syntax; the 702 branch is then checked with it as is.
 {
   "global": {
-    "files": "/../../src/**/*.*",
-    // a scratch class kept in the development system (an ADT console
-    // runner, not an app) - abapGit serializes it with the package
-    "exclude": ["zcl_zlk05_tmp_probe\\.clas\\."]
+    "files": "/../../src/**/*.*"
   },
   "dependencies": [
     {

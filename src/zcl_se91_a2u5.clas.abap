@@ -278,8 +278,8 @@ CLASS zcl_se91_a2u5 IMPLEMENTATION.
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
           )->a( n = `width` t = lv_wid
-          )->a( n = `sortProperty`   v = lv_fld
-          )->a( n = `filterProperty` v = lv_fld ).
+          )->a( n = `sortProperty`   t = lv_fld
+          )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       DATA(tmpl) = col->ele( n = `template` ns = `table` ).
@@ -318,7 +318,7 @@ CLASS zcl_se91_a2u5 IMPLEMENTATION.
               tooltip = |Copy - { c_na }| )
             ( icon = `sap-icon://delete` color = zcl_zlk05_gui_frame=>c_red
               tooltip = |Delete - { c_na }| )
-            ( icon = `sap-icon://where-used` color = zcl_zlk05_gui_frame=>c_grey
+            ( icon = `sap-icon://search` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Where-Used List - { c_na }| ) ) ).
 
     DATA(work) = page->ele( `ScrollContainer`
@@ -368,7 +368,7 @@ CLASS zcl_se91_a2u5 IMPLEMENTATION.
             ( sep = abap_true )
             ( icon = `sap-icon://edit` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Display <-> Change - { c_na }| )
-            ( icon = `sap-icon://where-used` color = zcl_zlk05_gui_frame=>c_grey
+            ( icon = `sap-icon://search` color = zcl_zlk05_gui_frame=>c_grey
               tooltip = |Where-Used List - { c_na }| ) ) ).
 
     DATA(tabs) = page->ele( `IconTabBar`

@@ -150,7 +150,7 @@ CLASS ltcl_frame IMPLEMENTATION.
         iv_root    = abap_true ).
     cl_abap_unit_assert=>assert_equals( exp = `ZCL_SM37_A2U5`
                                         act = mo_dbl->mv_nav_call ).
-    cl_abap_unit_assert=>assert_initial( act = mo_dbl->mv_nav_replace ).
+    cl_abap_unit_assert=>assert_initial( mo_dbl->mv_nav_replace ).
 
   ENDMETHOD.
 

@@ -63,8 +63,8 @@ CLASS zcl_zlk05_gui_frame DEFINITION PUBLIC FINAL CREATE PUBLIC.
     CONSTANTS c_ev_logoff      TYPE string VALUE `GUI_LOGOFF`.
     CONSTANTS c_ev_popup_close TYPE string VALUE `GUI_POPUP_CLOSE`.
 
-    "! Entries of the System and Help menu (argument of c_ev_menu)
     CONSTANTS:
+      "! Entries of the System and Help menu (argument of c_ev_menu)
       BEGIN OF c_menu,
         own_data   TYPE string VALUE `OWN_DATA`,
         own_spool  TYPE string VALUE `OWN_SPOOL`,
@@ -119,8 +119,8 @@ CLASS zcl_zlk05_gui_frame DEFINITION PUBLIC FINAL CREATE PUBLIC.
       END OF ty_s_button.
     TYPES ty_t_button TYPE STANDARD TABLE OF ty_s_button WITH EMPTY KEY.
 
-    "! A list of the running app: one of its public internal tables
     TYPES:
+      "! A list of the running app: one of its public internal tables
       BEGIN OF ty_s_list,
         name  TYPE string,
         lines TYPE i,
@@ -128,8 +128,8 @@ CLASS zcl_zlk05_gui_frame DEFINITION PUBLIC FINAL CREATE PUBLIC.
       END OF ty_s_list.
     TYPES ty_t_list TYPE STANDARD TABLE OF ty_s_list WITH EMPTY KEY.
 
-    "! One hit of System > List > Find
     TYPES:
+      "! One hit of System > List > Find
       BEGIN OF ty_s_hit,
         list   TYPE string,
         row    TYPE i,
@@ -313,12 +313,17 @@ CLASS zcl_zlk05_gui_frame DEFINITION PUBLIC FINAL CREATE PUBLIC.
                 ev_class  TYPE string
                 ev_tcode  TYPE string.
 
+    TYPES:
+      "! A popup of the frame: the fragment to display and its Dialog
+      BEGIN OF ty_s_popup,
+        popup  TYPE REF TO z2ui5_cl_ui5_view_builder,
+        dialog TYPE REF TO z2ui5_cl_ui5_view_builder,
+      END OF ty_s_popup.
+
     CLASS-METHODS popup_open
-      IMPORTING io_client     TYPE REF TO z2ui5_if_client
-                iv_title      TYPE string
+      IMPORTING iv_title      TYPE string
                 iv_width      TYPE string DEFAULT `40rem`
-      EXPORTING eo_popup      TYPE REF TO z2ui5_cl_ui5_view_builder
-      RETURNING VALUE(result) TYPE REF TO z2ui5_cl_ui5_view_builder.
+      RETURNING VALUE(result) TYPE ty_s_popup.
 
     CLASS-METHODS popup_show
       IMPORTING io_client TYPE REF TO z2ui5_if_client
@@ -387,9 +392,9 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
         build_help_menu( io_bar = bar io_client = io_client ).
       ELSE.
         bar->tag( `Text`
-            )->a( n = `text`    v = lv_entry
+            )->a( n = `text`    t = lv_entry
             )->a( n = `class`   v = `sapUiSmallMarginEnd`
-            )->a( n = `tooltip` v = |{ lv_entry } - the menu of the application is shown for orientation| ).
+            )->a( n = `tooltip` t = |{ lv_entry } - the menu of the application is shown for orientation| ).
       ENDIF.
     ENDLOOP.
 
@@ -512,15 +517,19 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
     IF iv_cmd_event IS NOT INITIAL.
       DATA(cmd) = bar->ele( `Input`
           )->a( n = `id`             v = `idCommandField`
+          " the binding of the command field, built by the app with _bind( )
+          " abap2ui5lint-disable-next-line unescaped-text-in-attribute
           )->a( n = `value`          v = iv_cmd_value
           )->a( n = `width`          v = `13rem`
           )->a( n = `showSuggestion` v = `true`
           )->a( n = `tooltip`        v = `Command field - SE80, /nSE80 ends the transaction, /oSE80 opens a new session, /nend logs off`
+          " the event of the command field, built by the app with _event( )
+          " abap2ui5lint-disable-next-line unescaped-text-in-attribute
           )->a( n = `submit`         v = iv_cmd_event ).
       DATA(sugg) = cmd->ele( `suggestionItems` ).
       LOOP AT zcl_zlk05_tcode_router=>get_apps( ) INTO DATA(ls_app) WHERE class IS NOT INITIAL.
         sugg->tag( n = `ListItem` ns = `core`
-            )->a( n = `text`           v = ls_app-tcode
+            )->a( n = `text`           t = ls_app-tcode
             )->a( n = `additionalText` t = ls_app-text ).
       ENDLOOP.
     ELSE.
@@ -670,13 +679,13 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
         )->a( n = `tooltip` v = `SAP` ).
 
     bar->tag( `Title`
-        )->a( n = `text`  v = iv_title
+        )->a( n = `text`  t = iv_title
         )->a( n = `level` v = `H2`
         )->a( n = `class` v = `sapUiSmallMarginBegin` ).
 
     IF iv_hint IS NOT INITIAL.
       bar->tag( `ToolbarSpacer` ).
-      bar->tag( `Text` )->a( n = `text` v = iv_hint ).
+      bar->tag( `Text` )->a( n = `text` t = iv_hint ).
     ENDIF.
 
     " the browser tab carries the screen title, like the SAP GUI window
@@ -720,7 +729,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
                   ELSE                              c_blue ) ).
 
       bar->tag( `Text`
-          )->a( n = `text`  v = iv_message
+          )->a( n = `text`  t = iv_message
           )->a( n = `class` v = `sapUiTinyMarginBegin` ).
     ENDIF.
 
@@ -745,14 +754,14 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
     " the tooltip carries system, client and user, like the expanded
     " status field of the SAP GUI
     bar->tag( `Text`
-        )->a( n = `text`    v = lv_sysid
-        )->a( n = `tooltip` v = |System { lv_sysid } - Client { lv_client } - User { lv_user }| ).
+        )->a( n = `text`    t = lv_sysid
+        )->a( n = `tooltip` t = |System { lv_sysid } - Client { lv_client } - User { lv_user }| ).
 
     bar->tag( `ToolbarSeparator` ).
 
     bar->tag( `Text`
-        )->a( n = `text`    v = lv_host
-        )->a( n = `tooltip` v = |Application server { lv_host }| ).
+        )->a( n = `text`    t = lv_host
+        )->a( n = `tooltip` t = |Application server { lv_host }| ).
 
     bar->tag( `ToolbarSeparator` ).
 
@@ -850,7 +859,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
       WHEN c_ev_logoff.
         " the answer of the Log Off box arrives as the event argument
         IF to_upper( io_client->get_event_arg( ) ) = `YES`.
-          io_client->follow_up_action( val = io_client->cs_event-system_logout ).
+          io_client->follow_up_action( io_client->cs_event-system_logout ).
         ENDIF.
         result-outcome = c_navigated.
 
@@ -904,7 +913,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
         result-outcome = c_navigated.
 
       WHEN zcl_zlk05_tcode_router=>c_cmd_logoff_now.
-        io_client->follow_up_action( val = io_client->cs_event-system_logout ).
+        io_client->follow_up_action( io_client->cs_event-system_logout ).
         result-outcome = c_navigated.
 
       WHEN OTHERS.
@@ -994,8 +1003,8 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
   METHOD start_tcode_of_url.
 
     DATA(lv_search) = io_client->get( )-s_config-search.
-    FIND FIRST OCCURRENCE OF PCRE |[?&]{ c_url_tcode }=([A-Za-z0-9_/]\{1,20\})(&\|$)|
-      IN lv_search SUBMATCHES DATA(lv_tcode).
+    FIND FIRST OCCURRENCE OF REGEX |[?&]{ c_url_tcode }=([A-Za-z0-9_/]\{1,20\})(&\|$)|
+      IN lv_search SUBMATCHES DATA(lv_tcode) ##REGEX_POSIX.
     IF sy-subrc = 0.
       result = to_upper( lv_tcode ).
     ENDIF.
@@ -1140,7 +1149,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
   METHOD add_label.
 
     io_parent->tag( `Label`
-        )->a( n = `text`  v = iv_text
+        )->a( n = `text`  t = iv_text
         )->a( n = `width` v = iv_width ).
 
   ENDMETHOD.
@@ -1148,10 +1157,12 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
 
   METHOD popup_open.
 
-    eo_popup = z2ui5_cl_ui5_view_builder=>factory( ).
-    result = eo_popup->ele( n = `FragmentDefinition` ns = `core`
+    result-popup = z2ui5_cl_ui5_view_builder=>factory( ).
+    result-dialog = result-popup->ele( n = `FragmentDefinition` ns = `core`
         )->a( n = `xmlns`      v = `sap.m`
         )->a( n = `xmlns:core` v = `sap.ui.core`
+        " the Close button and its event are added by popup_show( )
+        " abap2ui5lint-disable-next-line popup-without-close-wire
         )->ele( `Dialog`
             )->a( n = `title`         t = iv_title
             )->a( n = `contentWidth`  v = iv_width
@@ -1184,10 +1195,9 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
     DATA(lt_status) = zcl_zlk05_sys_api=>get_system_status( iv_tcode   = lv_tcode
                                                             iv_program = lv_class ).
 
-    DATA popup TYPE REF TO z2ui5_cl_ui5_view_builder.
-    DATA(dialog) = popup_open( EXPORTING io_client = io_client
-                                         iv_title  = `System: Status`
-                               IMPORTING eo_popup  = popup ).
+    DATA(ls_popup) = popup_open( `System: Status` ).
+    DATA(popup) = ls_popup-popup.
+    DATA(dialog) = ls_popup-dialog.
     DATA(box) = dialog->ele( `VBox` )->a( n = `class` v = `sapUiSmallMargin` ).
 
     DATA(lv_group) = ``.
@@ -1214,12 +1224,11 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
     running_app( EXPORTING io_client = io_client
                  IMPORTING ev_tcode  = DATA(lv_tcode) ).
 
-    DATA popup TYPE REF TO z2ui5_cl_ui5_view_builder.
-    DATA(dialog) = popup_open( EXPORTING io_client = io_client
-                                         iv_title  = COND #( WHEN iv_keys = abap_true THEN `Keyboard Shortcuts`
-                                                             ELSE `Application Help` )
-                                         iv_width  = `44rem`
-                               IMPORTING eo_popup  = popup ).
+    DATA(ls_popup) = popup_open( iv_title = COND #( WHEN iv_keys = abap_true THEN `Keyboard Shortcuts`
+                                                    ELSE `Application Help` )
+                                 iv_width = `44rem` ).
+    DATA(popup) = ls_popup-popup.
+    DATA(dialog) = ls_popup-dialog.
     DATA(box) = dialog->ele( `VBox` )->a( n = `class` v = `sapUiSmallMargin` ).
 
     IF iv_keys = abap_false.
@@ -1281,16 +1290,15 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
 
     " System > List > Find: the term is read from the dialog when Find is
     " pressed - the frame keeps no state between two roundtrips
-    DATA popup TYPE REF TO z2ui5_cl_ui5_view_builder.
-    DATA(dialog) = popup_open( EXPORTING io_client = io_client
-                                         iv_title  = `Find`
-                                         iv_width  = `48rem`
-                               IMPORTING eo_popup  = popup ).
+    DATA(ls_popup) = popup_open( iv_title = `Find`
+                                 iv_width = `48rem` ).
+    DATA(popup) = ls_popup-popup.
+    DATA(dialog) = ls_popup-dialog.
     DATA(box) = dialog->ele( `VBox` )->a( n = `class` v = `sapUiSmallMargin` ).
 
     DATA(lv_find) = io_client->_event(
         val   = c_ev_find_exec
-        t_arg = VALUE #( ( |$controller.slotValue('{ io_client->cs_view-popup }', 'idGuiFindTerm', 'getValue')| ) ) ).
+        arg = |$controller.slotValue('{ io_client->cs_view-popup }', 'idGuiFindTerm', 'getValue')| ).
 
     DATA(row) = box->ele( `HBox` )->a( n = `alignItems` v = `Center` ).
     row->tag( `Label` )->a( n = `text` v = `Find` )->a( n = `width` v = `5rem` ).
@@ -1322,7 +1330,7 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
           DATA(tab) = box->ele( `Table` )->a( n = `class` v = `sapUiSizeCompact` ).
           DATA(cols) = tab->ele( `columns` ).
           LOOP AT VALUE string_table( ( `List` ) ( `Row` ) ( `Column` ) ( `Value` ) ) INTO DATA(lv_head).
-            cols->ele( `Column` )->tag( `Text` )->a( n = `text` v = lv_head ).
+            cols->ele( `Column` )->tag( `Text` )->a( n = `text` t = lv_head ).
           ENDLOOP.
           DATA(items) = tab->ele( `items` ).
           LOOP AT lt_hits INTO DATA(ls_hit).
@@ -1509,11 +1517,10 @@ CLASS zcl_zlk05_gui_frame IMPLEMENTATION.
     ENDIF.
 
     IF lines( lt_lists ) > 1.
-      DATA popup TYPE REF TO z2ui5_cl_ui5_view_builder.
-      DATA(dialog) = popup_open( EXPORTING io_client = io_client
-                                           iv_title  = `Save List to Local File`
-                                           iv_width  = `30rem`
-                                 IMPORTING eo_popup  = popup ).
+      DATA(ls_popup) = popup_open( iv_title = `Save List to Local File`
+                                   iv_width = `30rem` ).
+      DATA(popup) = ls_popup-popup.
+      DATA(dialog) = ls_popup-dialog.
       DATA(box) = dialog->ele( `VBox` )->a( n = `class` v = `sapUiSmallMargin` ).
       box->tag( `Text` )->a( n = `text` v = `Which list of the screen do you want to save?` ).
       LOOP AT lt_lists INTO DATA(ls_choice).

@@ -251,8 +251,8 @@ CLASS zcl_pfcg_a2u5 IMPLEMENTATION.
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
           )->a( n = `width` t = lv_wid
-          )->a( n = `sortProperty`   v = lv_fld
-          )->a( n = `filterProperty` v = lv_fld ).
+          )->a( n = `sortProperty`   t = lv_fld
+          )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       DATA(tmpl) = col->ele( n = `template` ns = `table` ).

@@ -28,10 +28,11 @@ CLASS zcl_slg1_a2u5 DEFINITION PUBLIC.
 
     DATA mt_logs     TYPE zcl_zlk05_sys_api=>ty_t_applog.
     DATA mt_messages TYPE zcl_zlk05_sys_api=>ty_t_applog_msg.
+
+  PROTECTED SECTION.
     DATA mv_cur_log  TYPE string.
     DATA mv_cur_text TYPE string.
 
-  PROTECTED SECTION.
     DATA mv_message TYPE string.
     DATA mv_msgtype TYPE string.
     DATA mv_mode    TYPE string.
@@ -210,8 +211,8 @@ CLASS zcl_slg1_a2u5 IMPLEMENTATION.
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
           )->a( n = `width` t = lv_wid
-          )->a( n = `sortProperty`   v = lv_fld
-          )->a( n = `filterProperty` v = lv_fld ).
+          )->a( n = `sortProperty`   t = lv_fld
+          )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       col->ele( n = `template` ns = `table` ).

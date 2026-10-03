@@ -2,10 +2,7 @@
 // Only syntax/consistency rules - style is checked by the root abaplint.jsonc.
 {
   "global": {
-    "files": "/../../src/**/*.*",
-    // a scratch class kept in the development system (an ADT console
-    // runner, not an app) - abapGit serializes it with the package
-    "exclude": ["zcl_zlk05_tmp_probe\\.clas\\."]
+    "files": "/../../src/**/*.*"
   },
   "dependencies": [
     {

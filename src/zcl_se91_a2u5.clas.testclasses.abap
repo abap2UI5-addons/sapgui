@@ -62,7 +62,7 @@ CLASS ltcl_se91_a2u5 IMPLEMENTATION.
   METHOD list_class_link.
     mo_cut->view_list( ).
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( line_exists( mo_dbl->mt_events[ table_line = `DISPLAY|${ARBGB}` ] ) ) ).
+        xsdbool( line_exists( mo_dbl->mt_events[ table_line = `DISPLAY|${ARBGB}` ] ) ) ).
   ENDMETHOD.
 
   METHOD list_back_nav_wired.
@@ -89,7 +89,7 @@ CLASS ltcl_se91_a2u5 IMPLEMENTATION.
     given_detail( ).
     mo_cut->view_detail( ).
     cl_abap_unit_assert=>assert_true(
-        act = xsdbool( line_exists( mo_dbl->mt_events[ table_line = `LONGTEXT|${MSGNR}` ] ) ) ).
+        xsdbool( line_exists( mo_dbl->mt_events[ table_line = `LONGTEXT|${MSGNR}` ] ) ) ).
   ENDMETHOD.
 
   METHOD longtext_is_wellformed.

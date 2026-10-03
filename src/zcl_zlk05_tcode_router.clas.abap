@@ -25,11 +25,13 @@ CLASS zcl_zlk05_tcode_router DEFINITION
     TYPES ty_t_app TYPE STANDARD TABLE OF ty_s_app WITH EMPTY KEY.
 
     TYPES:
-      "! Result of run( ): the outcome and the message for the status bar
+      "! Result of run( ): the outcome and the message for the status bar;
+      "! check_start( ) also names the app class that would be started
       BEGIN OF ty_s_result,
         outcome  TYPE string,
         message  TYPE string,
         msg_type TYPE string,
+        class    TYPE string,
       END OF ty_s_result.
 
     TYPES:
@@ -84,10 +86,9 @@ CLASS zcl_zlk05_tcode_router DEFINITION
 
     "! Could iv_tcode be started? All checks of run( ) - known here, has
     "! an app, S_TCODE and the basic authorization - without starting it.
-    "! outcome c_none: yes, ev_class is the app; c_msg: no, see message.
+    "! outcome c_none: yes, class is the app; c_msg: no, see message.
     CLASS-METHODS check_start
       IMPORTING iv_tcode      TYPE string
-      EXPORTING ev_class      TYPE string
       RETURNING VALUE(result) TYPE ty_s_result.
 
     "! Starts the transaction typed into the command field.
@@ -243,13 +244,13 @@ CLASS zcl_zlk05_tcode_router IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA lv_class TYPE string.
     DATA(lv_tcode) = normalize_command( iv_command ).
-    result = check_start( EXPORTING iv_tcode = lv_tcode
-                          IMPORTING ev_class = lv_class ).
+    result = check_start( lv_tcode ).
     IF result-outcome = c_msg.
       RETURN.
     ENDIF.
+    DATA(lv_class) = result-class.
+    CLEAR result-class.
 
     TRY.
         DATA lo_app TYPE REF TO z2ui5_if_app.
@@ -277,7 +278,6 @@ CLASS zcl_zlk05_tcode_router IMPLEMENTATION.
 
   METHOD check_start.
 
-    CLEAR ev_class.
     result-outcome = c_none.
     DATA(lv_tcode) = to_upper( condense( iv_tcode ) ).
 
@@ -322,7 +322,7 @@ CLASS zcl_zlk05_tcode_router IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    ev_class = ls_app-class.
+    result-class = ls_app-class.
 
   ENDMETHOD.
 

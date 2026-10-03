@@ -2201,7 +2201,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
 
     IF lv_type = 'FUNC'.
       " S_DEVELOP checks a function module through its function group
-      SELECT SINGLE area FROM enlfdir WHERE funcname = @lv_name INTO @DATA(lv_area).
+      SELECT SINGLE area FROM enlfdir WHERE funcname = @lv_name INTO @DATA(lv_area) ##SUBRC_OK.
       lv_type = 'FUGR'.
       lv_name = lv_area.
     ENDIF.
@@ -2211,7 +2211,7 @@ CLASS ZCL_SE80_API IMPLEMENTATION.
 
     SELECT SINGLE devclass FROM tadir
       WHERE pgmid = 'R3TR' AND object = @lv_type AND obj_name = @lv_name
-      INTO @DATA(lv_devclass).
+      INTO @DATA(lv_devclass) ##SUBRC_OK.
     ev_package = lv_devclass.
 
   ENDMETHOD.

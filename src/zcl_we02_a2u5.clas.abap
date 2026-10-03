@@ -28,7 +28,6 @@ CLASS zcl_we02_a2u5 DEFINITION PUBLIC.
     DATA mv_direct    TYPE string.
     DATA mt_idocs     TYPE zcl_zlk05_sys_api=>ty_t_idoc.
 
-    DATA ms_idoc      TYPE zcl_zlk05_sys_api=>ty_s_idoc.
     DATA mt_control   TYPE zcl_zlk05_sys_api=>ty_t_kv.
     DATA mt_status    TYPE zcl_zlk05_sys_api=>ty_t_idoc_status.
     DATA mt_segments  TYPE zcl_zlk05_sys_api=>ty_t_idoc_seg.
@@ -43,6 +42,7 @@ CLASS zcl_we02_a2u5 DEFINITION PUBLIC.
     DATA mt_directions TYPE ty_t_key.
 
   PROTECTED SECTION.
+    DATA ms_idoc TYPE zcl_zlk05_sys_api=>ty_s_idoc.
     DATA mv_mode    TYPE string.
     DATA mv_message TYPE string.
     DATA mv_msgtype TYPE string.
@@ -234,8 +234,8 @@ CLASS zcl_we02_a2u5 IMPLEMENTATION.
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
           )->a( n = `width` t = lv_wid
-          )->a( n = `sortProperty`   v = lv_fld
-          )->a( n = `filterProperty` v = lv_fld ).
+          )->a( n = `sortProperty`   t = lv_fld
+          )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
       DATA(tmpl) = col->ele( n = `template` ns = `table` ).

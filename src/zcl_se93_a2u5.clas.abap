@@ -464,8 +464,8 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
       SPLIT lv_col AT `|` INTO DATA(lv_head) DATA(lv_fld) DATA(lv_wid).
       DATA(col) = cols->ele( n = `Column` ns = `table`
           )->a( n = `width` t = lv_wid
-          )->a( n = `sortProperty`   v = lv_fld
-          )->a( n = `filterProperty` v = lv_fld ).
+          )->a( n = `sortProperty`   t = lv_fld
+          )->a( n = `filterProperty` t = lv_fld ).
       col->ele( n = `label` ns = `table`
           )->tag( `Label` )->a( n = `text` t = lv_head )->end( )->end( ).
 
@@ -591,8 +591,8 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
         SPLIT lv_ac AT `|` INTO DATA(lv_ah) DATA(lv_af) DATA(lv_aw).
         DATA(acol) = acols->ele( n = `Column` ns = `table`
             )->a( n = `width` t = lv_aw
-          )->a( n = `sortProperty`   v = lv_af
-          )->a( n = `filterProperty` v = lv_af ).
+            )->a( n = `sortProperty`   t = lv_af
+            )->a( n = `filterProperty` t = lv_af ).
         acol->ele( n = `label` ns = `table`
             )->tag( `Label` )->a( n = `text` t = lv_ah )->end( )->end( ).
         acol->ele( n = `template` ns = `table`
@@ -736,8 +736,8 @@ CLASS zcl_se93_a2u5 IMPLEMENTATION.
           SPLIT lv_pc AT `|` INTO DATA(lv_ph) DATA(lv_pf) DATA(lv_pw).
           DATA(pcol) = pcols->ele( n = `Column` ns = `table`
               )->a( n = `width` t = lv_pw
-          )->a( n = `sortProperty`   v = lv_pf
-          )->a( n = `filterProperty` v = lv_pf ).
+              )->a( n = `sortProperty`   t = lv_pf
+              )->a( n = `filterProperty` t = lv_pf ).
           pcol->ele( n = `label` ns = `table`
               )->tag( `Label` )->a( n = `text` t = lv_ph )->end( )->end( ).
           pcol->ele( n = `template` ns = `table`
