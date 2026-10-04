@@ -1303,7 +1303,7 @@ CLASS zcl_sapgui_se16n IMPLEMENTATION.
   METHOD variant_from_store.
 
     CLEAR: es_data, ev_converted.
-    IF condense( iv_stored ) IS INITIAL.
+    IF condense( iv_stored ) = ``.
       RETURN.
     ENDIF.
 

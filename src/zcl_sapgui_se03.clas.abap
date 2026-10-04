@@ -63,7 +63,7 @@ CLASS zcl_sapgui_se03 IMPLEMENTATION.
   METHOD do_search.
 
     CLEAR mt_hits.
-    IF condense( mv_obj_name ) IS INITIAL.
+    IF condense( mv_obj_name ) = ``.
       mv_message = `Enter an object name - * and + are wildcards.`.
       mv_msgtype = `Warning`.
       RETURN.
