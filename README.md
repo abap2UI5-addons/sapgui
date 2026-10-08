@@ -1,14 +1,25 @@
 # sapgui
 
+[![abap2UI5-addons](https://img.shields.io/badge/abap2UI5--addons-app-1873b4)](https://github.com/abap2UI5-addons)
+[![ABAP](https://img.shields.io/badge/ABAP-Standard%20%E2%89%A5%207.50-blue)](#installation)
+[![abap2UI5](https://img.shields.io/badge/requires-abap2UI5-blue)](https://github.com/abap2UI5/abap2UI5)
+[![License](https://img.shields.io/github/license/abap2UI5-addons/sapgui)](LICENSE)
+<br>
+[![ABAP Standard](https://img.shields.io/github/actions/workflow/status/abap2UI5-addons/sapgui/ABAP_STANDARD.yaml?branch=main&label=ABAP%20Standard)](https://github.com/abap2UI5-addons/sapgui/actions/workflows/ABAP_STANDARD.yaml)
+[![abaplint](https://img.shields.io/github/actions/workflow/status/abap2UI5-addons/sapgui/abaplint.yaml?branch=main&label=abaplint)](https://github.com/abap2UI5-addons/sapgui/actions/workflows/abaplint.yaml)
+[![ABAP Unit](https://img.shields.io/github/actions/workflow/status/abap2UI5-addons/sapgui/unit.yaml?branch=main&label=ABAP%20Unit)](https://github.com/abap2UI5-addons/sapgui/actions/workflows/unit.yaml)
+[![check-abap2UI5](https://img.shields.io/github/actions/workflow/status/abap2UI5-addons/sapgui/abap2ui5lint.yaml?branch=main&label=check-abap2UI5)](https://github.com/abap2UI5-addons/sapgui/actions/workflows/abap2ui5lint.yaml)
+
 **The SAP GUI in your browser.** Thirty classic transactions - SE80, SE16N,
 SM37, ST22, SU01, SLG1, WE02 and more - rebuilt as [abap2UI5](https://github.com/abap2UI5/abap2UI5)
-apps. Pure ABAP, installed with abapGit. No SAP GUI installation, no Fiori
-launchpad, no OData service.
+apps. Pure ABAP, installed with abapGit into a standard ABAP system. No SAP
+GUI installation, no Fiori launchpad, no OData service.
+
+> Part of [abap2UI5-addons](https://github.com/abap2UI5-addons) - addons and apps for [abap2UI5](https://github.com/abap2UI5/abap2UI5), installed with [abapGit](https://abapgit.org).
 
 <img width="600" height="300" alt="image" src="https://github.com/user-attachments/assets/4617ae21-079f-4a1f-acb4-6e51a563b118" />
 
-
-## What is this?
+## Why
 
 You open one URL in the browser and land on **SAP Easy Access**, the same
 start screen the SAP GUI shows. Type `/nSM37` into the command field, or click
@@ -31,65 +42,46 @@ Good for:
 - **Learning abap2UI5** - 29 full apps with selection screens, lists,
   trees, detail screens and a shared window frame, plus 629 unit tests.
 
-## What it is not
+What it is not:
 
 - **Not the SAP GUI for HTML (WebGUI).** The WebGUI runs the original screens.
   This project rebuilds a selection of them from scratch, so only the
   transactions listed below exist, and not every function of the original is
   there. Buttons that are not implemented yet are shown, but disabled.
 - **Not for ABAP Cloud.** It reads system tables and uses classic Workbench
-  APIs, so it needs a standard ABAP system (see [Requirements](#requirements)).
+  APIs, so it needs a standard ABAP system (see [Installation](#installation)).
 - **Not [abap-cloud-gui](https://github.com/abap2UI5-addons/abap-cloud-gui).**
   That one is a framework for writing *your own* apps like classic reports
   (selection screen, `WRITE`, ALV). This one is a finished set of *SAP's*
   transactions.
 
-## Authorizations
+## Installation
 
-The apps ask for the authorizations the original transactions ask for, in
-`ZCL_SAPGUI_AUTH`:
+**Requirements**
 
-- **Every roundtrip of every app** starts with S_TCODE for the transaction
-  behind the app and the basic object check the original makes right after
-  it (S_DEVELOP display for the Workbench tools, S_ADMI_FCD for SM21,
-  S_RZL_ADM for RZ10/RZ11/SM04, S_USER_GRP for SU01, S_TRANSPRT for
-  SE09/SE10/STMS, S_APPL_LOG for SLG1, S_RFC_ADM for SM59, S_USER_AGR for
-  PFCG, S_IDOCMONI for WE02/WE05). That also covers an app started directly
-  by URL. Without it the screen shows "No Authorization" and the message,
-  like the status bar of the SAP GUI.
-- **Per object**, where the original checks the concrete object: the table
-  in SE16N and SM30 (S_TABU_DIS for its authorization group, then
-  S_TABU_NAM), the object and package in SE80 and the Workbench tools
-  (S_DEVELOP), the user group in SU01 (S_USER_GRP), the log in SLG1, the
-  destination in SM59, the role in PFCG, the IDoc in WE02 (S_IDOCMONI plus
-  the BAdI `IDOC_AUTHORITY_RESTRICTION`), the spool request in SP01
-  (`RSPO_CHECK_JOB_PERMISSION`) and another user's job log in SM37
-  (S_BTCH_JOB / S_BTCH_ADM).
+- SAP_BASIS 7.50 or higher, standard ABAP (on-premise, private cloud or a
+  developer trial). Not ABAP Cloud - the screens read system tables (`TADIR`,
+  `TRDIR`, `SNAP`, `DD03L`, ...) and use classic Workbench APIs that are not
+  released for the ABAP Cloud language version. There is no 7.02 version
+  ([Release floor](#release-floor)).
+- [abap2UI5](https://github.com/abap2UI5/abap2UI5) - the only dependency.
 
-> [!NOTE]
-> These are rebuilt checks, not the originals. Try the screens with a
-> restricted user on a sandbox before you open the service to more people,
-> and report what an original checks and this one does not.
+**Steps** - with [abapGit](https://abapgit.org), in this order:
 
-## Quick start
-
-1. Install [abap2UI5](https://github.com/abap2UI5/abap2UI5) with
-   [abapGit](https://abapgit.org) and set up its HTTP handler as described in
-   the [abap2UI5 quickstart](https://abap2ui5.github.io/docs/get_started/quickstart.html).
-2. Install this repository with abapGit:
+1. [abap2UI5](https://github.com/abap2UI5/abap2UI5), with its HTTP handler set
+   up as described in the [abap2UI5 quickstart](https://abap2ui5.github.io/docs/get_started/quickstart.html)
+2. this repository (branch `main`):
 
    ```
    https://github.com/abap2UI5-addons/sapgui
    ```
 
-3. Open the entry screen in the browser, with the ICF path you gave the
-   handler, for example:
+**Start** - open the entry screen, SAP Easy Access, in the browser with the
+ICF path you gave the handler, for example:
 
-   ```
-   /sap/bc/http/sap/z2ui5?app_start=ZCL_SAPGUI_START
-   ```
-
-From there, the command field and the menu tree reach every transaction below.
+```
+/sap/bc/http/sap/z2ui5?app_start=ZCL_SAPGUI_START
+```
 
 > [!NOTE]
 > **Upgrading from a version before October 2026:** every object was renamed
@@ -98,8 +90,15 @@ From there, the command field and the menu tree reach every transaction below.
 > deleted and the new ones as new - pull, and let it delete the old ones. The
 > SE16N variants table `ZSE16N_A2U5_VAR` kept its name, so the saved variants
 > stay.
-The command field understands the usual syntax: `SE80`, `/nSE80` (same
-window), `/oSE80` (new window).
+
+## Usage
+
+From the entry screen, the command field and the menu tree reach every
+transaction below. The command field understands the usual syntax: `SE80`,
+`/nSE80` (same window), `/oSE80` (new window).
+
+Before you open the service to more people, read
+[Authorizations](#authorizations) and [What changes the system](#what-changes-the-system).
 
 ## Transactions
 
@@ -155,14 +154,32 @@ system, has no method that changes anything. Two exceptions:
 - **SE16N** stores its display variants in its own table `ZSE16N_A2U5_VAR`. It
   never changes the data of the table it displays.
 
-## Requirements
+## Authorizations
 
-- SAP_BASIS 7.50 or higher, standard ABAP (on-premise, private cloud or a
-  developer trial). Not ABAP Cloud - the screens read system tables (`TADIR`,
-  `TRDIR`, `SNAP`, `DD03L`, ...) and use classic Workbench APIs that are not
-  released for the ABAP Cloud language version. There is no 7.02 version
-  ([Release floor](#release-floor)).
-- [abap2UI5](https://github.com/abap2UI5/abap2UI5) - the only dependency.
+The apps ask for the authorizations the original transactions ask for, in
+`ZCL_SAPGUI_AUTH`:
+
+- **Every roundtrip of every app** starts with S_TCODE for the transaction
+  behind the app and the basic object check the original makes right after
+  it (S_DEVELOP display for the Workbench tools, S_ADMI_FCD for SM21,
+  S_RZL_ADM for RZ10/RZ11/SM04, S_USER_GRP for SU01, S_TRANSPRT for
+  SE09/SE10/STMS, S_APPL_LOG for SLG1, S_RFC_ADM for SM59, S_USER_AGR for
+  PFCG, S_IDOCMONI for WE02/WE05). That also covers an app started directly
+  by URL. Without it the screen shows "No Authorization" and the message,
+  like the status bar of the SAP GUI.
+- **Per object**, where the original checks the concrete object: the table
+  in SE16N and SM30 (S_TABU_DIS for its authorization group, then
+  S_TABU_NAM), the object and package in SE80 and the Workbench tools
+  (S_DEVELOP), the user group in SU01 (S_USER_GRP), the log in SLG1, the
+  destination in SM59, the role in PFCG, the IDoc in WE02 (S_IDOCMONI plus
+  the BAdI `IDOC_AUTHORITY_RESTRICTION`), the spool request in SP01
+  (`RSPO_CHECK_JOB_PERMISSION`) and another user's job log in SM37
+  (S_BTCH_JOB / S_BTCH_ADM).
+
+> [!NOTE]
+> These are rebuilt checks, not the originals. Try the screens with a
+> restricted user on a sandbox before you open the service to more people,
+> and report what an original checks and this one does not.
 
 ## For contributors
 
@@ -248,7 +265,7 @@ on the classes that touch the database. The tests of those classes
 (`ZCL_SAPGUI_SYS_API_DB`, `ZCL_SAPGUI_SE80_API`) read the real system and run on a
 system only.
 
-### Development
+## Development
 
 The checks run on Node, no ABAP system needed:
 
@@ -353,6 +370,11 @@ downport would cost more than the systems it would reach are worth.
 - that is the framework's own build for the transpiler, not a target of this
 repository.)
 
+## Contributing
+
+Issues and pull requests are welcome. The rules for changing the code are in
+[AGENTS.md](AGENTS.md), what is planned next in [CONCEPT.md](CONCEPT.md).
+
 ## License
 
-[MIT](LICENSE)
+MIT - see [LICENSE](LICENSE).
