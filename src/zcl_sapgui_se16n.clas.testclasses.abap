@@ -176,8 +176,12 @@ CLASS ltcl_se16n IMPLEMENTATION.
   METHOD cond_cp_wildcards.
     " SAP GUI wildcards * and + become SQL % and _
     cl_abap_unit_assert=>assert_equals(
-        exp = `MSGNR LIKE 'A%B_'`
+        exp = `MSGNR LIKE 'A%B_' ESCAPE '#'`
         act = mo_cut->build_condition( VALUE #( fname = `MSGNR` opt = `CP` low = `A*B+` ) ) ).
+    " a typed _ or % is a plain character, not a wildcard
+    cl_abap_unit_assert=>assert_equals(
+        exp = `TABNAME LIKE 'Z#_T#%##%' ESCAPE '#'`
+        act = mo_cut->build_condition( VALUE #( fname = `TABNAME` opt = `CP` low = `Z_T%#*` ) ) ).
   ENDMETHOD.
 
   METHOD cond_between.

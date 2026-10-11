@@ -36,6 +36,7 @@ CLASS ltcl_auth DEFINITION FINAL FOR TESTING
     METHODS table_by_group          FOR TESTING.
     METHODS table_by_name           FOR TESTING.
     METHODS table_denied            FOR TESTING.
+    METHODS table_join_denied       FOR TESTING.
 
     " ----- guard -----
     METHODS guard_allows            FOR TESTING.
@@ -174,6 +175,18 @@ CLASS ltcl_auth IMPLEMENTATION.
     DATA(ls) = zcl_sapgui_auth=>check_table_display( `usr02` ).
     cl_abap_unit_assert=>assert_false( ls-allowed ).
     cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*USR02*` ).
+  ENDMETHOD.
+
+  METHOD table_join_denied.
+    " every check passes - and still no FROM clause of its own: TDDAT knows
+    " no such name, so it was checked as &NC& and read USR02 with it
+    DATA(ls) = zcl_sapgui_auth=>check_table_display(
+        `T000 AS a INNER JOIN usr02 AS b ON b~mandt = a~mandt` ).
+    cl_abap_unit_assert=>assert_false( ls-allowed ).
+    cl_abap_unit_assert=>assert_char_cp( act = ls-message exp = `*not a table name*` ).
+
+    cl_abap_unit_assert=>assert_true(
+        zcl_sapgui_auth=>check_table_display( ` /abc/t000 ` )-allowed ).
   ENDMETHOD.
 
   METHOD guard_allows.

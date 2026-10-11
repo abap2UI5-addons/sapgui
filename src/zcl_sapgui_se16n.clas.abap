@@ -1001,10 +1001,15 @@ CLASS zcl_sapgui_se16n IMPLEMENTATION.
       WHEN `LE`.
         result = |{ is_crit-fname } <= '{ lv_low }'|.
       WHEN `CP`.
+        " % and _ typed by the user are plain characters, as in an IN range -
+        " escaped, or A_B* would match AXB too; only * and + are wildcards
         DATA(lv_like) = lv_low.
+        REPLACE ALL OCCURRENCES OF `#` IN lv_like WITH `##`.
+        REPLACE ALL OCCURRENCES OF `%` IN lv_like WITH `#%`.
+        REPLACE ALL OCCURRENCES OF `_` IN lv_like WITH `#_`.
         REPLACE ALL OCCURRENCES OF `*` IN lv_like WITH `%`.
         REPLACE ALL OCCURRENCES OF `+` IN lv_like WITH `_`.
-        result = |{ is_crit-fname } LIKE '{ lv_like }'|.
+        result = |{ is_crit-fname } LIKE '{ lv_like }' ESCAPE '#'|.
       WHEN `BT`.
         DATA(lv_high) = is_crit-high.
         REPLACE ALL OCCURRENCES OF `'` IN lv_high WITH `''`.
