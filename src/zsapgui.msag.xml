@@ -176,6 +176,12 @@
      <MSGNR>028</MSGNR>
      <TEXT>No authorization to display spool request &amp;1</TEXT>
     </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZSAPGUI</ARBGB>
+     <MSGNR>029</MSGNR>
+     <TEXT>&amp;1 is not a table name</TEXT>
+    </T100>
    </T100>
   </asx:values>
  </asx:abap>

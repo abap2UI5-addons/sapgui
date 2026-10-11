@@ -71,7 +71,8 @@ CLASS zcl_sapgui_auth DEFINITION PUBLIC FINAL CREATE PUBLIC
 
     "! Display authorization for the content of a table / view, the same
     "! way VIEW_AUTHORITY_CHECK does it: S_TABU_DIS for the authorization
-    "! group of the table (TDDAT, &NC& when none), then S_TABU_NAM.
+    "! group of the table (TDDAT, &NC& when none), then S_TABU_NAM. A name
+    "! that is not a plain table name is refused.
     CLASS-METHODS check_table_display
       IMPORTING iv_table      TYPE string
       RETURNING VALUE(result) TYPE ty_s_check.
@@ -394,6 +395,16 @@ CLASS zcl_sapgui_auth IMPLEMENTATION.
     IF lv_table IS INITIAL.
       MESSAGE e012(zsapgui) INTO DATA(lv_msg_empty).
       result = denied( lv_msg_empty ).
+      RETURN.
+    ENDIF.
+
+    " the caller puts its name into FROM ( ... ) as it is - anything but a
+    " plain table name (a join, an alias, a subquery) would read other
+    " tables under the authorization group of a name TDDAT does not know,
+    " i.e. &NC&
+    IF NOT matches( val = lv_table pcre = `[A-Z0-9_/]+` ).
+      MESSAGE e029(zsapgui) WITH lv_table INTO DATA(lv_msg_name).
+      result = denied( lv_msg_name ).
       RETURN.
     ENDIF.
 
