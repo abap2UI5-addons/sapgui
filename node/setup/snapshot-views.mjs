@@ -27,7 +27,10 @@ if (!fs.existsSync(path.join(OUT, "init.mjs"))) {
   process.exit(2);
 }
 
-const load = async (name) => (await import(pathToFileURL(path.join(OUT, `${name}.clas.mjs`)).href))[name];
+// The transpiler (2.14 on) writes the classes of src/ to node/output/project/,
+// next to one folder per dependency; init.mjs stays at the top.
+const load = async (name) =>
+  (await import(pathToFileURL(path.join(OUT, "project", `${name}.clas.mjs`)).href))[name];
 await import(pathToFileURL(path.join(OUT, "init.mjs")).href);
 
 const sysDbl = await load("zcl_sapgui_sys_api_dbl");
