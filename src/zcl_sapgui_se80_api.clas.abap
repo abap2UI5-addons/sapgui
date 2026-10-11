@@ -1777,11 +1777,9 @@ CLASS ZCL_SAPGUI_SE80_API IMPLEMENTATION.
         APPEND `* Documentation not available for this type.` TO lt_lines.
     ENDCASE.
 
-    IF lt_doc IS NOT INITIAL.
-      LOOP AT lt_doc ASSIGNING FIELD-SYMBOL(<d>).
-        APPEND CONV string( <d>-tdline ) TO lt_lines.
-      ENDLOOP.
-    ENDIF.
+    LOOP AT lt_doc ASSIGNING FIELD-SYMBOL(<d>).
+      APPEND CONV string( <d>-tdline ) TO lt_lines.
+    ENDLOOP.
     IF lt_lines IS INITIAL.
       APPEND `* No documentation found.` TO lt_lines.
     ENDIF.

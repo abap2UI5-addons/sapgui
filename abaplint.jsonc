@@ -29,6 +29,8 @@
   },
   "rules": {
     "7bit_ascii": true,
+    "add_test_attributes": true,
+    "aff_and_xml": true,
     "allowed_object_naming": true,
     "allowed_object_types": {
       "allowed": [
@@ -51,8 +53,12 @@
       "exportToDatabase": true
     },
     "begin_end_names": true,
+    "begin_single_include": true,
     "call_transaction_authority_check": true,
     "catch_and_raise": true,
+    "cds_association_name": true,
+    "cds_field_order": true,
+    "cds_parser_error": true,
     "chain_mainly_declarations": true,
     "check_abstract": true,
     "check_comments": {
@@ -79,7 +85,10 @@
     "check_text_elements": true,
     "check_transformation_exists": true,
     "classic_exceptions_overlap": true,
+    "clear_exporting_parameters": true,
+    "cloud_types": true,
     "colon_missing_space": true,
+    "constant_classes": true,
     "constructor_visibility_public": true,
     "contains_tab": true,
     // This repository rebuilds the ABAP Workbench, so INSERT REPORT (SE38 /
@@ -105,6 +114,7 @@
     "double_space": false,
     "downport": true,
     "dynpro_checks": true,
+    "else_after_all_returns": true,
     "empty_event": true,
     "empty_statement": true,
     "empty_structure": {
@@ -121,11 +131,79 @@
     "exit_or_check": true,
     "expand_macros": true,
     "exporting": true,
+    "fm_global_parameters_obsolete": true,
     "forbidden_identifier": true,
+    "forbidden_pseudo_and_pragma": {
+      "exclude": [],
+      "ignoreGlobalClassDefinition": false,
+      "ignoreGlobalInterface": false,
+      "pragmas": [],
+      "pseudo": [],
+      "severity": "Error"
+    },
+    "forbidden_void_type": {
+      "check": [
+        "^boole_d$",
+        "^char10$",
+        "^char12$",
+        "^char2$",
+        "^char20$",
+        "^char30$",
+        "^char4$",
+        "^char50$",
+        "^char70$",
+        "^cl_abap_syst",
+        "^cl_aff_",
+        "^cl_aucv_test_runner_abstract$",
+        "^cl_aucv_test_runner_standard$",
+        "^cl_aunit_assert$",
+        "^cl_axt_dbtable$",
+        "^cl_blue_wb_utility$",
+        "^cl_oo_source$",
+        "^/ui2/cl_",
+        "^cl_saunit_internal_result$",
+        "^cl_srvd_wb_object_data$",
+        "^cl_wb_object_operator_factory$",
+        "^cl_wer_const$",
+        "^cl_xco_",
+        "^cx_aff_",
+        "^cx_wb_object_operation_error$",
+        "^cx_xco_",
+        "^flag$",
+        "^i18_a_langiso2$",
+        "^if_adt_lock_handle$",
+        "^if_aff_",
+        "^if_satc_ci_variant_access$",
+        "^if_saunit_internal_result$",
+        "^if_saunit_internal_result_type$",
+        "^if_srvd_types$",
+        "^if_wb_adt_plugin_resource_co$",
+        "^if_wb_object_data_selection_co$",
+        "^if_wb_object_operator$",
+        "^if_xco_",
+        "^int4$",
+        "^numc2$",
+        "^sabp_t_tadir_keys$",
+        "^sap_bool$",
+        "^srcsystem$",
+        "^stringtab$",
+        "^sychar01$",
+        "^sychar10$",
+        "^sychar70$",
+        "^sydatum$",
+        "^sylangu$",
+        "^syst_title$",
+        "^syuzeit$",
+        "^feld$",
+        "^abap_boolean$"
+      ],
+      "exclude": []
+    },
     "form_tables_obsolete": true,
     "fully_type_constants": {
       "checkData": true
     },
+    "fully_type_itabs": true,
     "functional_writing": {
       "ignoreExceptions": true
     },
@@ -136,6 +214,8 @@
     "identical_move": true,
     "implement_methods": true,
     "implicit_start_of_selection": true,
+    "index_completely_contained": true,
+    "inline_data_old_versions": true,
     "invalid_table_index": true,
     "keyword_case": false,
     "line_break_style": true,
@@ -143,6 +223,7 @@
     "local_testclass_consistency": true,
     "macro_naming": true,
     "main_file_contents": true,
+    "max_one_method_parameter_per_line": true,
     "max_one_statement": true,
     "message_exists": true,
     "method_implemented_twice": true,
@@ -152,6 +233,7 @@
       "reportDynamic": true,
       "ownTables": "^[yz]"
     },
+    "msag_consistency": true,
     "names_no_dash": true,
     "nesting": {
       "depth": 6
@@ -163,6 +245,7 @@
     "no_yoda_conditions": {
       "onlyConstants": true
     },
+    "nrob_consistency": true,
     "object_naming": {
       "patternKind": "required",
       "clas": "^Z",
@@ -193,12 +276,22 @@
     "parser_error": true,
     "parser_missing_space": true,
     "pragma_style": true,
+    "prefer_abap_bool_values": true,
     "prefer_is_not": true,
+    "prefer_pragmas": true,
     "prefer_raise_exception_new": true,
     "prefer_returning_to_exporting": true,
     "prefer_xsdbool": true,
     "preferred_compare_operator": true,
+    "preferred_parameter_ignored": true,
+    "prefix_is_current_class": {
+      "exclude": [],
+      "severity": "Warning"
+    },
+    "reduce_procedural_code": true,
     "reduce_string_templates": true,
+    "redundant_conversion": true,
+    "release_idoc": true,
     "remove_descriptions": {
       "ignoreExceptions": false,
       "ignoreWorkflow": false
@@ -212,10 +305,18 @@
       "selectStar": false
     },
     "selection_screen_naming": true,
+    "sequential_blank": {
+      "exclude": [],
+      "severity": "Warning"
+    },
     "short_case": true,
+    "sicf_consistency": true,
+    "slow_parameter_passing": true,
     "space_before_colon": true,
     "sql_escape_host_variables": true,
+    "sql_value_conversion": true,
     "static_call_via_instance": true,
+    "strict_sql": true,
     "superclass_final": true,
     "superfluous_value": true,
     "sy_modification": true,
@@ -226,6 +327,7 @@
     "uncaught_exception": true,
     "unknown_types": true,
     "unnecessary_chaining": true,
+    "unnecessary_loop_guard": true,
     "unnecessary_pragma": true,
     "unnecessary_return": true,
     "unreachable_code": true,
@@ -235,6 +337,7 @@
     "unsecure_fae": false,
     "unused_ddic": true,
     "unused_macros": true,
+    "unused_methods": true,
     "unused_types": true,
     "unused_variables": {
       "severity": "Error",
@@ -246,10 +349,12 @@
     "use_bool_expression": true,
     "use_class_based_exceptions": true,
     "use_line_exists": true,
+    "use_message_class": true,
     "use_new": true,
     "when_others_last": true,
     "whitespace_end": true,
     "wrong_abapdoc_position": true,
+    "xml_bom": true,
     "xml_consistency": true
   }
 }
