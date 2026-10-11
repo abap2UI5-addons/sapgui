@@ -1494,12 +1494,18 @@ CLASS ZCL_SAPGUI_SE80_API IMPLEMENTATION.
           unicode  = 'X'
           exposure = 2 ).
         IF iv_superclass IS NOT INITIAL.
+          " the superclass reaches the class builder as the inheritance relation
+          DATA(ls_inheritance) = VALUE vseoextend(
+            clsname    = iv_name
+            refclsname = to_upper( iv_superclass )
+            state      = 1 ).
           CALL FUNCTION 'SEO_CLASS_CREATE_COMPLETE'
             EXPORTING
               devclass    = iv_package
               overwrite   = space
             CHANGING
               class       = ls_class
+              inheritance = ls_inheritance
             EXCEPTIONS
               existing    = 1
               is_interface = 2
