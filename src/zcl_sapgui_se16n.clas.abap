@@ -1002,13 +1002,30 @@ CLASS zcl_sapgui_se16n IMPLEMENTATION.
         result = |{ is_crit-fname } <= '{ lv_low }'|.
       WHEN `CP`.
         " % and _ typed by the user are plain characters, as in an IN range -
-        " escaped, or A_B* would match AXB too; only * and + are wildcards
-        DATA(lv_like) = lv_low.
-        REPLACE ALL OCCURRENCES OF `#` IN lv_like WITH `##`.
-        REPLACE ALL OCCURRENCES OF `%` IN lv_like WITH `#%`.
-        REPLACE ALL OCCURRENCES OF `_` IN lv_like WITH `#_`.
-        REPLACE ALL OCCURRENCES OF `*` IN lv_like WITH `%`.
-        REPLACE ALL OCCURRENCES OF `+` IN lv_like WITH `_`.
+        " escaped, or A_B* would match AXB too; only * and + are wildcards,
+        " and # makes the next character plain, as in CP (#* is a star)
+        DATA(lv_like) = ``.
+        DATA(lv_len) = strlen( lv_low ).
+        DATA(lv_pos) = 0.
+        WHILE lv_pos < lv_len.
+          DATA(lv_char) = substring( val = lv_low off = lv_pos len = 1 ).
+          DATA(lv_plain) = abap_false.
+          IF lv_char = `#` AND lv_pos + 1 < lv_len.
+            lv_pos = lv_pos + 1.
+            lv_char = substring( val = lv_low off = lv_pos len = 1 ).
+            lv_plain = abap_true.
+          ENDIF.
+          IF lv_plain = abap_false AND lv_char = `*`.
+            lv_like = lv_like && `%`.
+          ELSEIF lv_plain = abap_false AND lv_char = `+`.
+            lv_like = lv_like && `_`.
+          ELSEIF lv_char = `#` OR lv_char = `%` OR lv_char = `_`.
+            lv_like = lv_like && `#` && lv_char.
+          ELSE.
+            lv_like = lv_like && lv_char.
+          ENDIF.
+          lv_pos = lv_pos + 1.
+        ENDWHILE.
         result = |{ is_crit-fname } LIKE '{ lv_like }' ESCAPE '#'|.
       WHEN `BT`.
         DATA(lv_high) = is_crit-high.
