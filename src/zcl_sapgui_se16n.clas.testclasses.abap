@@ -181,7 +181,15 @@ CLASS ltcl_se16n IMPLEMENTATION.
     " a typed _ or % is a plain character, not a wildcard
     cl_abap_unit_assert=>assert_equals(
         exp = `TABNAME LIKE 'Z#_T#%##%' ESCAPE '#'`
-        act = mo_cut->build_condition( VALUE #( fname = `TABNAME` opt = `CP` low = `Z_T%#*` ) ) ).
+        act = mo_cut->build_condition( VALUE #( fname = `TABNAME` opt = `CP` low = `Z_T%##*` ) ) ).
+    " # makes the next character plain, as in CP: #* is a star, #+ a plus,
+    " ## a #; a # at the end stands for itself
+    cl_abap_unit_assert=>assert_equals(
+        exp = `F LIKE 'A*B+C#%#_D##' ESCAPE '#'`
+        act = mo_cut->build_condition( VALUE #( fname = `F` opt = `CP` low = `A#*B#+C#%#_D#` ) ) ).
+    cl_abap_unit_assert=>assert_equals(
+        exp = `F LIKE '##*' ESCAPE '#'`
+        act = mo_cut->build_condition( VALUE #( fname = `F` opt = `CP` low = `###*` ) ) ).
   ENDMETHOD.
 
   METHOD cond_between.
