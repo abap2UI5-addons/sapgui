@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 /*
- * fetch-deps - the two git dependencies of the transpiled unit tests,
- * at fixed versions, under node/deps/ (not in the repository).
+ * fetch-deps - the git dependencies of the transpiled unit tests, at
+ * fixed versions, under node/deps/ (not in the repository).
  *
  *   abap2UI5        the release the abaplint configs are pinned to
  *                   (scripts/core-pin.mjs), in its downported form
  *                   <tag>-702 - the form abap2UI5 transpiles itself
  *   open-abap-core  the ABAP kernel classes for Node, at OPEN_ABAP_CORE -
  *                   the commit abap2UI5 pins in its own fetch-deps.mjs
+ *   abap-cloud-gui  the report runtime of the pilot ZCL_SAPGUI_SM37_CGUI,
+ *                   at ABAP_CLOUD_GUI - a commit of its main (it has no
+ *                   release tags yet; abaplint lints against its main)
  *
  * The transpiler reads node/deps/ before it falls back to cloning the URL
  * in node/setup/abap_transpile.json, so a run without this script would
@@ -28,6 +31,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const DEPS = path.join(ROOT, "node", "deps");
 const OPEN_ABAP_CORE = "b2d219df61f8c077df7a038bc43d168f9f280fbf";
+const ABAP_CLOUD_GUI = "2ea5d847ea7e9338ce9f426ca65d35d5c3e068f9";
 
 // an argument array, never a shell string
 const git = (args, cwd) =>
@@ -62,3 +66,4 @@ function ensure(name, url, ref, isSha) {
 
 ensure("abap2ui5", "https://github.com/abap2UI5/abap2UI5", coreRef, false);
 ensure("open-abap-core", "https://github.com/open-abap/open-abap-core", OPEN_ABAP_CORE, true);
+ensure("abap-cloud-gui", "https://github.com/abap2UI5-addons/abap-cloud-gui", ABAP_CLOUD_GUI, true);

@@ -209,6 +209,52 @@ shows when the class is activated. The original list:
 
 SE01, SE03 and SM30 are in the router's list already, without a screen.
 
+## 7. abap-cloud-gui for the report-shaped transactions - pilot SM37
+
+[abap-cloud-gui](https://github.com/abap2UI5-addons/abap-cloud-gui) is an
+abap2UI5 addon for writing apps like classic reports: `PARAMETERS` as
+attributes, the selection screen, `START-OF-SELECTION`, `write( )`, `alv( )`,
+`AT LINE-SELECTION` with its list levels and Back. Most transactions here are
+reports in that sense - a selection, a list, a drilldown: SM37, ST22, SM12,
+SM21, SLG1, SP01, SM04, WE02, SU01, SE16N. Each of them builds its selection
+fields, its table and its list levels by hand today.
+
+**The pilot** is `ZCL_SAPGUI_SM37_CGUI` beside `ZCL_SAPGUI_SM37`: the same
+transaction on abap-cloud-gui - the selection screen of T JSL, the jobs as an
+ALV, a click on a job its step list, a click on a step the job log, Back one
+level. The data still comes through `ZCL_SAPGUI_SYS_API`, the authorization
+through `ZCL_SAPGUI_AUTH` (`authority_check( )` of the report runtime), and
+it is tested like every screen, with the doubles (7 tests). Start it with
+`app_start=ZCL_SAPGUI_SM37_CGUI`; the router and the menu still start
+`ZCL_SAPGUI_SM37`.
+
+| | `ZCL_SAPGUI_SM37` | `ZCL_SAPGUI_SM37_CGUI` |
+| --- | --- | --- |
+| lines of code (without comments and blank lines) | 440 | 163 |
+| selection screen, list, step list, job log | built by hand: inputs, `Select`, `table:Table` with its columns, three view methods, a mode switch for the levels | `screen->parameter( )`, `alv( )` three times, `at_line_selection( )` - the levels and Back are the runtime's |
+| sorting, filter, column layouts, export to CSV / Excel, variants of the selection, print | sorting and filter of the table | all of them, from the runtime |
+| the SAP GUI window (menu bar, system bar, Easy Access, sessions) | yes - `ZCL_SAPGUI_FRAME` | no - the runtime's own shell (title, command field, toolbar, messages) |
+| the command field starts the other transactions | yes - the router | no - the runtime's command field starts report classes only |
+| the disabled functions of the original (Release, Cancel, ...) | shown, disabled | not shown |
+
+**What it would take** to move the report-shaped transactions over:
+
+- In abap-cloud-gui: its command field and `call_transaction( )` start any
+  abap2UI5 app of a catalog, not only report classes - then the router is its
+  catalog; a menu bar (or the SAP GUI look of the window as an option of the
+  runtime's shell); disabled functions in the toolbar.
+- Here: abap-cloud-gui as the second dependency (README, abapGit), with a
+  release tag to pin the way abap2UI5 is pinned - it has none yet, the pilot
+  lints against its `main` and transpiles against a commit of it
+  (`node/setup/fetch-deps.mjs`).
+- Not for the Workbench screens - SE80, SE11, SE24, SE37, SE93 are no
+  reports; they stay as they are. Both kinds of screen live side by side, the
+  router starts either.
+
+The decision is open: keep the pilot and move the report-shaped transactions
+one by one once the two gaps of abap-cloud-gui are closed - or drop it, and
+abap-cloud-gui stays no dependency.
+
 ## Order
 
 1. Section 1, authorization - done.
