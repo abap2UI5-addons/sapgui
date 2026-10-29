@@ -64,13 +64,17 @@ What it is not:
   `TRDIR`, `SNAP`, `DD03L`, ...) and use classic Workbench APIs that are not
   released for the ABAP Cloud language version. There is no 7.02 version
   ([Release floor](#release-floor)).
-- [abap2UI5](https://github.com/abap2UI5/abap2UI5) - the only dependency.
+- [abap2UI5](https://github.com/abap2UI5/abap2UI5).
+- [abap-cloud-gui](https://github.com/abap2UI5-addons/abap-cloud-gui) - for the
+  pilot `ZCL_SAPGUI_SM37_CGUI` only, SM37 written as a classic report on it
+  ([CONCEPT.md](CONCEPT.md), section 7).
 
 **Steps** - with [abapGit](https://abapgit.org), in this order:
 
 1. [abap2UI5](https://github.com/abap2UI5/abap2UI5), with its HTTP handler set
    up as described in the [abap2UI5 quickstart](https://abap2ui5.github.io/docs/get_started/quickstart.html)
-2. this repository (branch `main`):
+2. [abap-cloud-gui](https://github.com/abap2UI5-addons/abap-cloud-gui)
+3. this repository (branch `main`):
 
    ```
    https://github.com/abap2UI5-addons/sapgui

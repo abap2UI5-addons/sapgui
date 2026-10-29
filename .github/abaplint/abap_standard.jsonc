@@ -12,6 +12,14 @@
       "files": "/src/**/*.*"
     },
     {
+      // abap-cloud-gui: the report runtime the pilot ZCL_SAPGUI_SM37_CGUI
+      // inherits from - its src/01, not the samples
+      "url": "https://github.com/abap2UI5-addons/abap-cloud-gui",
+      "branch": "main",
+      "folder": "/deps/abap-cloud-gui",
+      "files": "/src/01/**/*.*"
+    },
+    {
       "url": "https://github.com/abapedia/steampunk-2305-api-intersect-702",
       "folder": "/deps/steampunk",
       "files": "/src/**/*.*"

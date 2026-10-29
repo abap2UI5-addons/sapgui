@@ -23,6 +23,7 @@ What users see is in [README.md](README.md); what is planned and why, in
 |---|---|
 | `src/zcl_sapgui_start.*` | SAP Easy Access, the entry screen (`app_start=ZCL_SAPGUI_START`) |
 | `src/zcl_sapgui_<tcode>.*` | One class per transaction, inheriting from `ZCL_SAPGUI_SCREEN` |
+| `src/zcl_sapgui_sm37_cgui.*` | The pilot: SM37 as a classic report on abap-cloud-gui (`INHERITING FROM z2ui5_cl_cgui_report`), beside `ZCL_SAPGUI_SM37` - CONCEPT.md, section 7 |
 | `src/zcl_sapgui_screen.*` | The abstract base of every screen: `main( )`, the frame events |
 | `src/zcl_sapgui_frame.*` | The window bands, the System and Help menus, popups |
 | `src/zcl_sapgui_router.*` | The command field: which class a transaction code starts |

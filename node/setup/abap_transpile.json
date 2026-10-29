@@ -7,6 +7,11 @@
       "folder": "/node/deps/abap2ui5"
     },
     {
+      "url": "https://github.com/abap2UI5-addons/abap-cloud-gui",
+      "folder": "/node/deps/abap-cloud-gui",
+      "files": "/src/01/**"
+    },
+    {
       "url": "https://github.com/open-abap/open-abap-core",
       "folder": "/node/deps/open-abap-core"
     }
